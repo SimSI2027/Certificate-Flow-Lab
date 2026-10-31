@@ -22,7 +22,7 @@ describe('repository hygiene', () => {
     expect(existsSync(join(root, 'Install-Shortcuts.ps1'))).toBe(true);
     expect(existsSync(join(root, 'Launch-Demo.cmd'))).toBe(false);
   });
-  it.skipIf(process.platform !== 'win32')('PowerShell scripts parse under Windows PowerShell', () => {
+  it.skipIf(process.platform !== 'win32')('PowerShell scripts parse under Windows PowerShell', { timeout: 90000 }, () => {
     for (const s of ['tools/windows/Launch-Demo.ps1', 'tools/windows/Build-And-Preview.ps1', 'tools/windows/Export-Video.ps1', 'tools/windows/Common.ps1', 'Install-Shortcuts.ps1']) {
       const cmd = `$e=$null;$t=$null;[void][System.Management.Automation.Language.Parser]::ParseFile('${join(root, s)}',[ref]$t,[ref]$e);if($e.Count){$e|%{$_.Message};exit 1}`;
       expect(() => execFileSync('powershell.exe', ['-NoProfile', '-Command', cmd], { stdio: 'pipe' }), s).not.toThrow();

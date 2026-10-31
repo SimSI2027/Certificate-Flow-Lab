@@ -1,258 +1,255 @@
-// 2.5D SVG scene. build() creates static DOM once; update(state) only patches attributes from canonical state.
-import { entities, entityById } from '../entities/entities.js';
+// Focused-flow SVG scene. Flat icon cards, orthogonal connectors, progressive disclosure.
+// build()/load() create DOM once per scenario; update() only patches attributes from canonical state.
+import { entityById } from '../entities/entities.js';
 import { flowStatus, artifactLocation, stageIndex, buildTrace } from '../engine/engine.js';
-import { entityStatus, chainCardStatus } from './status.js';
+import { iconUse } from './icons.js';
 
 const NS = 'http://www.w3.org/2000/svg';
-export const LAYOUT = {
-  visitor: [120, 230], client01: [160, 480], browser: [380, 340], owner: [540, 180], web01: [560, 610], iis: [770, 720],
-  enroll: [770, 450], template: [960, 430], ica01: [1140, 560], rootca: [1140, 190], cadb: [1140, 780],
-  pkiweb01: [1480, 480], aia: [1420, 300], cdp: [1420, 680], chain: [930, 700], decision: [170, 740]
-};
-const CHAIN_CARDS = [['leaf', 'portal.simsi2027.test', 0], ['ica', 'SIMSI2027-ICA01', 1], ['root', 'SIMSI2027-ROOTCA', 2]];
-const FLOW_COLOR = { 'f-policy': 'policy', 'f-evaluate': 'policy', 'f-validate': 'policy', 'f-root': 'policy' };
-const CHIP_TEXT = { 'private-key': 'PRIVATE KEY', ticket: 'REPORT', csr: 'CSR', leaf: 'CERT', ica: 'ICA CERT', root: 'ROOT CERT', crl: 'CRL', chain: 'CHAIN' };
-const CHIP_W = { 'private-key': 92, ticket: 66, csr: 46, leaf: 52, ica: 72, root: 84, crl: 46, chain: 62 };
+export const CARD = { w: 176, h: 84 };
+const SIZE = { chain: { w: 176, h: 132 } };
+export const sizeOf = (id) => SIZE[id] ?? CARD;
+const KIND_LABEL = { request: 'Request', policy: 'Policy', cert: 'Certificate', install: 'Install', validate: 'Check', trust: 'Result', history: 'History' };
+const STATUS_TEXT = { active: 'In progress', ok: 'Done', fail: 'Problem', policy: 'Deciding', 'policy-ok': 'Permitted', idle: '' };
+const CHIP_TEXT = { 'private-key': 'PRIVATE KEY', ticket: 'REPORT', csr: 'CSR', inf: 'INF', leaf: 'CERT', dccert: 'CERT', ica: 'ICA CERT', root: 'ROOT CERT', crl: 'CRL', chain: 'CHAIN' };
+const CHIP_W = { 'private-key': 96, ticket: 70, csr: 48, inf: 46, leaf: 54, dccert: 54, ica: 74, root: 86, crl: 48, chain: 64 };
+const CHAIN_CARDS = [['leaf', 'Leaf certificate', 0], ['ica', 'Issuing CA', 1], ['root', 'Root CA', 2]];
 
 const el = (name, attrs = {}, html = '') => { const e = document.createElementNS(NS, name); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); if (html) e.innerHTML = html; return e; };
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const wrap = (s, n) => { const out = []; let cur = ''; for (const w of String(s).split(/(?<=[\\ ·])/)) { if ((cur + w).length > n && cur) { out.push(cur.trim()); cur = w; } else cur += w; } if (cur) out.push(cur.trim()); return out; };
+const trunc = (s, n) => (String(s).length > n ? `${String(s).slice(0, n - 1)}…` : String(s));
 
-function box(x, y, a, h, cls = '') {
-  const b = a / 2;
-  return `<g class="${cls}"><polygon class="face-l" points="${x - a},${y - h} ${x},${y - h + b} ${x},${y + b} ${x - a},${y}"/>
-  <polygon class="face-r" points="${x + a},${y - h} ${x},${y - h + b} ${x},${y + b} ${x + a},${y}"/>
-  <polygon class="face-t" points="${x - a},${y - h} ${x},${y - h - b} ${x + a},${y - h} ${x},${y - h + b}"/></g>`;
+// ---- pure helpers (unit-tested) ----
+export function stageEndpoints(sc, stageId) {
+  const set = new Set(); const st = sc.stages.find((s) => s.id === stageId); if (!st) return set;
+  for (const fid of st.flows) { const f = sc.flows.find((x) => x.id === fid); set.add(f.from); set.add(f.to); }
+  return set;
 }
-function shape(kind) {
-  switch (kind) {
-    case 'person': return `<ellipse class="shadow" cx="6" cy="22" rx="34" ry="11"/>${box(0, 18, 22, 34)}<circle class="head" cx="0" cy="-34" r="15"/>`;
-    case 'computer': return `<ellipse class="shadow" cx="8" cy="30" rx="58" ry="17"/>${box(0, 26, 52, 10)}<g transform="translate(0,-8)">${box(0, 6, 34, 46)}</g><rect class="screen" x="-26" y="-48" width="40" height="26" rx="3" transform="skewY(-8) translate(-8,10)"/>`;
-    case 'screen': return `<ellipse class="shadow" cx="8" cy="26" rx="50" ry="14"/>${box(0, 22, 40, 8)}<rect class="win" x="-48" y="-52" width="96" height="62" rx="5"/><rect class="winbar" x="-48" y="-52" width="96" height="12" rx="5"/><text class="win-t" x="6" y="-14" text-anchor="middle">Not secure</text><g class="lock" transform="translate(-42,-50) scale(.55)"><path d="M0 8 v-4 a6 6 0 0 1 12 0 v4 z" fill="none" stroke-width="2"/><rect x="-2" y="6" width="16" height="12" rx="2"/></g>`;
-    case 'server': return `<ellipse class="shadow" cx="8" cy="28" rx="52" ry="15"/>${box(0, 26, 36, 20)}${box(0, 6, 36, 20)}${box(0, -14, 36, 20)}<circle class="led" cx="-14" cy="-26" r="3"/><circle class="led" cx="-14" cy="-6" r="3"/>`;
-    case 'binding': return `<ellipse class="shadow" cx="6" cy="14" rx="46" ry="12"/>${box(0, 12, 38, 14)}<text class="port" x="0" y="-8" text-anchor="middle">:443</text>`;
-    case 'panel': return `<ellipse class="shadow" cx="6" cy="14" rx="46" ry="12"/>${box(0, 12, 38, 10)}<rect class="screen" x="-26" y="-34" width="52" height="30" rx="3"/><text class="port" x="0" y="-14" text-anchor="middle">certreq</text>`;
-    case 'gate': return `<ellipse class="shadow" cx="8" cy="24" rx="62" ry="16"/>${box(-30, 22, 14, 70)}${box(30, 22, 14, 70)}<path class="beam" d="M-30 -48 L30 -48 L30 8 L-30 8 Z"/><text class="gate-t" x="0" y="-18" text-anchor="middle">POLICY</text>`;
-    case 'ca': return `<ellipse class="shadow" cx="8" cy="28" rx="62" ry="17"/>${box(0, 26, 44, 56)}<circle class="seal" cx="0" cy="-34" r="13"/><text class="seal-t" x="0" y="-30" text-anchor="middle">CA</text>`;
-    case 'root': return `<ellipse class="shadow" cx="8" cy="30" rx="66" ry="18"/>${box(0, 28, 50, 12)}<g transform="translate(0,-12)">${box(0, 26, 38, 50)}</g><circle class="seal" cx="0" cy="-38" r="13"/><text class="seal-t" x="0" y="-34" text-anchor="middle">ROOT</text>`;
-    case 'db': return `<ellipse class="shadow" cx="8" cy="30" rx="52" ry="14"/><path class="face-l" d="M-34 -14 v40 a34 12 0 0 0 68 0 v-40 z"/><ellipse class="face-t" cx="0" cy="-14" rx="34" ry="12"/><path class="db-l" d="M-34 4 a34 12 0 0 0 68 0 M-34 18 a34 12 0 0 0 68 0" fill="none"/>`;
-    case 'repo': return `<ellipse class="shadow" cx="6" cy="22" rx="52" ry="14"/>${box(0, 20, 40, 26)}<text class="port" x="0" y="-14" text-anchor="middle">HTTP</text>`;
-    case 'decision': return `<ellipse class="shadow" cx="6" cy="26" rx="44" ry="12"/><path class="shield" d="M0 -46 L34 -34 L34 -4 Q34 20 0 32 Q-34 20 -34 -4 L-34 -34 Z"/><text class="verdict" x="0" y="-8" text-anchor="middle">PENDING</text>`;
-    default: return box(0, 20, 30, 30);
-  }
+// Which entities are shown at a stage in the focused view.
+export function visibleSets(sc, stageIdx, { halted = false, full = false } = {}) {
+  const ids = new Set(sc.entityIds);
+  if (full) return { current: new Set(ids), previous: new Set(), next: new Set(), all: new Set(ids) };
+  const st = sc.stages[stageIdx];
+  const current = new Set([...stageEndpoints(sc, st.id), st.focus.entity, ...(st.show ?? [])]);
+  const previous = new Set(); const next = new Set();
+  if (stageIdx > 0) { const p = sc.stages[stageIdx - 1]; for (const e of [...stageEndpoints(sc, p.id), p.focus.entity]) if (!current.has(e)) previous.add(e); }
+  if (!halted && stageIdx < sc.stages.length - 1) { const n = sc.stages[stageIdx + 1]; for (const e of stageEndpoints(sc, n.id)) if (!current.has(e) && !previous.has(e)) next.add(e); }
+  // the offline Root CA only appears when the current stage explains the chain or trust anchor
+  const rootOk = (st.show ?? []).includes('rootca') || st.focus.entity === 'rootca';
+  for (const set of [current, previous, next]) if (!rootOk) set.delete('rootca');
+  const all = new Set([...current, ...previous, ...next]);
+  for (const e of [...all]) if (!ids.has(e)) { current.delete(e); previous.delete(e); next.delete(e); all.delete(e); }
+  return { current, previous, next, all };
 }
+
+// Orthogonal route for a flow: array of [x,y] points. Explicit routes win; otherwise ports and lanes are computed.
+export function routeFor(sc, f) {
+  if (f.route) return f.route;
+  const [x1, y1] = sc.layout[f.from], [x2, y2] = sc.layout[f.to];
+  const a = sizeOf(f.from), b = sizeOf(f.to), lane = f.lane ?? 0;
+  if (f.from === f.to) return null;
+  const dx = x2 - x1, dy = y2 - y1;
+  if (Math.abs(dy) < 4) { const s = Math.sign(dx); return [[x1 + s * a.w / 2, y1 + lane], [x2 - s * b.w / 2, y2 + lane]]; }
+  if (Math.abs(dx) < 4) { const s = Math.sign(dy); return [[x1, y1 + s * a.h / 2], [x2, y2 - s * b.h / 2]]; }
+  const s = Math.sign(dx); const sx = x1 + s * a.w / 2, ex = x2 - s * b.w / 2; const mx = (sx + ex) / 2;
+  return [[sx, y1], [mx, y1], [mx, y2], [ex, y2]];
+}
+export const pathD = (pts) => pts.map((p, i) => `${i ? 'L' : 'M'}${p[0]} ${p[1]}`).join(' ');
 
 export class Scene {
-  constructor(svg, onSelect, scenario) {
-    this.svg = svg; this.onSelect = onSelect; this.scenario = scenario;
-    this.nodes = {}; this.flowEls = {}; this.chipEls = {}; this.cardEls = {};
-    this.cam = { x: 0, y: 0, k: 1 };
-    this.build();
-  }
+  constructor(svg, onSelect) { this.svg = svg; this.onSelect = onSelect; this.cam = { x: 0, y: 0, k: 1 }; this.sc = null; this.wireInteraction(); }
 
-  build() {
-    const { svg, scenario } = this;
-    svg.setAttribute('viewBox', '0 0 1600 900');
-    svg.innerHTML = `<defs>
-      <filter id="blur6" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="5"/></filter>
-      <pattern id="grid" width="48" height="24" patternUnits="userSpaceOnUse"><path d="M0 12 L24 0 L48 12 L24 24 Z" fill="none" stroke="var(--grid)" stroke-width="1"/></pattern>
-      ${['request', 'cert', 'policy', 'ok', 'fail', 'idle'].map((c) => `<marker id="ah-${c}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah ah-${c}"/></marker>`).join('')}
-    </defs>`;
-    const cam = el('g', { id: 'cam' }); this.camG = cam; svg.appendChild(cam);
-    cam.appendChild(el('rect', { class: 'bg', x: -400, y: -300, width: 2400, height: 1500, fill: 'url(#grid)' }));
-    // zones
-    cam.appendChild(el('g', { class: 'zones' }, `
-      <path class="zone zone-pki" d="M1010 110 L1250 110 L1250 840 L1010 840 Z"/><text class="zone-t" x="1130" y="868" text-anchor="middle">CA SERVICES</text>
-      <path class="zone zone-pub" d="M1300 230 L1590 230 L1590 760 L1300 760 Z"/><text class="zone-t" x="1445" y="788" text-anchor="middle">PUBLICATION</text>
-      <path class="zone zone-web" d="M450 520 L880 520 L880 790 L450 790 Z" />
-      <path class="zone zone-cli" d="M40 150 L460 150 L460 800 L40 800 Z"/>
-      <text class="zone-t" x="250" y="826" text-anchor="middle">CLIENT SIDE · 10.20.10.0/24 (synthetic)</text>
-      <text class="zone-t" x="640" y="818" text-anchor="middle">WEB TIER · 10.20.20.0/24 (synthetic)</text>`));
-    // lineage (static trust links, not flows)
-    const lin = el('g', { class: 'lineage' });
-    lin.innerHTML = `<path class="lineage-p" d="M${LAYOUT.rootca[0]} ${LAYOUT.rootca[1] + 16} L${LAYOUT.ica01[0]} ${LAYOUT.ica01[1] - 70}"/><text class="lineage-t" x="${LAYOUT.rootca[0] + 14}" y="${(LAYOUT.rootca[1] + LAYOUT.ica01[1]) / 2 - 20}">signed ICA certificate earlier (root stays offline)</text>`;
-    cam.appendChild(lin);
-    // pkiweb01 group backdrop
-    this.flowLayer = el('g', { class: 'flows' }); cam.appendChild(this.flowLayer);
-    for (const f of scenario.flows) this.buildFlow(f);
-    this.nodeLayer = el('g', { class: 'nodes' }); cam.appendChild(this.nodeLayer);
-    for (const e of entities) if (e.id !== 'chain') this.buildNode(e);
-    this.buildChain();
-    this.chipLayer = el('g', { class: 'chips' }); cam.appendChild(this.chipLayer);
-    for (const a of scenario.artifacts) if (a.id !== 'chain') this.buildChip(a);
-    this.packetLayer = el('g', { class: 'packets' }); cam.appendChild(this.packetLayer);
-    for (const f of scenario.flows.filter((x) => !x.artifact)) {
-      const g = el('g', { class: 'packet', 'data-flow': f.id }, '<circle r="9"/><circle r="4" class="core"/>'); this.packetLayer.appendChild(g); this.flowEls[f.id].packet = g;
+  load(sc) {
+    this.sc = sc; const { svg } = this;
+    svg.setAttribute('viewBox', '0 0 1600 800');
+    svg.innerHTML = `<defs>${['request', 'policy', 'cert', 'install', 'validate', 'trust', 'fail', 'history'].map((c) => `<marker id="ah-${c}" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="16" markerHeight="16" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah ah-${c}"/></marker>`).join('')}</defs>`;
+    this.camG = el('g', { id: 'cam' }); svg.appendChild(this.camG); this.fitG = el('g', { id: 'fit' }); this.camG.appendChild(this.fitG);
+    this.nodes = {}; this.flowEls = {}; this.chipEls = {}; this.zoneEls = {}; this.cardEls = {};
+    this.zoneLayer = el('g', { class: 'zones' }); this.linkLayer = el('g', { class: 'links' }); this.flowLayer = el('g', { class: 'flows' });
+    this.nodeLayer = el('g', { class: 'nodes' }); this.chipLayer = el('g', { class: 'chips' }); this.packetLayer = el('g', { class: 'packets' });
+    this.fitG.append(this.zoneLayer, this.linkLayer, this.flowLayer, this.nodeLayer, this.chipLayer, this.packetLayer);
+    for (const z of sc.zones) {
+      const g = el('g', { class: `zone${z.offline ? ' offline' : ''}`, 'data-zone': z.id }, `<rect x="${z.x}" y="${z.y}" width="${z.w}" height="${z.h}" rx="14"/><text class="zone-t" x="${z.x + z.w / 2}" y="${z.y + 24}" text-anchor="middle">${esc(z.label)}</text>`);
+      this.zoneLayer.appendChild(g); this.zoneEls[z.id] = g;
     }
-    this.caption = el('text', { class: 'scene-caption', x: 800, y: 40, 'text-anchor': 'middle' });
-    svg.appendChild(this.caption);
-    this.wireInteraction();
+    if (sc.rootLink) {
+      const [x1, y1] = sc.layout[sc.rootLink.from], [x2] = sc.layout[sc.rootLink.to];
+      const a = sizeOf(sc.rootLink.from).w / 2, b = sizeOf(sc.rootLink.to).w / 2;
+      this.rootLinkEl = el('g', { class: 'rootlink' }, `<path d="M${x1 + a} ${y1} L${x2 - b} ${y1}" marker-start="url(#ah-history)"/><text x="${(x1 + a + x2 - b) / 2}" y="${y1 - 12}" text-anchor="middle">Previously signed Issuing CA certificate</text>`);
+      this.linkLayer.appendChild(this.rootLinkEl);
+    }
+    for (const f of sc.flows) this.buildFlow(f);
+    for (const id of sc.entityIds) (id === 'chain' ? this.buildChain(id) : this.buildNode(id));
+    for (const a of sc.artifacts) if (a.id !== 'chain' || !sc.entityIds.includes('chain')) { if (a.id !== 'chain') this.buildChip(a); }
+    for (const f of sc.flows.filter((x) => !x.artifact)) {
+      const g = el('g', { class: 'packet', 'data-flow': f.id }, '<circle r="10"/><circle r="4.5" class="core"/>'); this.packetLayer.appendChild(g); this.flowEls[f.id].packet = g;
+    }
+    this.applyCam();
   }
 
-  anchor(id) { const [x, y] = LAYOUT[id]; return [x, y - 26]; }
-
-  flowPath(f) {
-    const [x1, y1] = this.anchor(f.from), [x2, y2] = this.anchor(f.to);
-    if (f.from === f.to) return `M${x1 + 30} ${y1 - 10} C${x1 + 90} ${y1 - 80} ${x1 - 90} ${y1 - 80} ${x1 - 30} ${y1 - 10}`;
-    const mx = (x1 + x2) / 2, my = (y1 + y2) / 2, dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy) || 1;
-    const off = Math.min(46, len * 0.16) * (this.curveSign(f));
-    return `M${x1} ${y1} Q${mx - (dy / len) * off} ${my + (dx / len) * off} ${x2} ${y2}`;
-  }
-  curveSign(f) { return ['f-error', 'f-present', 'f-cdp', 'f-root'].includes(f.id) ? -1 : 1; }
+  describe(id) { const e = entityById[id]; const o = this.sc.overrides?.[id] ?? {}; return { ...e, ...o }; }
 
   buildFlow(f) {
-    const d = this.flowPath(f);
-    const g = el('g', { class: 'flow', 'data-flow': f.id });
+    const sc = this.sc; const pts = routeFor(sc, f);
+    const g = el('g', { class: `flow kind-${f.kind ?? 'request'}`, 'data-flow': f.id });
+    let d, mid;
+    if (!pts) { const [x, y] = sc.layout[f.from]; const t = y - sizeOf(f.from).h / 2; d = `M${x + 44} ${t} C${x + 44} ${t - 62} ${x - 44} ${t - 62} ${x - 44} ${t}`; mid = [x, t - 52]; } else {
+      d = pathD(pts); let best = 0;
+      mid = pts[0];
+      for (let i = 0; i < pts.length - 1; i++) { const len = Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]); if (len > best) { best = len; mid = [(pts[i][0] + pts[i + 1][0]) / 2, (pts[i][1] + pts[i + 1][1]) / 2]; const vertical = pts[i][0] === pts[i + 1][0]; mid = vertical ? [mid[0] + 10, mid[1]] : [mid[0], mid[1] - 10]; mid.vertical = vertical; } }
+    }
     const base = el('path', { class: 'flow-base', d });
-    const over = el('path', { class: 'flow-over', d, 'marker-end': f.local ? '' : 'url(#ah-request)' });
+    const over = el('path', { class: 'flow-over', d });
     const hit = el('path', { class: 'flow-hit', d });
-    const label = el('text', { class: 'flow-label' }); label.textContent = f.protocol.split(' (')[0].slice(0, 30);
+    const label = el('text', { class: 'flow-label', x: mid[0], y: mid[1], 'text-anchor': mid.vertical ? 'start' : 'middle' });
+    label.textContent = `${KIND_LABEL[f.kind ?? 'request']} · ${f.protocol.split(/ \(| over |:/)[0].slice(0, 30)}`;
     g.append(base, over, hit, label); this.flowLayer.appendChild(g);
-    this.flowEls[f.id] = { g, base, over, hit, label, len: over.getTotalLength?.() ?? 300, d };
+    this.flowEls[f.id] = { g, base, over, hit, label, len: over.getTotalLength?.() ?? 300, d, local: !pts, f };
   }
 
-  buildNode(e) {
-    const [x, y] = LAYOUT[e.id];
-    const g = el('g', { class: `node kind-${e.kind}`, 'data-entity': e.id, transform: `translate(${x},${y})`, tabindex: 0, role: 'button', 'aria-label': e.label });
-    g.innerHTML = `<g class="body">${shape(e.kind)}</g><circle class="status-led" cx="${e.kind === 'person' ? 28 : 40}" cy="-46" r="6"/>
-      <g class="lbl"><text class="n-name" y="52" text-anchor="middle">${esc(e.label)}</text><text class="n-sub" y="68" text-anchor="middle">${esc(e.sub)}</text><text class="n-badge" y="84" text-anchor="middle"></text></g>`;
+  buildNode(id) {
+    const [x, y] = this.sc.layout[id]; const e = this.describe(id);
+    const names = wrap(e.label, 17).slice(0, 2); const subs = names.length === 1 ? wrap(e.sub ?? '', 23).slice(0, 2).map((x) => trunc(x, 24)) : [trunc(e.sub ?? '', 24)];
+    const ny = names.length === 1 ? -16 : -24;
+    const g = el('g', { class: `node kind-${e.kind}`, 'data-entity': id, transform: `translate(${x},${y})`, tabindex: 0, role: 'button', 'aria-label': `${e.label}. ${e.sub ?? ''}` });
+    g.innerHTML = `<rect class="card" x="-88" y="-42" width="176" height="84" rx="10"/><rect class="accent" x="-88" y="-42" width="7" height="84" rx="3"/>
+      <g class="ico" transform="translate(-76,-22)">${iconUse(e.icon, 42)}</g>
+      <g class="lbl">${names.map((n, i) => `<text class="n-name" x="-26" y="${ny + 8 + i * 16}"${n.length > 16 ? ' textLength="138" lengthAdjust="spacingAndGlyphs"' : ''}>${esc(n)}</text>`).join('')}${subs.map((t, i) => `<text class="n-sub" x="-26" y="${(names.length === 1 ? 10 : 18) + i * 15}"${t.length > 22 ? ' textLength="138" lengthAdjust="spacingAndGlyphs"' : ''}>${esc(t)}</text>`).join('')}</g>
+      <text class="n-status" x="80" y="35" text-anchor="end"></text><circle class="led" cx="78" cy="-28" r="5"/>`;
     this.nodeLayer.appendChild(g);
-    this.nodes[e.id] = { g, badge: g.querySelector('.n-badge'), verdict: g.querySelector('.verdict'), win: g.querySelector('.win-t') };
-    if (e.id === 'rootca') g.insertAdjacentHTML('beforeend', '<text class="offline-tag" x="0" y="-70" text-anchor="middle">OFFLINE</text>');
+    this.nodes[id] = { g, status: g.querySelector('.n-status') };
+    if (id === 'rootca') { const note = el('text', { class: 'root-note', x, y: y + 66, 'text-anchor': 'middle' }); note.innerHTML = '<tspan x="' + x + '" dy="0">Previously signed the Issuing CA</tspan><tspan x="' + x + '" dy="15">certificate; not contacted for</tspan><tspan x="' + x + '" dy="15">this request</tspan>'; this.nodeLayer.appendChild(note); this.nodes[id].note = note; }
   }
 
-  buildChain() {
-    const [cx, cy] = LAYOUT.chain;
-    const g = el('g', { class: 'node chain-node', 'data-entity': 'chain', tabindex: 0, role: 'button', 'aria-label': 'Certificate chain' });
-    g.innerHTML = `<rect class="chain-frame" x="${cx - 104}" y="${cy - 118}" width="208" height="222" rx="10"/><text class="n-name" x="${cx}" y="${cy - 98}" text-anchor="middle">Certificate chain</text>`;
-    CHAIN_CARDS.forEach(([id, name, i]) => {
-      const y = cy - 82 + i * 62;
-      const c = el('g', { class: 'chaincard', 'data-artifact': id, 'data-card': id, tabindex: 0, role: 'button', 'aria-label': name },
-        `<rect x="${cx - 90}" y="${y}" width="180" height="46" rx="6"/><text class="cc-name" x="${cx}" y="${y + 20}" text-anchor="middle">${name}</text><text class="cc-sub" x="${cx}" y="${y + 36}" text-anchor="middle">${['Leaf (end entity)', 'Issuing CA', 'Root CA (trust anchor)'][i]}</text>`);
-      g.appendChild(c); this.cardEls[id] = c;
-      if (i < 2) g.appendChild(el('path', { class: 'chain-arrow', d: `M${cx} ${y + 46} L${cx} ${y + 62}`, 'marker-end': 'url(#ah-idle)' }));
+  buildChain(id) {
+    const [cx, cy] = this.sc.layout[id]; const e = this.describe(id);
+    const g = el('g', { class: 'node chain-node', 'data-entity': id, tabindex: 0, role: 'button', 'aria-label': e.label });
+    g.innerHTML = `<rect class="card" x="${cx - 88}" y="${cy - 66}" width="176" height="132" rx="10"/><text class="n-name" x="${cx}" y="${cy - 46}" text-anchor="middle">${esc(e.label)}</text>`;
+    CHAIN_CARDS.forEach(([cid, name, i]) => {
+      const y = cy - 36 + i * 34;
+      const c = el('g', { class: 'chaincard', 'data-artifact': cid, tabindex: 0, role: 'button', 'aria-label': `${name} certificate` },
+        `<rect x="${cx - 80}" y="${y}" width="160" height="28" rx="6"/><text class="cc-name" x="${cx - 72}" y="${y + 18}">${esc(name)}</text><text class="cc-state" x="${cx + 74}" y="${y + 18}" text-anchor="end"></text>`);
+      g.appendChild(c); this.cardEls[cid] = c;
     });
-    this.chainFrame = g; this.nodeLayer.appendChild(g); this.nodes.chain = { g, badge: null };
+    this.nodeLayer.appendChild(g); this.nodes[id] = { g, status: null };
   }
 
   buildChip(a) {
     const w = CHIP_W[a.id] ?? 60;
     const g = el('g', { class: `chip chip-${a.color}`, 'data-artifact': a.id, tabindex: 0, role: 'button', 'aria-label': a.label },
-      `<rect x="${-w / 2}" y="-11" width="${w}" height="22" rx="11"/><text y="4" text-anchor="middle">${CHIP_TEXT[a.id]}</text>`);
+      `<rect x="${-w / 2}" y="-12" width="${w}" height="24" rx="12"/><text y="4.5" text-anchor="middle">${CHIP_TEXT[a.id] ?? a.id.toUpperCase()}</text>`);
     this.chipLayer.appendChild(g); this.chipEls[a.id] = g;
   }
 
   wireInteraction() {
-    const svg = this.svg;
-    let drag = null;
+    const svg = this.svg; let drag = null;
     svg.addEventListener('click', (ev) => {
       if (this.moved) { this.moved = false; return; }
-      const t = ev.target.closest('[data-artifact],[data-entity],[data-flow]');
-      if (!t) return;
+      const t = ev.target.closest('[data-artifact],[data-entity],[data-flow]'); if (!t) return;
       if (t.dataset.artifact) this.onSelect({ type: 'artifact', id: t.dataset.artifact });
       else if (t.dataset.entity) this.onSelect({ type: 'entity', id: t.dataset.entity });
       else this.onSelect({ type: 'flow', id: t.dataset.flow });
     });
-    svg.addEventListener('keydown', (ev) => {
-      if (ev.key !== 'Enter' && ev.key !== ' ') return;
-      const t = ev.target.closest('[data-artifact],[data-entity]'); if (!t) return;
-      ev.preventDefault(); t.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    });
-    svg.addEventListener('pointerdown', (ev) => { drag = { x: ev.clientX, y: ev.clientY, cx: this.cam.x, cy: this.cam.y, id: ev.pointerId, started: false }; });
+    svg.addEventListener('keydown', (ev) => { if (ev.key !== 'Enter' && ev.key !== ' ') return; const t = ev.target.closest('[data-artifact],[data-entity]'); if (!t) return; ev.preventDefault(); t.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+    svg.addEventListener('pointerdown', (ev) => { drag = { x: ev.clientX, y: ev.clientY, cx: this.cam.x, cy: this.cam.y, started: false }; });
     svg.addEventListener('pointermove', (ev) => {
-      if (!drag) return;
-      const dx = ev.clientX - drag.x, dy = ev.clientY - drag.y;
+      if (!drag) return; const dx = ev.clientX - drag.x, dy = ev.clientY - drag.y;
       if (!drag.started && Math.hypot(dx, dy) > 6) { drag.started = true; svg.setPointerCapture?.(ev.pointerId); }
-      if (drag.started) { const r = svg.getBoundingClientRect(); const s = 1600 / r.width; this.cam.x = drag.cx + dx * s; this.cam.y = drag.cy + dy * s; this.applyCam(); this.moved = true; }
+      if (drag.started) { const s = 1600 / svg.getBoundingClientRect().width; this.cam.x = drag.cx + dx * s; this.cam.y = drag.cy + dy * s; this.applyCam(); this.moved = true; }
     });
     const end = () => { drag = null; setTimeout(() => { this.moved = false; }, 0); };
     svg.addEventListener('pointerup', end); svg.addEventListener('pointercancel', end);
     svg.addEventListener('wheel', (ev) => { ev.preventDefault(); this.cam.k = Math.min(2.2, Math.max(0.6, this.cam.k * (ev.deltaY < 0 ? 1.1 : 0.9))); this.applyCam(); }, { passive: false });
   }
-  applyCam() { this.camG.setAttribute('transform', `translate(${this.cam.x},${this.cam.y}) translate(800,450) scale(${this.cam.k}) translate(-800,-450)`); }
+  applyCam() { this.camG?.setAttribute('transform', `translate(${this.cam.x},${this.cam.y}) translate(800,400) scale(${this.cam.k}) translate(-800,-400)`); }
   resetCamera() { this.cam = { x: 0, y: 0, k: 1 }; this.applyCam(); }
   setLabels(on) { this.svg.classList.toggle('hide-labels', !on); }
 
-  // ---- derive everything from canonical state ----
-  update(s, ctx) {
-    const sc = this.scenario;
-    const reverse = s.direction === 'reverse';
+  update(s, { full = false } = {}) {
+    const sc = this.sc; const reverse = s.direction === 'reverse';
     const trace = reverse ? buildTrace(sc, s.activeFault) : null;
-    const focusEntity = reverse ? trace[s.evidenceIndex]?.entity : sc.stages[s.stage].focus.entity;
-    const focusArtifact = reverse ? trace[s.evidenceIndex]?.artifact : sc.stages[s.stage].focus.artifact;
-    this.svg.dataset.direction = s.direction;
-    for (const e of entities) {
-      const n = this.nodes[e.id]; if (!n) continue;
-      const st = e.id === 'chain' ? entityStatus('chain', s) : entityStatus(e.id, s);
-      n.g.dataset.status = st;
-      n.g.classList.toggle('focus', e.id === focusEntity);
-      n.g.classList.toggle('sel', e.id === s.selectedEntity);
-      if (n.badge) n.badge.textContent = badge(e.id, s);
-      if (n.verdict) n.verdict.textContent = { trusted: 'TRUSTED', rejected: 'REJECTED', pending: 'PENDING', none: 'NO RESULT' }[s.trustDecision];
-      if (n.win) n.win.textContent = s.connectionState === 'trusted' ? 'Secure connection' : ['failed', 'blocked'].includes(s.connectionState) ? 'Not secure' : s.connectionState === 'none' ? 'portal…' : 'Connecting…';
-    }
-    const chainVisible = s.chainState !== 'none' || (reverse && s.halted !== undefined && s.chainState !== 'none');
-    this.chainFrame.classList.toggle('dim', !chainVisible);
-    for (const [id] of CHAIN_CARDS) {
-      const c = this.cardEls[id];
-      let st = chainCardStatus(id, s);
-      c.dataset.status = st;
-      c.classList.toggle('missing', id === 'ica' && s.chainState === 'incomplete');
-      c.classList.toggle('sel', s.selectedArtifact === id);
-      c.classList.toggle('focus', id === focusArtifact);
-    }
-    // flows
-    for (const f of sc.flows) {
-      const fe = this.flowEls[f.id];
-      const fs = flowStatus(sc, s, f);
-      const color = fs.failed ? 'fail' : fs.phase === 'done' && f.id === 'f-trust' ? 'ok' : FLOW_COLOR[f.id] ?? (f.artifact && f.artifact !== 'private-key' && f.artifact !== 'csr' ? 'cert' : 'request');
-      fe.g.dataset.phase = fs.phase; fe.g.dataset.color = color; fe.g.classList.toggle('failed', fs.failed);
-      fe.g.classList.toggle('current', !reverse && sc.stages[s.stage].flows.includes(f.id));
-      fe.g.classList.toggle('sel', s.selectedFlow === f.id);
-      fe.over.setAttribute('marker-end', f.local ? '' : `url(#ah-${color})`);
-      fe.over.style.strokeDasharray = `${fe.len}`;
-      fe.over.style.strokeDashoffset = `${fe.len * (1 - fs.progress)}`;
-      const showLabel = fs.phase === 'active' || (fe.g.classList.contains('current') && fs.phase !== 'idle') || (reverse && sc.stages[s.stage].flows.includes(f.id));
-      fe.label.style.opacity = showLabel ? 1 : 0;
-      const pt = pointAt(fe, fs.progress, f);
-      fe.label.setAttribute('x', pt.mid[0]); fe.label.setAttribute('y', pt.mid[1] - 14);
-      if (fe.packet) {
-        fe.packet.style.opacity = fs.phase === 'active' ? 1 : 0;
-        fe.packet.setAttribute('transform', `translate(${pt.at[0]},${pt.at[1]})`);
-        fe.packet.dataset.color = color;
+    const stageIdx = s.stage;
+    const vis = visibleSets(sc, stageIdx, { halted: s.halted || reverse, full });
+    const st = sc.stages[stageIdx];
+    const focusEntity = reverse ? trace[s.evidenceIndex]?.entity : st.focus.entity;
+    const focusArtifact = reverse ? trace[s.evidenceIndex]?.artifact : st.focus.artifact;
+    if (reverse && focusEntity) { vis.current.add(focusEntity); vis.all.add(focusEntity); }
+    if (reverse) for (const e of ['rootca']) { if (trace[s.evidenceIndex]?.entity === e) { vis.current.add(e); vis.all.add(e); } }
+    this.svg.dataset.direction = s.direction; this.svg.dataset.full = String(full);
+    const zonesOn = new Set();
+    for (const id of sc.entityIds) {
+      const n = this.nodes[id]; if (!n) continue;
+      const role = vis.current.has(id) ? 'current' : vis.previous.has(id) ? 'previous' : vis.next.has(id) ? 'next' : full ? 'faint' : 'hidden';
+      const status = sc.statusOf(id, s);
+      n.g.dataset.status = status; n.g.dataset.role = role; n.g.classList.toggle('focus', id === focusEntity); n.g.classList.toggle('sel', id === s.selectedEntity);
+      n.g.style.display = role === 'hidden' ? 'none' : '';
+      if (role !== 'hidden') zonesOn.add(sc.zoneOf[id]);
+      if (n.status) {
+        let t = STATUS_TEXT[status] ?? '';
+        if (id === 'rootca') t = status === 'ok' ? 'Trust anchor' : 'Offline';
+        if (id === 'decision') t = { trusted: 'TRUSTED', rejected: 'REJECTED', pending: 'PENDING', none: '' }[s.trustDecision];
+        if (id === 'result') t = { trusted: 'SUITABLE', rejected: 'NOT SUITABLE', none: '' }[s.trustDecision] ?? '';
+        n.status.textContent = t;
       }
+      if (n.note) n.note.style.display = role === 'hidden' ? 'none' : '';
+      if (id === 'chain') { for (const [cid] of CHAIN_CARDS) { const c = this.cardEls[cid]; const cs = chainCardState(sc, cid, s); c.dataset.status = cs.status; c.querySelector('.cc-state').textContent = cs.text; c.classList.toggle('sel', s.selectedArtifact === cid); c.classList.toggle('focus', cid === focusArtifact); } }
     }
-    // artifact chips
+    for (const z of sc.zones) this.zoneEls[z.id].style.opacity = full || zonesOn.has(z.id) ? '1' : '0';
+    if (this.rootLinkEl) this.rootLinkEl.style.opacity = vis.all.has(sc.rootLink.to) && vis.all.has(sc.rootLink.from) ? '1' : '0';
+    this.fit(vis, full);
+    // flows
+    const curFlows = new Set(st.flows); const prevFlows = new Set(stageIdx > 0 ? sc.stages[stageIdx - 1].flows : []); const nextFlows = new Set(!s.halted && stageIdx < sc.stages.length - 1 ? sc.stages[stageIdx + 1].flows : []);
+    for (const f of sc.flows) {
+      const fe = this.flowEls[f.id]; const fs = flowStatus(sc, s, f);
+      const isCur = !reverse && curFlows.has(f.id) || (reverse && curFlows.has(f.id));
+      const bothVisible = vis.all.has(f.from) && vis.all.has(f.to);
+      const role = isCur ? 'current' : prevFlows.has(f.id) ? 'previous' : nextFlows.has(f.id) ? 'next' : full ? 'faint' : 'hidden';
+      const show = role !== 'hidden' && bothVisible;
+      const kind = fs.failed ? 'fail' : (f.kind ?? 'request');
+      fe.g.style.display = show ? '' : 'none';
+      fe.g.dataset.phase = fs.phase; fe.g.dataset.role = role; fe.g.dataset.kind = kind; fe.g.classList.toggle('failed', fs.failed); fe.g.classList.toggle('sel', s.selectedFlow === f.id);
+      fe.over.setAttribute('marker-end', fe.local ? '' : `url(#ah-${kind})`);
+      fe.over.style.strokeDasharray = `${fe.len}`; fe.over.style.strokeDashoffset = `${fe.len * (1 - fs.progress)}`;
+      fe.label.style.opacity = role === 'current' && fs.phase !== 'idle' ? 1 : 0;
+      if (fe.packet) { const active = fs.phase === 'active' && role === 'current'; fe.packet.style.opacity = active ? 1 : 0; const p = fe.over.getPointAtLength(fe.len * Math.min(1, Math.max(0, fs.progress))); fe.packet.setAttribute('transform', `translate(${p.x},${p.y})`); fe.packet.dataset.kind = kind; }
+    }
+    // artifacts
     const slots = {};
     for (const a of sc.artifacts) {
-      if (a.id === 'chain') continue;
-      const chip = this.chipEls[a.id];
+      const chip = this.chipEls[a.id]; if (!chip) continue;
       const loc = artifactLocation(sc, s, a);
-      chip.classList.toggle('sel', s.selectedArtifact === a.id);
-      chip.classList.toggle('focus', a.id === focusArtifact);
-      if (!loc.visible || (a.id === 'root' && false)) { chip.style.display = 'none'; continue; }
+      chip.classList.toggle('sel', s.selectedArtifact === a.id); chip.classList.toggle('focus', a.id === focusArtifact);
+      const holderVisible = loc.visible && (loc.moving ? curFlows.has(loc.via.id) : vis.all.has(loc.at));
+      if (!holderVisible) { chip.style.display = 'none'; continue; }
       chip.style.display = '';
       let x, y;
       if (loc.moving) {
-        const fe = this.flowEls[loc.via.id]; const p = pointAt(fe, loc.progress, loc.via, true); [x, y] = p.at;
-        if (loc.from !== loc.via.from) { /* pulled from a repository: path start is the client; reverse direction */ [x, y] = pointAt(fe, 1 - loc.progress, loc.via, true).at; }
+        const fe = this.flowEls[loc.via.id]; const reversed = loc.from !== loc.via.from;
+        const q = reversed ? 1 - loc.progress : loc.progress; const p = fe.over.getPointAtLength(fe.len * Math.min(1, Math.max(0, q))); x = p.x; y = p.y;
       } else {
-        const n = (slots[loc.at] = (slots[loc.at] ?? 0) + 1) - 1;
-        const [nx, ny] = LAYOUT[loc.at];
-        const below = !['decision', 'chain'].includes(loc.at);
-        x = nx + (loc.at === 'chain' ? 0 : -40 + 0); y = (below ? ny + 96 : ny) + n * 26;
-        if (loc.at === 'chain') { x = LAYOUT.chain[0] + 120; y = LAYOUT.chain[1] - 80 + n * 26; }
-        x += (n % 2) * 0;
+        const n = (slots[loc.at] = (slots[loc.at] ?? 0) + 1) - 1; const [nx, ny] = sc.layout[loc.at];
+        x = nx; y = ny + sizeOf(loc.at).h / 2 + 18 + n * 28;
+        if (loc.at === 'rootca') y += 62;
       }
-      chip.setAttribute('transform', `translate(${x},${y})`);
-      chip.dataset.moving = loc.moving ? '1' : '0';
-      const bad = this.chipFailed(a.id, s);
-      chip.dataset.status = bad ? 'fail' : 'normal';
+      chip.setAttribute('transform', `translate(${x},${y})`); chip.dataset.moving = loc.moving ? '1' : '0';
+      chip.dataset.status = this.chipFailed(a.id, s) ? 'fail' : 'normal';
     }
-    this.caption.textContent = reverse ? `Evidence trace ${s.evidenceIndex + 1} of ${trace.length}: ${trace[s.evidenceIndex].question}` : `${sc.stages[s.stage].phase.toUpperCase()} · ${sc.stages[s.stage].title}`;
+  }
+
+  // Frame the visible entities so cards stay large and readable. Pure function of the visible set.
+  fit(vis, full) {
+    const sc = this.sc; let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    if (!full) {
+      for (const id of vis.all) { const l = sc.layout[id]; if (!l) continue; const z = sizeOf(id); x0 = Math.min(x0, l[0] - z.w / 2); x1 = Math.max(x1, l[0] + z.w / 2); y0 = Math.min(y0, l[1] - z.h / 2 - 16); y1 = Math.max(y1, l[1] + z.h / 2 + 120); }
+    }
+    let k = 1, cx = 800, cy = 400;
+    if (Number.isFinite(x0)) { const bw = x1 - x0 + 160, bh = y1 - y0 + 60; k = Math.min(1.45, 1560 / bw, 780 / bh); k = Math.max(1, k); cx = (x0 + x1) / 2; cy = (y0 + y1) / 2; cx = Math.min(Math.max(cx, 800 / k), 1600 - 800 / k); cy = Math.min(Math.max(cy, 400 / k), 800 - 400 / k); }
+    this.fitG.style.transform = `translate(${800 - cx * k}px, ${400 - cy * k}px) scale(${k})`;
+    this.fitG.dataset.k = k.toFixed(2);
   }
 
   chipFailed(id, s) {
-    if (id === 'leaf') return ['fail'].includes(s.validation.name) || s.validation.dates === 'fail' || s.validation.eku === 'fail' || s.revocationState === 'revoked' || s.installationState === 'no-private-key';
+    if (id === 'leaf' || id === 'dccert') return s.validation.name === 'fail' || s.validation.dates === 'fail' || s.validation.eku === 'fail' || s.revocationState === 'revoked' || s.installationState === 'no-private-key' || s.keyAssociation === 'mismatch';
     if (id === 'ica') return s.chainState === 'incomplete';
     if (id === 'root') return s.validation.root === 'fail';
     if (id === 'crl') return s.revocationState === 'unavailable';
@@ -260,26 +257,11 @@ export class Scene {
   }
 }
 
-function pointAt(fe, p, flow, clamp = false) {
-  const path = fe.over;
-  const len = path.getTotalLength();
-  const q = Math.min(1, Math.max(0, p));
-  const at = path.getPointAtLength(len * q);
-  const m = path.getPointAtLength(len * 0.5);
-  return { at: [at.x, at.y], mid: [m.x, m.y] };
-}
-
-function badge(id, s) {
-  switch (id) {
-    case 'web01': return `key: ${s.keyState}`;
-    case 'ica01': return s.issuanceState === 'none' ? 'idle' : s.issuanceState;
-    case 'template': return `decision: ${s.templateDecision}`;
-    case 'iis': return s.iisBindingState;
-    case 'client01': return `chain: ${s.chainState}`;
-    case 'cdp': return `revocation: ${s.revocationState}`;
-    case 'aia': return `AIA: ${s.aiaState}`;
-    case 'cadb': return s.requestState === 'received' || s.requestState === 'issued' ? 'request 1042' : '';
-    case 'rootca': return 'not involved in issuance';
-    default: return '';
-  }
+function chainCardState(sc, card, s) {
+  const v = s.validation;
+  if (s.chainState === 'none') return { status: 'idle', text: '' };
+  if (card === 'leaf') { const bad = [v.name, v.dates, v.eku].includes('fail') || s.revocationState === 'revoked'; return bad ? { status: 'fail', text: 'Problem' } : v.name === 'pass' && s.revocationState === 'good' ? { status: 'ok', text: 'Valid' } : { status: s.chainState === 'building' ? 'active' : 'idle', text: s.chainState === 'building' ? 'Building' : '' }; }
+  if (card === 'ica') return s.chainState === 'incomplete' ? { status: 'fail', text: 'Missing' } : s.chainState === 'building' ? { status: 'active', text: 'Fetching' } : { status: v.signatures === 'fail' ? 'fail' : 'ok', text: 'Found' };
+  if (s.chainState === 'incomplete') return { status: 'idle', text: '' };
+  return v.root === 'fail' ? { status: 'fail', text: 'Untrusted' } : v.root === 'pass' ? { status: 'ok', text: 'Trusted' } : { status: 'idle', text: '' };
 }

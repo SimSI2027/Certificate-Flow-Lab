@@ -67,3 +67,10 @@ No network calls beyond serving static files. Downloads are generated client-sid
 
 ### Process cleanup
 `tools/windows/Common.ps1` holds shared helpers; the launcher keeps child process handles and stops their trees in `finally`.
+
+## v0.3.0: scenario-first presentation
+- **Scenario registry** (`src/scenarios/index.js`): each scenario module exports stages (with `phase` milestone groups and plain-language `explain` content), flows (with `kind` and optional explicit orthogonal `route`), artifacts, faults, an evidence trace with `evidenceKind`, a `layout`, `zones` (one marked `offline`), `zoneOf`, `statusOf`, an optional `evaluate` for evidence, and `entityIds`. The engine is unchanged apart from `faultStagePatches` (a fault may alter an earlier stage's outcome).
+- **Scene** (`src/views/scene.js`): flat icon cards, zone boxes, orthogonal connectors and an auto-fit transform. `visibleSets()` and `routeFor()` are pure and unit-tested. The default view shows the previous, current and next stage; the offline Root CA is added only when the stage `show`s or focuses it. Only artifacts of the current step move.
+- **Teaching layer** (`src/ui/teach.js`, `details.js`, `details-dc.js`): Explain, Evidence, Troubleshoot and friendly artifact summaries are built from the canonical state, the evaluated evidence and the parsed fixtures.
+- **Icons** (`src/views/icons.js`): one custom flat family; see `assets/icons/SOURCES.md`.
+- **Film** (`film.html`, `src/film/`): the same app driven by `frameAt(time)`; captions are the app's own step info, so they cannot disagree with the state.

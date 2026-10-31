@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { loadModel, manifest, root, readFileSync } from '../helpers/fixtures.js';
 import { SERVER_AUTH } from '../../src/artifacts/model.js';
 import { URLS } from '../../src/artifacts/synthetic.js';
+import DCS from '../../src/scenarios/dc-manual-certificate-request.js';
 
 let M, EV, S;
 beforeAll(async () => { ({ model: M, evidence: EV, scenario: S } = await loadModel()); });
@@ -23,7 +24,7 @@ describe('artifact manifest consistency', () => {
     for (const a of manifest.artifacts) {
       for (const k of ['filename', 'artifactType', 'subject', 'issuer', 'serialNumber', 'thumbprints', 'validity', 'san', 'eku', 'aia', 'cdp', 'relatedRequest', 'stage']) expect(a, `${a.filename}.${k}`).toHaveProperty(k);
       expect(a.demonstrationFixture).toBe(true);
-      expect(S.stages.map((s) => s.id)).toContain(a.stage);
+      expect([...S.stages, ...DCS.stages].map((s) => s.id)).toContain(a.stage);
     }
   });
   it('manifest values match the parsed files', () => {
@@ -131,7 +132,7 @@ describe('no private keys committed', () => {
       }
     }
     const fx = readdirSync(join(root, 'fixtures/certificates')).concat(readdirSync(join(root, 'fixtures/requests')));
-    expect(fx.some((n) => /key|pfx|p12/i.test(n))).toBe(false);
+    expect(fx.some((n) => /\.(key|pfx|p12|pk8)$/i.test(n))).toBe(false);
   });
   it('fixture generator never writes key material', () => {
     const g = readFileSync(join(root, 'scripts/generate-fixtures/generate.mjs'), 'utf8');

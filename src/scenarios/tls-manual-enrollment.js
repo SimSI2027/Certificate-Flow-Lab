@@ -2,6 +2,8 @@
 // Data only. The engine (src/engine) interprets this structure; other scenarios can reuse the engine
 // by exporting an object with the same shape (see docs/SCENARIO_MODEL.md).
 import { ENV, URLS, TEMPLATE } from '../artifacts/synthetic.js';
+import * as PRES from './tls-presentation.js';
+import { TLS_EXPLAIN } from './explain.js';
 
 const P = { need: 'Need', request: 'Request', policy: 'Policy', issue: 'Issue', install: 'Install', bind: 'Bind', connect: 'Connect', validate: 'Validate', trust: 'Trust' };
 
@@ -161,7 +163,7 @@ export const tour = [
   { id: 't11', stage: 'bind', title: 'Bind to IIS', text: 'IIS gets an HTTPS binding for portal.simsi2027.test on port 443.' },
   { id: 't12', stage: 'retry', title: 'Retry from CLIENT01', text: 'Jordan retries the website.' },
   { id: 't13', stage: 'chain-build', title: 'Build the chain', text: 'CLIENT01 builds leaf, issuing CA and root into a chain.', select: { entity: 'chain' } },
-  { id: 't14', stage: 'revocation', title: 'AIA and CDP', text: 'AIA found the issuing CA certificate; the CDP supplied the CRL. Different jobs, different URLs.', select: { entity: 'pkiweb01' } },
+  { id: 't14', stage: 'revocation', title: 'AIA and CDP', text: 'AIA found the issuing CA certificate; the CDP supplied the CRL. Different jobs, different URLs.', select: { entity: 'aia' } },
   { id: 't15', stage: 'trust', title: 'Trusted result', text: 'Every check passed and the connection is trusted.' },
   { id: 't16', stage: 'trust', title: 'Reverse evidence mode', text: 'Now tracing evidence backward: why is the site trusted?', reverse: true },
   { id: 't17', stage: 'trust', title: 'Your turn', text: 'The tour is finished. Try a failure scenario, or step through the lifecycle yourself.', handoff: true }
@@ -172,4 +174,16 @@ export const futureScenarios = [
   'ocsp-validation', 'smartcard-logon', 'client-authentication', 'cross-forest-enrollment'
 ];
 
-export default { id: 'tls-manual-enrollment', title: 'Manual TLS enrollment', version: '0.1.0', initialState, stages, flows, artifacts, faults, faultPatches, evidenceTrace, tour, futureScenarios };
+const EVIDENCE_KIND = { trusted: 'Derived conclusion', 'leaf-policy': 'Real fixture data', 'ica-signature': 'Real fixture data', 'root-reached': 'Real fixture data', 'revocation-ok': 'Real fixture data',
+  binding: 'Simulated environment', installed: 'Real fixture data', produced: 'Real fixture data', template: 'Simulated environment', 'csr-name': 'Real fixture data', key: 'Simulated environment', owner: 'Simulated environment', visitor: 'Simulated environment' };
+
+export default {
+  id: 'tls-manual-enrollment', title: 'Website TLS Certificate', version: '0.3.0',
+  subtitle: 'An IIS application receives and deploys a server certificate.',
+  home: PRES.home, initialState,
+  stages: stages.map((s) => ({ ...s, explain: TLS_EXPLAIN[s.id], show: PRES.SHOW[s.id] ?? [] })),
+  flows: flows.map((f) => ({ ...f, ...(PRES.FLOW_META[f.id] ?? {}) })),
+  artifacts, faults, faultPatches,
+  evidenceTrace: evidenceTrace.map((e) => ({ ...e, evidenceKind: EVIDENCE_KIND[e.id] })),
+  tour, futureScenarios, layout: PRES.layout, zones: PRES.zones, zoneOf: PRES.zoneOf, statusOf: PRES.statusOf, overrides: PRES.overrides, entityIds: PRES.entityIds, rootLink: PRES.rootLink
+};

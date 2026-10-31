@@ -1,0 +1,158 @@
+{
+  "policy": "Custom flat icon family drawn for Certificate Flow Lab. Not official Microsoft icons. No external icon assets are used.",
+  "icons": [
+    {
+      "id": "user",
+      "label": "Person",
+      "description": "A person (visitor, owner or operator)",
+      "origin": "custom",
+      "official": false,
+      "modified": false,
+      "source": "src/views/icons.js"
+    },
+    {
+      "id": "client",
+      "label": "Client computer",
+      "description": "A desktop computer with a monitor",
+      "origin": "custom",
+      "official": false,
+      "modified": false,
+      "source": "src/views/icons.js"
+    },
+    {
+      "id": "browser",
+      "label": "Browser window",
+      "description": "A web browser window with a padlock",
+      "origin": "custom",
+      "official": false,
+      "modified": false,
+      "source": "src/views/icons.js"
+    },
+    {
+      "id": "server",
+      "label": "Server",
+      "description": "A rack server",
+      "origin": "custom",
+      "official": false,
+      "modified": false,
+      "source": "src/views/icons.js"
+    },
+    {
+      "id": "iis",
+      "label": "IIS web binding",
+      "description": "A web site with a globe, representing an IIS HTTPS binding",
+      "origin": "custom",
+      "official": false,
+      "modified": false,
+      "source": "src/views/icons.js"
+    },
+    {
+      "id": "csr",
+      "label": "Certificate request",
+      "description": "A document with a key hole, representing a CSR",
+      "origin": "custom",
+      "official": false,
+      "modified": false,
+      "source": "src/views/icons.js"
+    },
+    {
+      "id": "policy",
+      "label": "Policy gate",
+      "description": "A shield with a checklist, representing template policy",
+      "origin": "custom",
+      "official": false,
+      "modified": false,
+      "source": "src/views/icons.js"
+    },
+    {
+      "id": "ca",
+      "label": "Issuing CA",
+      "description": "A server with a certificate seal, representing the online Issuing CA",
+      "origin": "custom",
+      "official": false,
+      "modified": false,
+      "source": "src/views/icons.js"
+    },
+    {
+      "id": "root",
+      "label": "Offline Root CA",
+      "description": "A server with a padlock, representing the offline Root CA trust anchor",
+      "origin": "custom",
+      "official": false,
+      "modified": false,
+      "source": "src/views/icons.js"
+    },
+    {
+      "id": "db",
+      "label": "Database",
+      "description": "A database cylinder",
+      "origin": "custom",
+      "official": false,
+      "modified": false,
+      "source": "src/views/icons.js"
+    },
+    {
+      "id": "repo",
+      "label": "Publication server",
+      "description": "A web server publishing PKI files",
+      "origin": "custom",
+      "official": false,
+      "modified": false,
+      "source": "src/views/icons.js"
+    },
+    {
+      "id": "aia",
+      "label": "AIA repository",
+      "description": "A certificate with a download arrow, representing issuer certificate download (AIA)",
+      "origin": "custom",
+      "official": false,
+      "modified": false,
+      "source": "src/views/icons.js"
+    },
+    {
+      "id": "cdp",
+      "label": "CDP / CRL repository",
+      "description": "A list with a blocked entry, representing a certificate revocation list (CDP)",
+      "origin": "custom",
+      "official": false,
+      "modified": false,
+      "source": "src/views/icons.js"
+    },
+    {
+      "id": "cert",
+      "label": "Certificate",
+      "description": "A certificate with a ribbon",
+      "origin": "custom",
+      "official": false,
+      "modified": false,
+      "source": "src/views/icons.js"
+    },
+    {
+      "id": "shield",
+      "label": "Trust decision",
+      "description": "A shield, representing the trust decision",
+      "origin": "custom",
+      "official": false,
+      "modified": false,
+      "source": "src/views/icons.js"
+    },
+    {
+      "id": "dc",
+      "label": "Domain Controller",
+      "description": "A server with a directory tree badge, representing a Domain Controller",
+      "origin": "custom",
+      "official": false,
+      "modified": false,
+      "source": "src/views/icons.js"
+    },
+    {
+      "id": "store",
+      "label": "Certificate store",
+      "description": "A drawer holding certificates, representing a certificate store",
+      "origin": "custom",
+      "official": false,
+      "modified": false,
+      "source": "src/views/icons.js"
+    }
+  ]
+}

@@ -9,7 +9,7 @@ x509.cryptoProvider.set(globalThis.crypto);
 
 const EKU_NAMES = {
   '1.3.6.1.5.5.7.3.1': 'Server Authentication', '1.3.6.1.5.5.7.3.2': 'Client Authentication', '1.3.6.1.5.5.7.3.3': 'Code Signing',
-  '1.3.6.1.5.5.7.3.4': 'Secure Email', '1.3.6.1.4.1.311.20.2.2': 'Smart Card Logon'
+  '1.3.6.1.5.5.7.3.4': 'Secure Email', '1.3.6.1.4.1.311.20.2.2': 'Smart Card Logon', '1.3.6.1.5.2.3.5': 'KDC Authentication'
 };
 export const SERVER_AUTH = '1.3.6.1.5.5.7.3.1';
 const KU_FLAGS = [[1, 'Digital Signature'], [2, 'Non-Repudiation'], [4, 'Key Encipherment'], [8, 'Data Encipherment'], [16, 'Key Agreement'],
@@ -136,6 +136,20 @@ export async function parseCrl(pem, filename = '') {
   };
 }
 
+// ---- INF (teaching request policy) ----
+export function parseInf(text, filename = '') {
+  const fields = {}; let section = '';
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.replace(/\s;.*$/, '').trim();
+    if (!line || line.startsWith(';')) continue;
+    const sec = /^\[(.+)\]$/.exec(line);
+    if (sec) { section = sec[1]; continue; }
+    const kv = /^([^=]+?)\s*=\s*(.*)$/.exec(line);
+    if (kv) fields[`${section}.${kv[1].trim()}`] = kv[2].trim().replace(/^"|"$/g, '');
+  }
+  return { kind: 'inf', filename, text, fields, machineContext: String(fields['NewRequest.MachineKeySet']).toUpperCase() === 'TRUE', template: fields['RequestAttributes.CertificateTemplate'] };
+}
+
 // ---- Fixture set ----
 // files: { 'certificates/x.pem': text, ... }, manifest: parsed manifest.json
 export async function buildFixtureModel(files, manifest) {
@@ -148,6 +162,7 @@ export async function buildFixtureModel(files, manifest) {
     if (m.artifactType === 'certificate') parsed = await parseCertificate(text, m.filename);
     else if (m.artifactType === 'csr') parsed = await parseCsr(text, m.filename);
     else if (m.artifactType === 'crl') parsed = await parseCrl(text, m.filename);
+    else if (m.artifactType === 'inf') parsed = parseInf(text, m.filename);
     else parsed = { kind: 'chain', filename: m.filename, pem: text, certs: await Promise.all(splitPem(text).map((p) => parseCertificate(p))) };
     byFilename[m.filename] = { manifest: m, parsed, pemFilename: m.pemFilename };
     (roles[m.role] ??= []).push(byFilename[m.filename]);
@@ -205,6 +220,8 @@ export async function evaluate(model, faultId, scenario) {
   add('revocation', 'revocation', 'Certificate not revoked', cdpOk && !revokedEntry,
     !cdpOk ? 'Not evaluated: no CRL could be retrieved.' : revokedEntry ? `Serial ${leaf.serialNumber} is listed in CRL #${crl.crlNumber}: revoked ${revokedEntry.revocationDate}, reason ${revokedEntry.reason}.` : `Serial ${leaf.serialNumber} is not listed in CRL #${crl.crlNumber}.`);
 
+  const KINDS = { key: 'Simulated environment', aia: 'Simulated environment', cdp: 'Simulated environment', root: 'Simulated environment', name: 'Real fixture data', dates: 'Real fixture data', eku: 'Real fixture data', signatures: 'Real fixture data', revocation: 'Real fixture data' };
+  for (const c of checks) { c.basis = KINDS[c.id]; c.kind = c.status === 'fail' && faultId !== 'healthy' ? 'User-selected fault' : KINDS[c.id]; }
   const order = scenario.stages.map((s) => s.id);
   const sorted = [...checks].sort((a, b) => order.indexOf(a.stage) - order.indexOf(b.stage));
   const first = sorted.find((c) => c.status === 'fail') ?? null;
@@ -215,6 +232,7 @@ export async function evaluate(model, faultId, scenario) {
 
 export async function evaluateAll(model, scenario) {
   const out = {};
-  for (const f of scenario.faults) out[f.id] = await evaluate(model, f.id, scenario);
+  const fn = scenario.evaluate ?? evaluate;
+  for (const f of scenario.faults) out[f.id] = await fn(model, f.id, scenario);
   return out;
 }

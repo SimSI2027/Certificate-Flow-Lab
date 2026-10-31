@@ -9,6 +9,7 @@ const H = (html) => ({ html });
 const sec = (title, body, cls = '') => `<section class="card ${cls}"><h3>${esc(title)}</h3>${body}</section>`;
 const link = (type, id, text) => `<button class="linkbtn" data-open="${type}:${id}">${esc(text)}</button>`;
 const badge = (text, kind) => `<span class="pill pill-${kind}">${esc(text)}</span>`;
+const PRE_REQUEST = new Set(['visit', 'browser-error', 'report', 'owner-review', 'detect', 'inspect-dc01', 'choose-template', 'verify-permission', 'request-policy', 'keygen', 'csr', 'inspect-csr']);
 const SYN = '<p class="syn">Synthetic simulation data — not a real organization.</p>';
 
 const BROWSER_ERROR = {
@@ -142,7 +143,7 @@ export function describeFlow(id, ctx) {
   const result = fs.phase === 'idle' ? 'Not started' : fs.phase === 'active' ? 'In progress…' : fs.failed ? `FAILED — ${check?.detail ?? 'see failure card'}` : f.result;
   return `<h2>Flow: ${esc(entityById[f.from].label)} → ${esc(entityById[f.to].label)}</h2>${SYN}` + sec(scenario.stages[stageIndex(scenario, f.stage)].title, kv([
     ['Source', entityById[f.from].label], ['Destination', entityById[f.to].label], ['Conceptual protocol / transport', f.protocol], ['Payload', f.payload], ['Authenticated identity', f.identity],
-    ['Request ID', f.stage === 'visit' || f.stage === 'browser-error' || f.stage === 'report' || f.stage === 'owner-review' ? 'n/a (before the CA request exists)' : String(ENV.requestId)],
+    ['Request ID', PRE_REQUEST.has(f.stage) ? 'n/a (before the CA request exists)' : String(ENV.requestId)],
     ['Result', H(`${badge(fs.phase === 'done' ? (fs.failed ? 'failed' : 'done') : fs.phase, fs.failed ? 'fail' : fs.phase === 'done' ? 'ok' : 'idle')} ${esc(result)}`)],
     ['Simulated duration', f.durationMs >= 60000 ? `${Math.round(f.durationMs / 60000)} min (human time, simulated)` : `${f.durationMs} ms (simulated)`], ['Evidence generated', f.evidence]]));
 }
@@ -153,3 +154,5 @@ export function describeOtherArtifact(id, ctx) {
   if (id === 'ticket') return `<h2>Problem report</h2>${SYN}` + sec('Visitor report', kv([['From', ENV.visitor.user], ['To', ENV.owner.user], ['Content', 'Browser warning on https://portal.simsi2027.test'], ['Meaning', 'A report, not an enrollment request']]));
   return `<h2>${esc(a.label)}</h2>${SYN}<p>${esc(a.note ?? '')}</p>`;
 }
+
+export { kv, H, sec, link, badge, SYN, pubBlock };

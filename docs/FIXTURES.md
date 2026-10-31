@@ -48,3 +48,15 @@ All validation is evaluated at the fixed time `2026-10-31T14:05:00Z` so results 
 
 ## Native viewer allowlist
 Only the seven `.cer` files listed in `src/artifacts/native-ids.js` can be opened natively (local companion). CSR, CRL, PEM and chain files are never offered.
+
+## Domain Controller fixtures (v0.3.0)
+| path | notes |
+|------|-------|
+| `requests/dc01-request.inf` | teaching request policy (machine context, RSA 2048, template `KerberosAuthentication`); not a production recommendation |
+| `requests/dc01-request.{req,der}` | CSR for `CN=DC01.simsi2027.test`, SAN DNS DC01.simsi2027.test, template-name attribute |
+| `certificates/dc01-issued.{cer,pem}` | certificate signed by SIMSI2027-ICA01: Client, Server and KDC Authentication, Smart Card Logon; Key Usage digitalSignature + keyEncipherment; synthetic template OID `1.3.6.1.4.1.311.21.8.2027.1.2` v100.5 |
+| `certificates/dc01-chain.pem` | certificate, issuing CA, root |
+| `certificates/fault-dc-{wrong-eku,san-missing,key-mismatch,expired}.*` | fault variants (the key-mismatch certificate is issued for a different key pair) |
+| `requests/fault-user-context.inf` | same policy with `MachineKeySet = FALSE` |
+
+Faults without special files (template not published, no Enroll permission, CA unavailable, pending approval, missing AIA, CDP unavailable) use the healthy files with simulated conditions that the Evidence tab labels *Simulated environment* or *User-selected fault*. The generator keeps all private keys in memory only.

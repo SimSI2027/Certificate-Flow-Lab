@@ -35,3 +35,6 @@ The engine itself (`src/engine/engine.js`) contains no stage names and should no
 ## Expansion points added in v0.2.0
 - Device and user certificate scenarios can add IDs to `native-ids.js` (CER only) and new film schedules next to `src/film/schedule.js`.
 - Public deployment is automatic for every stable `main` update.
+
+## v0.3.0 note
+The scenario home shows only a quiet "Coming later" list (NDES / SCEP, CEP / CES, autoenrollment, AIA chain retrieval, CRL and OCSP validation); nothing future is rendered in the workspace. A new scenario needs a module with the shape in `SCENARIO_MODEL.md`, an entry in `src/scenarios/index.js`, and its entities in `src/entities/entities.js`. The Domain Controller follow-up step already points to `autoenrollment`.

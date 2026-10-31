@@ -14,3 +14,10 @@
 - **Launcher cleanup.** Ctrl+C and normal exit stop Vite and the companion (process trees via taskkill, in try/finally). The companion also exits by itself if its launcher disappears. Terminating the launcher externally with extreme force (or a crash of the console host) can bypass cleanup and leave Vite running; the next launch reuses it, or `-StopStale` stops it.
 - **Public demo is static.** GitHub Pages serves the production bundle; the native Windows viewer, FFmpeg video export and companion exist only locally. The film is rendered with headless Edge/Chromium, so pixel output can differ slightly across machines even though timing/state are deterministic.
 - **Native viewer** opens the CER via Explorer's registered handler, so the exact dialog depends on the Windows installation.
+
+## v0.3.0 additions
+- **Domain Controller scenario is educational.** The KerberosAuthentication template, its purposes, permissions and the INF are synthetic and plausible, not read from a CA. Real Domain Controller templates usually build subject and SAN from Active Directory; the simulation lets the request supply them and says so. Exact settings depend on your AD CS configuration.
+- **Manual enrollment does not replace investigating autoenrollment.** The simulation ends on that point.
+- **Icons are custom** (no official Microsoft icons); they are not a Microsoft product representation.
+- **Auto-fit zoom and layout** are tuned for the two shipped scenarios; very long names are compressed with SVG text-length adjustment.
+- **Video** renders with headless Edge/Chromium; pixel output may differ slightly across machines.

@@ -18,7 +18,7 @@ describe('detail panels', () => {
   it('every entity and flow produces content without throwing, for every fault', () => {
     for (const f of ['healthy', ...FAULT_IDS]) {
       const c = ctxFor(f, 99);
-      for (const e of entities) expect(describeEntity(e.id, c).length, `${f}/${e.id}`).toBeGreaterThan(100);
+      for (const e of entities.filter((x) => c.scenario.entityIds.includes(x.id))) expect(describeEntity(e.id, c).length, `${f}/${e.id}`).toBeGreaterThan(100);
       for (const fl of c.scenario.flows) expect(describeFlow(fl.id, c)).toContain('Conceptual protocol');
     }
   });

@@ -24,8 +24,8 @@ try {
         & $nodePath @nodeArgs
         if ($LASTEXITCODE -ne 0) { throw "Video export failed (exit code $LASTEXITCODE)." }
     } finally { Pop-Location }
-    $mp4 = Join-Path $root 'output\certificate-flow-lab-v0.2.0.mp4'
-    $sheet = Join-Path $root 'output\certificate-flow-lab-contact-sheet.jpg'
+    $mp4 = Join-Path $root 'output\certificate-flow-lab-v0.3.0.mp4'
+    $sheet = Join-Path $root 'output\certificate-flow-lab-v0.3.0-contact-sheet.jpg'
     foreach ($f in $mp4, $sheet) { $i = Get-Item $f; Write-Info ("{0}  ({1:N1} MB)" -f $i.FullName, ($i.Length / 1MB)) }
     & ffprobe -v error -show_entries stream=codec_name,width,height,r_frame_rate,pix_fmt -show_entries format=duration -of default=nw=1 $mp4
 } catch {

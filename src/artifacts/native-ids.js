@@ -8,7 +8,12 @@ export const NATIVE_CERTIFICATES = Object.freeze({
   'fault-wrong-dns': 'fault-wrong-dns.cer',
   'fault-expired': 'fault-expired.cer',
   'fault-wrong-eku': 'fault-wrong-eku.cer',
-  'fault-revoked': 'fault-revoked.cer'
+  'fault-revoked': 'fault-revoked.cer',
+  'dc-issued': 'dc01-issued.cer',
+  'fault-dc-wrong-eku': 'fault-dc-wrong-eku.cer',
+  'fault-dc-san-missing': 'fault-dc-san-missing.cer',
+  'fault-dc-key-mismatch': 'fault-dc-key-mismatch.cer',
+  'fault-dc-expired': 'fault-dc-expired.cer'
 });
 
 // manifest filename (certificates/<file>.cer) -> artifact id

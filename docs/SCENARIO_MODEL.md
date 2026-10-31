@@ -55,3 +55,19 @@ A fault halts at `failStage`: `maxT` becomes that stage + 1, step forward cannot
 
 ## Film time (v0.2.0)
 Film time is a second, pure mapping on top of the model: `frameAt(seconds)` returns a session (`t` or `tReverse`, selections) that is fed to `computeState`. Nothing in the film owns state; captions are read from `computeState` output.
+
+## v0.3.0 additions
+| field | purpose |
+|-------|---------|
+| `subtitle`, `home` | card content for the scenario home (purpose, requester, destination, method) |
+| `stages[].explain` | `{what, why, who, where, next, local, wrong[], checks[], owner}` plain-language content |
+| `stages[].show` | extra entities to reveal at that step (for example the offline Root CA) |
+| `flows[].kind` / `route` / `lane` | line encoding (request, policy, cert, install, validate, trust) and orthogonal routing |
+| `layout`, `zones`, `zoneOf` | placement; exactly one zone has `offline: true` and sits at the far right |
+| `statusOf(id, state)` | node status derived from canonical state |
+| `faultStagePatches` | `{fault: {stageId: patch}}` for faults that change an earlier stage's outcome |
+| `evaluate(model, faultId, scenario)` | evidence checks (`kind`: Real fixture data / Simulated environment / User-selected fault) |
+| `evidenceTrace[].evidenceKind` | classification of each reverse-mode item |
+
+### Domain Controller scenario (`dc-manual-certificate-request`)
+18 stages in 10 milestone groups: Problem, Identity, Key, CSR, Submission, Policy, Issuance, Retrieval, Acceptance, Verification. Extra state fields: `dcCertState, identityState, templatePublished, permissionState, contextState, keyAssociation, purposeState, followupState`. Eleven faults halt at: choose-template, verify-permission, evaluate-policy (user context, pending), submit, key-match, inspect-purposes (EKU, SAN, expired) and verify-chain (AIA, CDP).

@@ -1,0 +1,24 @@
+; Certificate Flow Lab - SYNTHETIC teaching request policy for the simulation. Not a production recommendation.
+; The exact template, provider and settings that work in a real AD CS environment depend on its configuration.
+[Version]
+Signature = "$Windows NT$"
+
+[NewRequest]
+Subject = "CN=DC01.simsi2027.test"
+KeyLength = 2048                 ; RSA 2048 meets the template minimum in this simulation
+KeySpec = 1                      ; AT_KEYEXCHANGE (compatibility; the template also allows signing)
+KeyUsage = 0xA0                  ; digitalSignature (0x80) + keyEncipherment (0x20)
+Exportable = FALSE               ; the private key must not leave DC01
+MachineKeySet = FALSE             ; FALSE = current user key store (WRONG for a Domain Controller certificate)
+UseExistingKeySet = FALSE        ; create a new key pair on this computer
+ProviderName = "Microsoft RSA SChannel Cryptographic Provider"   ; legacy-compatible provider named for teaching
+ProviderType = 12
+RequestType = PKCS10
+HashAlgorithm = SHA256
+
+[RequestAttributes]
+CertificateTemplate = KerberosAuthentication   ; template name, not display name
+
+[Extensions]
+2.5.29.17 = "{text}"
+_continue_ = "dns=DC01.simsi2027.test&"

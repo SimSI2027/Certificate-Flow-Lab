@@ -65,9 +65,11 @@ export function worldAt(scenario, faultId, t) {
 }
 function stageDone(scenario, faultId, i, halt) {
   const st = scenario.stages[i];
-  if (halt !== i) return st.done;
+  const sp = scenario.faultStagePatches?.[faultId]?.[st.id]; // a fault may alter an earlier stage's outcome
+  const base = sp ? { ...st.done, ...sp } : st.done;
+  if (halt !== i) return base;
   const fp = scenario.faultPatches[faultId] ?? {};
-  return { ...st.done, ...fp, validation: { ...(st.done.validation ?? {}), ...(fp.validation ?? {}) } };
+  return { ...base, ...fp, validation: { ...(base.validation ?? {}), ...(fp.validation ?? {}) } };
 }
 
 // Evidence trace for reverse mode, filtered to what exists for this fault.

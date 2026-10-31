@@ -1,5 +1,5 @@
 // Artifact inspector: renders certificate / CSR / CRL / chain tabs from the real parsed fixtures.
-import { ENV } from '../artifacts/synthetic.js';
+import { ENV, DC } from '../artifacts/synthetic.js';
 import { colonHex } from '../artifacts/model.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -14,14 +14,30 @@ export const CRL_TABS = ['Issuer', 'This Update', 'Next Update', 'CRL number', '
 export const CHAIN_TABS = ['Chain', 'PEM'];
 export const tabId = (t) => t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
+export const INF_TABS = ['Summary', 'Fields', 'Raw INF'];
+const isDc = (ctx) => ctx?.scenario?.id === 'dc-manual-certificate-request';
+
 export function tabsFor(parsed) {
-  return { certificate: CERT_TABS, csr: CSR_TABS, crl: CRL_TABS, chain: CHAIN_TABS }[parsed.kind];
+  return { certificate: CERT_TABS, csr: CSR_TABS, crl: CRL_TABS, chain: CHAIN_TABS, inf: INF_TABS }[parsed.kind];
 }
 
 export function renderTab(parsed, tab, ctx) {
   const t = typeof tab === 'string' && tabsFor(parsed).includes(tab) ? tab : tabsFor(parsed).find((x) => tabId(x) === tab);
-  const fn = { certificate: certTab, csr: csrTab, crl: crlTab, chain: chainTab }[parsed.kind];
+  const fn = { certificate: certTab, csr: csrTab, crl: crlTab, chain: chainTab, inf: infTab }[parsed.kind];
   return fn(parsed, t, ctx);
+}
+
+function infTab(i, tab) {
+  const f = i.fields;
+  switch (tab) {
+    case 'Summary':
+      return kv([['What it is', 'A teaching request policy (INF) that certreq.exe reads to build the CSR'], ['Subject', f['NewRequest.Subject']], ['Template requested', i.template], ['Key', `${f['NewRequest.KeyLength']}-bit, ${f['NewRequest.HashAlgorithm']}`],
+        ['Key store', { html: `<span class="pill pill-${i.machineContext ? 'ok' : 'fail'}">${i.machineContext ? 'Local Computer (machine context)' : 'Current user (wrong for a Domain Controller)'}</span>` }],
+        ['Exportable', f['NewRequest.Exportable']], ['Notice', 'Synthetic teaching sample; not a recommendation for every environment.']]);
+    case 'Fields': return `<table class="tbl"><tr><th>Setting</th><th>Value</th></tr>${Object.entries(f).map(([k, v]) => `<tr><td class="mono">${esc(k)}</td><td class="mono">${esc(v)}</td></tr>`).join('')}</table>`;
+    case 'Raw INF': return pre(i.text);
+    default: return '';
+  }
 }
 
 function certTab(c, tab, ctx) {
@@ -51,10 +67,10 @@ function certTab(c, tab, ctx) {
     case 'Issuance history': {
       const leafLike = c.template;
       return kv([['Request ID', c.template ? String(ENV.requestId) : 'n/a (CA certificate, issued in an offline ceremony — synthetic)'], ['Issuing CA', c.issuer], ['Template', leafLike ? `${c.template.name}${c.template.oid ? ` (${c.template.oid} v${c.template.version})` : ''}` : 'n/a'],
-        ['Requester', leafLike ? ENV.owner.user : 'n/a'], ['Serial number', mono(c.serialNumber)], ['Disposition', 'Issued'], ['Issued (not before)', c.notBefore], ['Note', 'Synthetic simulation history; derived from the fixture, not from a live CA.']]);
+        ['Requester', leafLike ? (isDc(ctx) ? `${DC.operator}, for computer DC01$ (machine context)` : ENV.owner.user) : 'n/a'], ['Serial number', mono(c.serialNumber)], ['Disposition', 'Issued'], ['Issued (not before)', c.notBefore], ['Note', 'Synthetic simulation history; derived from the fixture, not from a live CA.']]);
     }
     case 'Matching CSR': {
-      const csr = model.resolve('csr', state.activeFault)?.parsed;
+      const csr = model.resolve(isDc(ctx) ? 'dc-csr' : 'csr', state.activeFault)?.parsed;
       if (!csr || !c.template) return '<p class="muted">Only end-entity certificates have a matching CSR in this simulation.</p>';
       const same = csr.publicKey.spkiSha256 === c.publicKey.spkiSha256;
       const sanSame = JSON.stringify(csr.san) === JSON.stringify(c.san);
@@ -73,7 +89,7 @@ function statusOf(c, ctx) {
 
 function pathView(c, ctx) {
   const { model, state, evidence } = ctx;
-  const leaf = model.resolve('leaf', state.activeFault).parsed, ica = model.resolve('ica', state.activeFault).parsed, root = model.resolve('root', state.activeFault).parsed;
+  const leaf = model.resolve(isDc(ctx) ? 'dc-cert' : 'leaf', state.activeFault).parsed, ica = model.resolve('ica', state.activeFault).parsed, root = model.resolve('root', state.activeFault).parsed;
   const ev = evidence[state.activeFault];
   const item = (x, label, depth, role) => `<li style="margin-left:${depth * 18}px"><button class="linkbtn" data-open="artifact:${role}">${esc(label)}</button> <span class="muted">${esc(x.subject.split(',')[0])}</span></li>`;
   return `<ul class="path">${item(root, 'Root CA', 0, 'root')}${item(ica, 'Issuing CA', 1, 'ica')}${item(leaf, 'Website certificate', 2, 'leaf')}</ul>` +

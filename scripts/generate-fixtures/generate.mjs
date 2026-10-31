@@ -141,6 +141,85 @@ files.push({ filename: 'certificates/portal.simsi2027.test-chain.pem', pemFilena
   validity: null, san: sans(leafOk), eku: ['serverAuth'], aia: [], cdp: [], relatedRequest: rid, stage: 'chain-build', role: 'chain', fault: null,
   demonstrationFixture: true, notice: `${DEMO} (leaf, issuing CA, root; concatenated PEM)` });
 
+// ======================= Domain Controller manual-enrollment fixtures (scenario dc-manual-certificate-request) =======================
+const DC_NAME = 'DC01.simsi2027.test';
+const DC_TPL = { name: 'KerberosAuthentication', oid: '1.3.6.1.4.1.311.21.8.2027.1.2', major: 100, minor: 5 };
+const KDC_AUTH = '1.3.6.1.5.2.3.5', SMARTCARD_LOGON = '1.3.6.1.4.1.311.20.2.2';
+const dcKeys = await gen(), otherKeys = await gen(); // memory only; never written
+const dcCsr = await x509.Pkcs10CertificateRequestGenerator.create({
+  name: `CN=${DC_NAME}`, keys: dcKeys, signingAlgorithm: alg,
+  extensions: [new x509.SubjectAlternativeNameExtension([{ type: 'dns', value: DC_NAME }]), templateNameExt(DC_TPL),
+    ku(x509.KeyUsageFlags.digitalSignature | x509.KeyUsageFlags.keyEncipherment)]
+});
+const dcLeaf = async ({ serial, san = DC_NAME, eku = [EKU.clientAuth, EKU.serverAuth, KDC_AUTH, SMARTCARD_LOGON], nb = '2026-10-30T00:00:00Z', na = '2027-10-30T00:00:00Z', keys = dcKeys }) =>
+  x509.X509CertificateGenerator.create({
+    serialNumber: serial, subject: `CN=${DC_NAME}`, issuer: icaCert.subject, notBefore: D(nb), notAfter: D(na),
+    signingKey: icaKeys.privateKey, publicKey: keys.publicKey, signingAlgorithm: alg,
+    extensions: [new x509.BasicConstraintsExtension(false, undefined, true), ku(x509.KeyUsageFlags.digitalSignature | x509.KeyUsageFlags.keyEncipherment),
+      new x509.ExtendedKeyUsageExtension(eku), new x509.SubjectAlternativeNameExtension([{ type: 'dns', value: san }]),
+      await x509.SubjectKeyIdentifierExtension.create(keys.publicKey), await x509.AuthorityKeyIdentifierExtension.create(icaCert, false),
+      new x509.AuthorityInfoAccessExtension({ caIssuers: [URLS.icaAia] }), new x509.CRLDistributionPointsExtension([URLS.icaCdp]),
+      templateNameExt(DC_TPL), templateInfoExt(DC_TPL)]
+  });
+const dcCert = await dcLeaf({ serial: '2027000000000000000000000000DC01' });
+const dcWrongEku = await dcLeaf({ serial: '2027000000000000000000000000DC02', eku: [EKU.clientAuth] });
+const dcSanMissing = await dcLeaf({ serial: '2027000000000000000000000000DC03', san: 'simsi2027.test' });
+const dcKeyMismatch = await dcLeaf({ serial: '2027000000000000000000000000DC04', keys: otherKeys });
+const dcExpired = await dcLeaf({ serial: '2027000000000000000000000000DC05', nb: '2026-02-01T00:00:00Z', na: '2026-09-30T00:00:00Z' });
+
+const infText = (machine) => `; Certificate Flow Lab - SYNTHETIC teaching request policy for the simulation. Not a production recommendation.
+; The exact template, provider and settings that work in a real AD CS environment depend on its configuration.
+[Version]
+Signature = "$Windows NT$"
+
+[NewRequest]
+Subject = "CN=${DC_NAME}"
+KeyLength = 2048                 ; RSA 2048 meets the template minimum in this simulation
+KeySpec = 1                      ; AT_KEYEXCHANGE (compatibility; the template also allows signing)
+KeyUsage = 0xA0                  ; digitalSignature (0x80) + keyEncipherment (0x20)
+Exportable = FALSE               ; the private key must not leave DC01
+MachineKeySet = ${machine ? 'TRUE ' : 'FALSE'}             ; ${machine ? 'TRUE = Local Computer key store (machine context)' : 'FALSE = current user key store (WRONG for a Domain Controller certificate)'}
+UseExistingKeySet = FALSE        ; create a new key pair on this computer
+ProviderName = "Microsoft RSA SChannel Cryptographic Provider"   ; legacy-compatible provider named for teaching
+ProviderType = 12
+RequestType = PKCS10
+HashAlgorithm = SHA256
+
+[RequestAttributes]
+CertificateTemplate = ${DC_TPL.name}   ; template name, not display name
+
+[Extensions]
+2.5.29.17 = "{text}"
+_continue_ = "dns=${DC_NAME}&"
+`;
+const textDigest = (s) => ({ sha1: sha('sha1', Buffer.from(s)), sha256: sha('sha256', Buffer.from(s)) });
+function addInf(name, text, fault) {
+  write('requests', name, text);
+  files.push({ filename: `requests/${name}`, pemFilename: `requests/${name}`, artifactType: 'inf', subject: `CN=${DC_NAME}`, issuer: null, serialNumber: null, thumbprints: textDigest(text),
+    validity: null, san: [`DNS=${DC_NAME}`], eku: [], aia: [], cdp: [], relatedRequest: rid, stage: 'request-policy', role: 'dc-inf', fault, demonstrationFixture: true, notice: `${DEMO} (teaching request policy, not a recommendation)` });
+}
+addInf('dc01-request.inf', infText(true), null);
+addInf('fault-user-context.inf', infText(false), 'user-context');
+
+write('requests', 'dc01-request.req', pem(dcCsr)); write('requests', 'dc01-request.der', null, der(dcCsr));
+files.push({ filename: 'requests/dc01-request.der', pemFilename: 'requests/dc01-request.req', artifactType: 'csr', subject: dcCsr.subject, issuer: null, serialNumber: null,
+  thumbprints: { sha1: sha('sha1', der(dcCsr)), sha256: sha('sha256', der(dcCsr)) }, validity: null,
+  san: [`DNS=${DC_NAME}`], eku: [], aia: [], cdp: [], relatedRequest: rid, stage: 'csr', role: 'dc-csr', fault: null, demonstrationFixture: true, notice: DEMO });
+
+function addDcCert(name, cert, fault) {
+  addCert(name, cert, { relatedRequest: rid, stage: 'retrieve', role: 'dc-cert', fault });
+}
+addDcCert('dc01-issued', dcCert, null);
+addDcCert('fault-dc-wrong-eku', dcWrongEku, 'wrong-eku');
+addDcCert('fault-dc-san-missing', dcSanMissing, 'san-missing');
+addDcCert('fault-dc-key-mismatch', dcKeyMismatch, 'key-mismatch');
+addDcCert('fault-dc-expired', dcExpired, 'expired');
+const dcChainPem = pem(dcCert) + pem(icaCert) + pem(rootCert);
+write('certificates', 'dc01-chain.pem', dcChainPem);
+files.push({ filename: 'certificates/dc01-chain.pem', pemFilename: 'certificates/dc01-chain.pem', artifactType: 'chain', subject: dcCert.subject, issuer: rootCert.subject, serialNumber: null,
+  thumbprints: textDigest(dcChainPem), validity: null, san: sans(dcCert), eku: [], aia: [], cdp: [], relatedRequest: rid, stage: 'verify-chain', role: 'dc-chain', fault: null,
+  demonstrationFixture: true, notice: `${DEMO} (leaf, issuing CA, root; concatenated PEM)` });
+
 write('manifests', 'manifest.json', JSON.stringify({
   notice: 'Synthetic demonstration fixtures generated for Certificate Flow Lab. Not connected to any real PKI. No private keys are distributed.',
   generator: 'scripts/generate-fixtures/generate.mjs', simulationNow: ENV.simulationNow, artifacts: files }, null, 2) + '\n');

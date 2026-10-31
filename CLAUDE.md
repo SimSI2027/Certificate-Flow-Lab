@@ -35,5 +35,13 @@
 - Before reporting a release complete, verify the live Pages deployment matches the newest `main` commit. Never leave the public demo behind stable `main`.
 - The native Windows certificate viewer is local-only (loopback companion with allowlist + token); never expose it publicly.
 
+## Presentation rules (v0.3.0)
+- Default to the scenario-first focused flow; full topology is optional, never the initial view.
+- The offline Root CA belongs in the far-right Offline Trust zone and must never appear in the leaf (or Domain Controller) issuance path.
+- Every stage needs a plain-language explanation before technical details.
+- Paused artifacts stay clickable and inspectable; selecting never resets the scenario position.
+- Official icons must follow their source terms and be recorded in assets/icons/SOURCES.md; custom icons must never be represented as official Microsoft icons.
+- Stable releases must update main and the GitHub Pages demo.
+
 ## Future expansion points to preserve
 NDES, SCEP, CEP, CES, autoenrollment, AIA retrieval, CDP/CRL validation, OCSP, smart-card, device and user certificates, client authentication, cross-forest enrollment.

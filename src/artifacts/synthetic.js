@@ -26,6 +26,13 @@ export const TEMPLATE = {
   major: 100,
   minor: 4
 };
+// Domain Controller manual-enrollment scenario (synthetic).
+export const DC = {
+  host: 'DC01', fqdn: 'DC01.simsi2027.test', ip: '10.20.10.10', operator: 'SIMSI2027\\PKIOperator',
+  template: 'KerberosAuthentication', altTemplate: 'DomainControllerAuthentication',
+  caConfig: 'SIMSI2027-ICA01\\SIMSI2027 Issuing CA', requestId: 1042,
+  templateOid: '1.3.6.1.4.1.311.21.8.2027.1.2', templateVersion: '100.5'
+};
 export const OIDS = {
   templateName: '1.3.6.1.4.1.311.20.2',
   templateInfo: '1.3.6.1.4.1.311.21.7',
