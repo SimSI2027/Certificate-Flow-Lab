@@ -2,7 +2,11 @@
 
 *Interactive certificate issuance, deployment and trust visualization.*
 
-Version 0.1.0 — one complete Microsoft-style enterprise TLS enrollment flow, from a visitor's browser warning to a trusted HTTPS connection.
+**Live demo: https://simsi2027.github.io/Certificate-Flow-Lab/** · Repository: https://github.com/SimSI2027/Certificate-Flow-Lab
+
+The public demo is a synthetic simulation and is redeployed automatically by GitHub Actions on every update to `main`.
+
+Version 0.2.0 — one complete Microsoft-style enterprise TLS enrollment flow, from a visitor's browser warning to a trusted HTTPS connection.
 
 > **This is synthetic simulation data.**
 > - It is **not connected to any production PKI** or any real Active Directory.
