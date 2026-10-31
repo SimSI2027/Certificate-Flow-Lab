@@ -6,6 +6,8 @@ import { describeEntity, describeFlow, describeOtherArtifact, faultExplanation, 
 import { tabsFor, tabId, renderTab } from '../inspectors/inspector.js';
 import { Tour, TOUR_RESUME_MS } from '../tour/tour.js';
 import { ENV } from '../artifacts/synthetic.js';
+import { Native } from './native.js';
+import { nativeIdForFilename } from '../artifacts/native-ids.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -19,7 +21,9 @@ export class App {
     this.panel = 'overview'; this.inspTab = null; this.lastKey = ''; this.lastFrame = 0;
     this.scene = new Scene($('#scene'), (sel) => this.select(sel), scenario);
     this.tour = new Tour(scenario.tour, this.tourApi(), { resumeMs: Number(params.get('tourResume')) || TOUR_RESUME_MS });
+    this.native = new Native();
     this.bind(); this.buildStaticControls();
+    if (!params.has('film')) this.native.init(() => this.render(true));
     this.render(true);
     requestAnimationFrame((ts) => this.frame(ts));
     window.__cfl = { app: this, getState: () => this.state(), session: this.session, tour: this.tour };
@@ -104,6 +108,8 @@ export class App {
     if (open) { const [type, id] = open.dataset.open.split(':'); this.select({ type, id }); return; }
     const tab = e.target.closest('[data-tab]');
     if (tab) { this.inspTab = tab.dataset.tab; this.render(true); return; }
+    const nat = e.target.closest('[data-native]');
+    if (nat && !nat.disabled) { this.native.open(nat.dataset.native).then(() => this.render(true)); return; }
     const ev = e.target.closest('[data-evidence]');
     if (ev) { this.pause(); if (this.session.direction !== 'reverse') this.session.direction = 'reverse'; this.session.tReverse = Number(ev.dataset.evidence) + 1; this.panel = 'evidence'; this.buildJump(); this.render(true); }
   }
@@ -197,6 +203,7 @@ export class App {
     const title = parsed.kind === 'chain' ? 'Certificate chain file' : parsed.subject ?? parsed.issuer;
     el.innerHTML = `<h2>${esc(a.label)}</h2><p class="syn">Demonstration fixture — synthetic, parsed from <span class="mono">${esc(m.filename)}</span>.</p><p class="insp-title">${esc(title)}</p>
       <div class="downloads">${dl}${chainDl}</div>
+      ${this.nativeBlock(m, parsed)}
       <div role="tablist" class="tabs" aria-label="Inspector tabs">${tabs.map((t) => `<button role="tab" class="tab" data-tab="${tabId(t)}" aria-selected="${t === cur}">${esc(t)}</button>`).join('')}</div>
       <div class="tabpanel" role="tabpanel" data-active-tab="${tabId(cur)}">${renderTab(parsed, cur, c)}</div>`;
   }
@@ -214,6 +221,16 @@ export class App {
           ${e.artifact ? `<p>${this.sc.artifacts.find((a) => a.id === e.artifact)?.inspectable ? `<button class="linkbtn" data-open="artifact:${e.artifact}">Inspect ${esc(this.sc.artifacts.find((a) => a.id === e.artifact).label)}</button>` : `<button class="linkbtn" data-open="artifact:${e.artifact}">View ${esc(e.artifact)}</button>`}</p>` : ''}
           ${e.entity ? `<p><button class="linkbtn" data-open="entity:${e.entity}">Open ${esc(entityById[e.entity].label)}</button></p>` : ''}</div>` : ''}</li>`;
       }).join('')}</ol>`;
+  }
+
+  // Native Windows viewer control: certificates only; operational only when the local companion is reachable.
+  nativeBlock(m, parsed) {
+    if (parsed.kind !== 'certificate') return '';
+    const id = nativeIdForFilename(m.filename);
+    if (!id) return '';
+    const n = this.native;
+    const ok = n.ready && n.ids.includes(id);
+    return `<div class="native"><button class="btn small" data-native="${id}" ${ok ? '' : 'disabled'}>Open in Windows Certificate Viewer</button> <span class="muted" data-native-note>${esc(n.note())}</span></div>`;
   }
 
   // ---- tour ----

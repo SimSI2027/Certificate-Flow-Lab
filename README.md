@@ -39,7 +39,7 @@ Easiest (Windows PowerShell 5.1+):
 .\tools\windows\Launch-Demo.ps1
 ```
 
-The launcher verifies Node/npm, installs dependencies if missing, starts (or reuses) the server at `http://127.0.0.1:5183/`, opens your browser and stays open until **Ctrl+C**. It refuses to run if an unrelated program is using the port.
+The launcher verifies Node/npm, installs dependencies if missing, starts (or reuses) the server at `http://127.0.0.1:5183/`, opens your browser and stays open until **Ctrl+C**. It refuses to run if an unrelated program is using either port.
 
 Optional desktop-style shortcut (machine-specific, ignored by Git):
 
@@ -88,3 +88,28 @@ NDES / SCEP device enrollment, CEP/CES enrollment, autoenrollment, AIA chain ret
 - [Fixtures](docs/FIXTURES.md)
 - [Limitations](docs/LIMITATIONS.md)
 - [Future scenarios](docs/FUTURE_SCENARIOS.md)
+
+## v0.2.0 additions
+
+### Fastest Windows setup
+Run `Install-Shortcuts.ps1` once (no Administrator rights), then double-click **Certificate Flow Lab.lnk**. It also creates **Build and Preview Certificate Flow Lab.lnk** and **Export Certificate Flow Lab Video.lnk** (all git-ignored). Direct commands:
+
+```powershell
+.\tools\windows\Launch-Demo.ps1           # simulator :5183 + native-viewer companion :5184 (add -StopStale to replace leftovers)
+.\tools\windows\Build-And-Preview.ps1     # tests, production build, preview at http://127.0.0.1:5185/Certificate-Flow-Lab/
+.\tools\windows\Export-Video.ps1          # deterministic MP4 + contact sheet in output/ (needs FFmpeg + ffprobe)
+```
+`Ctrl+C` stops both child processes and their process trees. npm: `npm run dev`, `npm run build`, `npm test`, `npm run test:e2e`, `npm run fixtures:validate`, `npm run test:pages`, `npm run video`.
+
+### Two ways to view a certificate
+- **Browser inspector (everywhere, incl. GitHub Pages):** parses the real fixture and offers CER/PEM/chain downloads.
+- **Windows Certificate Viewer (local only):** when started with the launcher, an **Open in Windows Certificate Viewer** button appears for the root, issuing CA, website and fault CER fixtures. It talks to a loopback-only companion that only accepts allowlisted artifact IDs plus a per-session token. On the public site the control explains it is local-only and never contacts anything.
+
+### Video
+`npm run video` renders `output/certificate-flow-lab-v0.2.0.mp4` (1920x1080, 60 fps, H.264, yuv420p, faststart, silent, 45 s) and a contact sheet by driving the canonical scenario state frame by frame (no screen recording). Output is git-ignored.
+
+### Deployment
+Every push to `main` runs tests, fixture validation, the production build and a base-path smoke test, then deploys GitHub Pages. The page footer shows the version and commit; `version.json` on the site records the deployed commit.
+
+### Roadmap
+NDES, SCEP, CEP, CES, autoenrollment, AIA/CDP diagnostics and OCSP (see `docs/FUTURE_SCENARIOS.md`).

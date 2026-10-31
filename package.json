@@ -10,7 +10,10 @@
     "test:e2e": "playwright test",
     "fixtures:generate": "node scripts/generate-fixtures/generate.mjs",
     "fixtures:validate": "node scripts/validation/validate-fixtures.mjs",
-    "test:all": "vitest run && playwright test"
+    "test:all": "vitest run && playwright test",
+    "video": "node scripts/video/export-video.mjs",
+    "companion": "node tools/companion/server.mjs",
+    "test:pages": "node scripts/validation/pages-smoke.mjs"
   },
   "type": "module",
   "dependencies": {

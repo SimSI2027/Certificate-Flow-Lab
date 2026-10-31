@@ -45,3 +45,6 @@ All validation is evaluated at the fixed time `2026-10-31T14:05:00Z` so results 
 ## Validation
 
 `npm run fixtures:validate` checks the SAN, EKU, CSR signature and key match, the chain, signatures, CRL signature, the healthy and every fault evaluation, and key hygiene across the tree.
+
+## Native viewer allowlist
+Only the seven `.cer` files listed in `src/artifacts/native-ids.js` can be opened natively (local companion). CSR, CRL, PEM and chain files are never offered.

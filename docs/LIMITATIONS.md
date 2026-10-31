@@ -8,8 +8,9 @@
 - **One scenario.** Only `tls-manual-enrollment` is implemented. Nine further scenario identifiers are reserved (see `FUTURE_SCENARIOS.md`).
 - **Fault variants are single-fault.** Combined faults are not modeled. Stages after a halting fault are intentionally unreachable.
 - **No private keys exist** in the project, so the "key held on WEB01" state is a modeled marker only.
-- **No native Windows Certificate Viewer integration**, no certificate store access, no PowerShell enrollment commands.
+- **Native Windows certificate viewing is local-only and CER-only** (allowlisted fixtures via the loopback companion). There is no certificate store access and no enrollment commands.
 - **Layout/accessibility.** The scene is an SVG; elements are keyboard-focusable and labeled, but the diagram as a whole is a visual tool and not fully screen-reader narrated. The Overview/Details/Evidence panels carry the same information as text.
 - **Tested with Microsoft Edge (Chromium) via Playwright.** Other browsers are expected to work but are not part of the automated suite. Browser download events are cancelled in Edge headless mode in this environment, so the download test verifies the link, the file name and the served bytes rather than a saved file.
-- **Launcher.** `Launch-Demo.ps1` stops the server it started on Ctrl+C. A hard kill of the launcher window leaves the server running; the next launch detects and reuses it.
-- **Dev server only.** v0.1 is run locally; there is no hosted deployment.
+- **Launcher cleanup.** Ctrl+C and normal exit stop Vite and the companion (process trees via taskkill, in try/finally). The companion also exits by itself if its launcher disappears. Terminating the launcher externally with extreme force (or a crash of the console host) can bypass cleanup and leave Vite running; the next launch reuses it, or `-StopStale` stops it.
+- **Public demo is static.** GitHub Pages serves the production bundle; the native Windows viewer, FFmpeg video export and companion exist only locally. The film is rendered with headless Edge/Chromium, so pixel output can differ slightly across machines even though timing/state are deterministic.
+- **Native viewer** opens the CER via Explorer's registered handler, so the exact dialog depends on the Windows installation.

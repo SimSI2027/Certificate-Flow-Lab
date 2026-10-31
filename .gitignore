@@ -12,3 +12,5 @@ screenshots/
 *-key.pem
 *.log
 .env*
+output/*
+!output/README.md

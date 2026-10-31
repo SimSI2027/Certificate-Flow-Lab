@@ -7,7 +7,8 @@ const end = async (page) => { await page.evaluate(() => { const a = window.__cfl
 
 test('page loads without console errors and states the data is synthetic', async ({ page }) => {
   const problems = [];
-  page.on('console', (m) => { if (['error', 'warning'].includes(m.type())) problems.push(m.text()); });
+  // A refused connection to the optional local companion (port 5184) is expected when it is not running.
+  page.on('console', (m) => { if (['error', 'warning'].includes(m.type()) && !/ERR_CONNECTION_REFUSED|5184/.test(m.text() + (m.location().url ?? ''))) problems.push(m.text()); });
   page.on('pageerror', (e) => problems.push(e.message));
   await go(page);
   await expect(page).toHaveTitle('Certificate Flow Lab');
@@ -263,4 +264,33 @@ test('guided tour: interaction pauses it and it resumes after inactivity; it han
   expect(s.selectedEntity).toBe('visitor');
   expect(s.trustDecision).toBe('trusted');
   await expect(page.locator('#tour-text')).toContainText('You are in control');
+});
+
+test('native viewer control: disabled with explanation without companion; works through a mocked local companion', async ({ page }) => {
+  await page.route('http://127.0.0.1:5184/**', (r) => r.abort());
+  await go(page, '?t=19');
+  await page.click('.chip[data-artifact="leaf"]');
+  await expect(page.locator('[data-native="portal-leaf"]')).toBeDisabled();
+  await expect(page.locator('[data-native-note]')).toContainText('local companion');
+  await expect(page.locator('#panel-inspector')).toContainText('CN=portal.simsi2027.test');
+  await expect(page.locator('[data-download="portal.simsi2027.test.cer"]')).toBeVisible();
+  // mocked companion + token in the URL fragment
+  const calls = [];
+  const p2 = await page.context().newPage();
+  await p2.route('http://127.0.0.1:5184/**', async (r) => {
+    const req = r.request();
+    const cors = { 'Access-Control-Allow-Origin': 'http://127.0.0.1:5183', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Methods': '*' };
+    if (req.method() === 'OPTIONS') return r.fulfill({ status: 204, headers: cors });
+    if (req.url().endsWith('/health')) return r.fulfill({ status: 200, headers: cors, contentType: 'application/json', body: JSON.stringify({ ok: true, service: 'certificate-flow-lab-companion', artifacts: ['portal-leaf', 'root-ca'] }) });
+    calls.push({ token: req.headers()['x-cfl-token'], body: req.postData() });
+    return r.fulfill({ status: 200, headers: cors, contentType: 'application/json', body: JSON.stringify({ ok: true }) });
+  });
+  await p2.goto('/?t=19#nt=abcdefghijklmnopqrstuvwx');
+  await p2.waitForFunction(() => window.__cfl);
+  await p2.click('.chip[data-artifact="leaf"]');
+  await expect(p2.locator('[data-native="portal-leaf"]')).toBeEnabled();
+  expect(p2.url()).not.toContain('nt=');
+  await p2.click('[data-native="portal-leaf"]');
+  await expect.poll(() => calls.length).toBe(1);
+  expect(calls[0]).toEqual({ token: 'abcdefghijklmnopqrstuvwx', body: JSON.stringify({ artifactId: 'portal-leaf' }) });
 });

@@ -181,3 +181,5 @@ button, select, input { font: inherit; color: inherit; }
   .kv { grid-template-columns: 1fr; }
   .scene-toolbar select { max-width: 150px; }
 }
+.build-info { color: #8fa3c4; font-size: 11px; margin-left: 6px; }
+.native { margin: 4px 0 8px; }

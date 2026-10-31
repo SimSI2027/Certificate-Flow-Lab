@@ -9,6 +9,9 @@ const raw = import.meta.glob('/fixtures/**/*.{pem,csr,crl}', { query: '?raw', im
 const strip = (p) => p.replace(/^\/fixtures\//, '');
 const files = Object.fromEntries(Object.entries(raw).map(([k, v]) => [strip(k), v]));
 
+const info = document.getElementById('build-info');
+if (info) info.textContent = `· v${__CFL_VERSION__} (${String(__CFL_COMMIT__).slice(0, 7)})`;
+
 try {
   const model = await buildFixtureModel(files, manifest);
   const evidence = await evaluateAll(model, scenario);

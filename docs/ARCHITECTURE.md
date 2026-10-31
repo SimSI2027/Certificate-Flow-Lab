@@ -44,3 +44,26 @@ Add a scenario file exporting the same shape (see `SCENARIO_MODEL.md`), register
 ## Security posture
 
 No network calls beyond serving static files. Downloads are generated client-side from public fixture bytes. The generator keeps private keys in memory only; tests assert no key/PFX files are tracked and no private-key PEM markers exist.
+
+## v0.2.0: dual public/local architecture
+
+| mode | served by | native viewer | notes |
+|------|-----------|---------------|-------|
+| Public | GitHub Pages, `/Certificate-Flow-Lab/` base path | never (no probing, no network) | static bundle; fixtures are embedded; downloads are generated in the browser |
+| Local | Vite on `127.0.0.1:5183` + companion on `127.0.0.1:5184` | yes | started by `tools/windows/Launch-Demo.ps1` |
+| Preview | `vite preview` on `127.0.0.1:5185/Certificate-Flow-Lab/` | yes | `Build-And-Preview.ps1` |
+
+`vite.config.js` uses base `/` for dev and `/Certificate-Flow-Lab/` for builds, stamps version and commit, and emits `version.json`.
+
+### Companion-service security model (`tools/companion/`)
+- Binds `127.0.0.1` only. Accepts `POST /open-certificate {"artifactId": ...}`; any other field (for example `path`) is rejected.
+- IDs must match `^[a-z0-9-]{1,40}$` and exist in the frozen allowlist `src/artifacts/native-ids.js` (root, issuing CA, website and fault CER fixtures). The ID maps to a fixed file name under `fixtures/certificates`; the canonical (realpath) result must stay inside that folder and end in `.cer`. CSR, CRL, PEM, keys and arbitrary files are unreachable.
+- Requires header `X-CFL-Token` (random per launch, compared in constant time, passed to the page in the URL fragment, never persisted) and an `Origin` that is one of the local simulator origins. CORS headers are returned only for those origins.
+- Opens the file via `explorer.exe <file>` (`execFile`, no shell). Errors never return filesystem paths. `GET /health` exposes only service name and IDs.
+- Exits when the launcher exits (parent-PID watch) and runs unelevated.
+
+### Video pipeline
+`src/film/schedule.js` is a pure function from film time to session, selection, panel and camera. `film.html` applies it to the same `App`/`Scene`; captions and the state strip are derived from the canonical state. `scripts/video/export-video.mjs` starts Vite in-process, captures each timestamp with Playwright and pipes JPEG frames to FFmpeg (no temp frames), then builds the contact sheet from the encoded MP4. CSS animations are disabled in film mode.
+
+### Process cleanup
+`tools/windows/Common.ps1` holds shared helpers; the launcher keeps child process handles and stops their trees in `finally`.

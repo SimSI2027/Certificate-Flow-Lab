@@ -52,3 +52,6 @@ A fault halts at `failStage`: `maxT` becomes that stage + 1, step forward cannot
 - `flowStatus(scenario, state, flow)` → `{phase: idle|active|done, progress, failed}`.
 - `artifactLocation(scenario, state, artifact)` → where the artifact chip is or whether it is moving along a flow.
 - `views/status.js` → node colors.
+
+## Film time (v0.2.0)
+Film time is a second, pure mapping on top of the model: `frameAt(seconds)` returns a session (`t` or `tReverse`, selections) that is fed to `computeState`. Nothing in the film owns state; captions are read from `computeState` output.

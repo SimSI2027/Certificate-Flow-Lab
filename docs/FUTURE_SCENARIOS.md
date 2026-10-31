@@ -31,3 +31,7 @@ The engine itself (`src/engine/engine.js`) contains no stage names and should no
 - `faults[].fixtures` for variant fixture roles.
 - `evaluate()` is the single place that turns fixtures into checks; OCSP would add checks there.
 - The scene layout is a data table (`LAYOUT`).
+
+## Expansion points added in v0.2.0
+- Device and user certificate scenarios can add IDs to `native-ids.js` (CER only) and new film schedules next to `src/film/schedule.js`.
+- Public deployment is automatic for every stable `main` update.
