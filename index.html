@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Certificate Flow Lab</title>
+  <meta name="cfl-project" content="certificate-flow-lab" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231b2a41'/%3E%3Ccircle cx='16' cy='14' r='7' fill='%23d4a017'/%3E%3Cpath d='M12 20l-2 8 6-3 6 3-2-8z' fill='%23d4a017'/%3E%3C/svg%3E" />
+  <script type="module" src="/src/main.js"></script>
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <h1>Certificate Flow Lab</h1>
+      <p class="subtitle">Interactive certificate issuance, deployment and trust visualization</p>
+    </div>
+    <p class="synthetic-banner" role="note"><strong>Synthetic simulation.</strong> SIMSI2027 names, addresses and events are invented. Not connected to any production PKI. Certificates are real files generated only for this demo; no private keys are distributed.</p>
+  </header>
+
+  <div id="fault-banner" class="fault-banner" role="alert" hidden></div>
+
+  <main class="layout">
+    <section class="stage-wrap" aria-label="Certificate flow scene">
+      <div class="scene-toolbar">
+        <label>Scenario <select id="sel-scenario" aria-label="Scenario"></select></label>
+        <label>Failure <select id="sel-fault" aria-label="Failure scenario"></select></label>
+        <label class="chk"><input type="checkbox" id="chk-labels" checked /> Labels</label>
+        <button id="btn-reset-camera" class="btn small">Reset camera</button>
+        <button id="btn-tour" class="btn small primary" aria-pressed="false">Guided tour</button>
+      </div>
+      <div id="tour-bar" class="tour-bar" hidden role="status" aria-live="polite">
+        <strong id="tour-step"></strong><span id="tour-text"></span><button id="btn-tour-resume" class="btn small" hidden>Resume now</button>
+      </div>
+      <svg id="scene" class="scene" role="img" aria-label="Interactive 2.5D certificate flow scene" preserveAspectRatio="xMidYMid meet"></svg>
+      <ul class="legend" aria-label="Legend">
+        <li><i class="sw request"></i>Request</li><li><i class="sw cert"></i>Certificate</li><li><i class="sw policy"></i>Policy decision</li><li><i class="sw ok"></i>Trusted</li><li><i class="sw fail"></i>Failure</li>
+      </ul>
+    </section>
+
+    <aside id="side" class="side" aria-label="Details">
+      <div role="tablist" class="tabs main-tabs" aria-label="Panels">
+        <button role="tab" class="tab" data-panel="overview" aria-selected="true">Overview</button>
+        <button role="tab" class="tab" data-panel="details" aria-selected="false">Details</button>
+        <button role="tab" class="tab" data-panel="inspector" aria-selected="false">Inspector</button>
+        <button role="tab" class="tab" data-panel="evidence" aria-selected="false">Evidence</button>
+      </div>
+      <div id="panel-overview" class="panel" role="tabpanel"></div>
+      <div id="panel-details" class="panel" role="tabpanel" hidden></div>
+      <div id="panel-inspector" class="panel" role="tabpanel" hidden></div>
+      <div id="panel-evidence" class="panel" role="tabpanel" hidden></div>
+    </aside>
+  </main>
+
+  <footer class="controls" aria-label="Playback controls">
+    <div class="row">
+      <div class="group" role="group" aria-label="Mode">
+        <button id="btn-mode-forward" class="btn seg" aria-pressed="true">Forward lifecycle</button>
+        <button id="btn-mode-reverse" class="btn seg" aria-pressed="false">Reverse evidence</button>
+      </div>
+      <div class="group" role="group" aria-label="Transport">
+        <button id="btn-restart" class="btn" title="Restart">⏮ Restart</button>
+        <button id="btn-step-back" class="btn" title="Step backward">◀ Step</button>
+        <button id="btn-play" class="btn primary">▶ Play</button>
+        <button id="btn-pause" class="btn" disabled>❚❚ Pause</button>
+        <button id="btn-step-fwd" class="btn" title="Step forward">Step ▶</button>
+      </div>
+      <div class="group" role="group" aria-label="Playback speed">
+        <button class="btn seg" data-speed="0.25" aria-pressed="false">0.25x</button><button class="btn seg" data-speed="0.5" aria-pressed="false">0.5x</button>
+        <button class="btn seg" data-speed="1" aria-pressed="true">1x</button><button class="btn seg" data-speed="2" aria-pressed="false">2x</button>
+      </div>
+      <label class="jump">Jump to <select id="sel-jump" aria-label="Jump to stage"></select></label>
+    </div>
+    <div class="timeline">
+      <div id="phase-band" class="phase-band" aria-label="Stages"></div>
+      <input id="scrubber" type="range" min="0" max="1900" step="1" value="0" aria-label="Timeline scrubber" />
+      <div id="pos-label" class="pos-label" aria-live="off">Start</div>
+    </div>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.vite/
+test-results/
+playwright-report/
+screenshots/
+*.lnk
+*.pfx
+*.p12
+*.key
+*.pk8
+*-key.pem
+*.log
+.env*

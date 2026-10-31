@@ -1,0 +1,6 @@
+* text=auto
+# Keep fixture bytes exact (thumbprints in the manifest depend on them)
+fixtures/** -text
+*.cer binary
+*.der binary
+*.crl binary
