@@ -92,6 +92,8 @@ export class App {
       <p class="synthetic-note" role="note">Synthetic simulation: SIMSI2027 names, addresses and events are invented; nothing here connects to a real PKI.</p></header>
       <section aria-label="Choose a scenario"><h2 class="sr-only">Scenarios</h2><div class="cards">${cards}</div></section>
       <div class="home-actions"><button class="btn" id="btn-continue" ${this.last ? '' : 'hidden'}>Continue last scenario</button><button class="btn" id="btn-topology">View full PKI topology</button><button class="btn" id="btn-about">About the simulator</button></div>
+      <section class="film-entry" aria-labelledby="film-entry-h"><h3 id="film-entry-h">Watch the story first</h3>
+        <p><a class="film-link" href="./learning-film.html">Learning film: From CSR to Trust</a> follows the website certificate from Jordan's browser warning to a trusted HTTPS connection in 18 shots. It is silent and rendered live in your browser from the same synthetic fixtures.</p></section>
       <section class="later" aria-label="Coming later"><h3>Coming later</h3><ul>${COMING_LATER.map((c) => `<li aria-disabled="true">${esc(c.title)}</li>`).join('')}</ul></section>
       <footer class="hfoot"><span id="build-info"></span></footer>
       <dialog id="about"><h2>About the simulator</h2><p>Certificate Flow Lab is an educational simulation of certificate enrollment, deployment and trust validation. All names, addresses and events are synthetic. Certificate, CSR and CRL files are real but generated only for this project; no private keys are distributed.</p>

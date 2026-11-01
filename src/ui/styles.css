@@ -82,6 +82,11 @@ body[data-layout='story'] .btn:focus-visible, body[data-layout='story'] select:f
 .scard .pathpick strong { font-size: 15px; } .scard .pathpick span.pd { color: var(--ink-2); font-size: 13px; }
 .scard .cond { margin: 4px 0 0; font-size: 13px; color: var(--ink-2); border-left: 3px solid var(--warn); padding-left: 10px; }
 .home-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 22px 0 8px; }
+.film-entry { margin-top: 22px; padding: 14px 18px; border: 1px solid var(--line); border-left: 4px solid var(--a-leaf); border-radius: 10px; background: var(--sheet); max-width: 78ch; }
+.film-entry h3 { font-size: 15px; font-weight: 650; margin: 0 0 4px; color: var(--ink); }
+.film-entry p { margin: 0; font-size: 14px; line-height: 1.5; color: var(--ink-2); }
+.film-entry .film-link { color: var(--accent-ink); font-weight: 650; }
+.film-entry .film-link:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .later { margin-top: 26px; color: var(--muted); }
 .later h3 { font-size: 14px; font-weight: 650; margin: 0 0 8px; }
 .later ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }

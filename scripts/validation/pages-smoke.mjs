@@ -19,10 +19,22 @@ for (const r of refs) {
   check(r.startsWith(BASE), `asset url under base: ${r}`);
   check(existsSync(join(dist, r.slice(BASE.length))), `asset exists in dist: ${r}`);
 }
-const js = readFileSync(join(dist, refs.find((r) => r.endsWith('.js')).slice(BASE.length)), 'utf8');
+// v0.6.0: two entry pages share chunks, so every script the app page references is scanned together.
+const js = refs.filter((r) => r.endsWith('.js')).map((r) => readFileSync(join(dist, r.slice(BASE.length)), 'utf8')).join('\n');
 check(js.includes('BEGIN CERTIFICATE'), 'bundle embeds the public certificate fixtures');
 check(!/PRIVATE KEY-----/.test(js) && !/PRIVATE KEY-----/.test(html), 'bundle contains no private key markers');
 check(!js.includes('127.0.0.1:5184/open') || js.includes('companion'), 'native viewer is only reachable through the local companion probe');
+// v0.6.0: the learning film page is published next to the app, with assets under the base path and no private key markers.
+const filmPath = join(dist, 'learning-film.html');
+check(existsSync(filmPath), 'learning-film.html is in dist');
+if (existsSync(filmPath)) {
+  const fh = readFileSync(filmPath, 'utf8');
+  const frefs = [...fh.matchAll(/(?:src|href)="([^"]+)"/g)].map((m) => m[1]).filter((u) => !u.startsWith('data:') && !u.startsWith('#') && u !== './');
+  check(frefs.length >= 1 && frefs.every((r) => r.startsWith(BASE) && existsSync(join(dist, r.slice(BASE.length)))), `learning film assets under base and present: ${frefs.length}`);
+  check(fh.includes('href="./"'), 'learning film links back to the app');
+  check(!/PRIVATE KEY-----/.test(fh), 'learning film page has no private key markers');
+}
+check(html.includes('learning-film.html') || js.includes('learning-film.html'), 'home screen links to the learning film');
 const v = JSON.parse(readFileSync(join(dist, 'version.json'), 'utf8'));
 check(/^[0-9a-f]{40}$/.test(v.commit) || v.commit === 'unknown', `version.json commit ${v.commit.slice(0, 7)} v${v.version}`);
 process.exit(fail ? 1 : 0);
