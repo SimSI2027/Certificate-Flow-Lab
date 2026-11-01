@@ -1,7 +1,7 @@
 // StoryScene (v0.4.0): renders the Domain Controller story as six fixed zones, one active zone, one active artifact and one active
 // route. All geometry comes from story-layout.js; this module only draws it and reports selections. The classic Scene keeps serving TLS.
 import { storyModel, pointAt, VIEW, VAULT, ASSOC_Y } from './story-layout.js';
-import { ARTIFACTS, OFFLINE_TRUST, STORES } from '../scenarios/dc/shared.js';
+import { ARTIFACTS, OFFLINE_TRUST, STORES, artifactLabel, artifactTag } from '../scenarios/dc/shared.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 export function wrap(text, max) {
@@ -105,7 +105,7 @@ export class StoryScene {
     }
     for (const c of z.crumbs) {
       const r = c.rect; const a = ARTIFACTS[c.artifact];
-      h += `<g class="crumb ${sel === c.artifact ? 'selected' : ''}" data-sel="artifact:${c.artifact}" tabindex="0" role="button" aria-label="Earlier artifact: ${esc(a?.label)}. Open details"><rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" rx="14"/>${icon(a?.icon ?? 'a-doc', r.x + 6, r.y + 4, 20)}${txt(r.x + 32, r.y + 19, a?.label ?? c.artifact)}</g>`;
+      h += `<g class="crumb ${sel === c.artifact ? 'selected' : ''}" data-sel="artifact:${c.artifact}" tabindex="0" role="button" aria-label="${esc(c.label)}: earlier artifact, open details"><rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" rx="14"/>${icon(a?.icon ?? 'a-doc', r.x + 6, r.y + 4, 20)}${txt(r.x + 32, r.y + 19, c.label)}</g>`;
     }
     if (m.badge && m.badge.zone === z.id && m.badge.rect) {
       const b = m.badge.rect;
@@ -116,17 +116,17 @@ export class StoryScene {
 
   spotHtml(sp, state, sel) {
     const a = ARTIFACTS[sp.artifact]; const r = sp.rect; const pathB = this.sc?.pathId === 'mmc';
-    let tag = pathB && a.mmcTag ? a.mmcTag : a.tag;
+    let tag = artifactTag(sp.artifact, this.sc?.pathId); const label = artifactLabel(sp.artifact, this.sc?.pathId);
     let lines;
     if (sp.artifact === 'record') lines = [`Request 1042 · ${state.requestRecord === 'pending' ? 'Pending' : state.requestRecord === 'issued' ? 'Issued' : state.requestRecord === 'approved' ? 'Approved' : state.requestRecord === 'denied' ? 'Denied' : 'Received'}`, 'Requester:', state.requester ?? '—'];
     if (sp.artifact === 'csr' && pathB) tag = sp.blocked ? 'not delivered: RPC/DCOM blocked' : 'built in memory · signed by the new DC01 key';
     if (sp.artifact === 'remediation') tag = 'root cause still open · open items in Details';
     lines ??= wrap(tag, 26).slice(0, 3);
-    let body = `${icon(a.icon, r.x + 10, r.y + 10, 40)}${txt(r.x + 58, r.y + 34, a.label, 't16')}`;
+    let body = `${icon(a.icon, r.x + 10, r.y + 10, 40)}${txt(r.x + 58, r.y + 34, label, 't16')}`;
     lines.forEach((l, i) => { body += txt(r.x + 12, r.y + 72 + i * 18, l); });
     if (a.stamp) body += `<g class="stamp"><rect x="${r.x + 12}" y="${r.y + 110}" width="120" height="22" rx="4"/>${txt(r.x + 20, r.y + 126, a.stamp, 't14b')}</g>`;
     const ins = a.role ? 'Open details and inspector' : 'Open details';
-    return `<g class="spot c-${a.color} ${sel === sp.artifact ? 'selected' : ''}" data-sel="artifact:${sp.artifact}" data-artifact="${sp.artifact}" tabindex="0" role="button" aria-label="Active artifact: ${esc(a.label)}, ${esc(tag)}. ${ins}"><rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" rx="10"/>${body}</g>`;
+    return `<g class="spot c-${a.color} ${sel === sp.artifact ? 'selected' : ''}" data-sel="artifact:${sp.artifact}" data-artifact="${sp.artifact}" tabindex="0" role="button" aria-label="${esc(label)}: ${esc(lines.join(' '))}. Active artifact, ${ins.toLowerCase()}"><rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" rx="10"/>${body}</g>`;
   }
 
   storeHtml(s, sel) {
@@ -136,7 +136,7 @@ export class StoryScene {
     if (!s.entries.length) h += txt(r.x + 12, r.y + 60, s.status, 't14 muted-text');
     for (const e of s.entries) {
       const a = ARTIFACTS[e.artifact];
-      h += `<g class="entry ${e.active ? 'active' : ''} ${sel === e.artifact ? 'selected' : ''}" data-sel="artifact:${e.artifact}" data-artifact="${e.artifact}" data-key="${e.key}" tabindex="0" role="button" aria-label="${esc(`${a.label} in ${s.full}: ${e.label}. ${e.keyText}${e.source ? `. Source: ${e.source}` : ''}. Open details`)}">
+      h += `<g class="entry ${e.active ? 'active' : ''} ${sel === e.artifact ? 'selected' : ''}" data-sel="artifact:${e.artifact}" data-artifact="${e.artifact}" data-key="${e.key}" tabindex="0" role="button" aria-label="${esc(`${e.label}: ${artifactLabel(e.artifact, this.sc?.pathId)} in ${s.full}. ${e.keyText}${e.source ? `. Source: ${e.source}` : ''}. Open details`)}">
         <rect x="${r.x + 8}" y="${r.y + 36}" width="${r.w - 16}" height="${r.h - 44}" rx="6"/>${icon(a.icon, r.x + 12, r.y + 42, 28)}${txt(r.x + 46, r.y + 58, e.label, 't14b')}
         ${txt(r.x + 46, r.y + 78, e.key ? 'private key on DC01 ✓' : e.keyText.split(' · ')[0])}${txt(r.x + 46, r.y + 96, e.source ? `source: ${e.source.replace(' (manual, emergency)', ' (emergency)')}` : e.key ? (this.sc?.pathId === 'mmc' ? 'installed by the wizard' : 'linked by -accept') : '', 't14')}</g>`;
     }

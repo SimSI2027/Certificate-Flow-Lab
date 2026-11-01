@@ -3,7 +3,7 @@
 // Selecting anything never moves the timeline.
 import * as E from '../engine/engine.js';
 import { StoryScene } from '../views/story-scene.js';
-import { ARTIFACTS, FAULTS } from '../scenarios/dc/shared.js';
+import { ARTIFACTS, FAULTS, artifactLabel } from '../scenarios/dc/shared.js';
 import * as P from './story-panel.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -177,7 +177,7 @@ export class StoryController {
     }
     const order = P.sectionOrder(ctx);
     const body = { plain: () => P.plainHtml(ctx), technical: () => P.technicalHtml(ctx), command: () => P.commandHtml(ctx, this.token), raw: () => P.rawHtml(ctx, this.raw), evidence: () => P.evidenceHtml(ctx), troubleshoot: () => P.troubleshootHtml(ctx) };
-    const sel = this.selection?.type === 'artifact' ? ARTIFACTS[this.selection.id]?.label : null;
+    const sel = this.selection?.type === 'artifact' && ARTIFACTS[this.selection.id] ? artifactLabel(this.selection.id, this.sc.pathId) : null;
     el.innerHTML = `<div class="phead"><h2>${esc(sel ? `Details: ${sel}` : 'Details')}</h2><button class="btn small pclose" aria-label="Close details (Escape)">Close</button></div>
       ${order.map((id, i) => { const open = this.isOpen(id); return `<section class="psec" data-sec="${id}"><h3><button class="disc" data-sec-toggle="${id}" aria-expanded="${open}" aria-controls="sec-${id}" id="h-${id}">${i + 1} · ${esc(P.SECTION_TITLES[id])}</button></h3><div class="psec-body" id="sec-${id}" role="region" aria-labelledby="h-${id}" ${open ? '' : 'hidden'}>${open ? body[id]() : ''}</div></section>`; }).join('')}`;
   }

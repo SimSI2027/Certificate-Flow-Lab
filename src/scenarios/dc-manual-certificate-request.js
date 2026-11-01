@@ -3,7 +3,7 @@
 // Educational simulation only: nothing here contacts a real CA or Active Directory, and no command is executed.
 import { DC } from '../artifacts/synthetic.js';
 import { evaluateDc } from './dc-evaluate.js';
-import { ARTIFACTS, CONDITIONS, FAULTS, faultsFor, flowsFor, initialState, zonesFor, NEVER_EXECUTED, CFG } from './dc/shared.js';
+import { ARTIFACTS, CONDITIONS, FAULTS, faultsFor, flowsFor, initialState, zonesFor, NEVER_EXECUTED, CFG, artifactLabel, artifactTag } from './dc/shared.js';
 import * as A from './dc/path-csr.js';
 import * as B from './dc/path-mmc.js';
 
@@ -12,7 +12,7 @@ const PATH_DEFS = { csr: { label: 'Manual CSR transfer', mod: A }, mmc: { label:
 function artifactsFor(pathId, stages) {
   return Object.entries(ARTIFACTS).map(([id, a]) => {
     const first = stages.find((s) => s.artifact === id);
-    return { id, label: a.label, color: a.color, icon: a.icon, tag: a.tag, inspectable: !!a.role, fixtureRole: pathId === 'mmc' ? (a.mmcRole ?? a.role) : a.role, note: a.stamp,
+    return { id, label: artifactLabel(id, pathId), color: a.color, icon: a.icon, tag: artifactTag(id, pathId), inspectable: !!a.role, fixtureRole: pathId === 'mmc' ? (a.mmcRole ?? a.role) : a.role, note: a.stamp,
       presence: first ? [{ arrive: first.id, at: first.zone, via: null }] : [] };
   });
 }
@@ -29,7 +29,7 @@ function buildPath(pathId) {
     if (!f.stops) { sp[f.stage] = { ...(sp[f.stage] ?? {}), ...f.patch }; if (f.finalPatch) sp[stages.at(-1).id] = f.finalPatch; }
     if (Object.keys(sp).length) faultStagePatches[f.id] = sp;
   }
-  return { pathId, pathLabel: label, milestones: mod.MILESTONES, stages, flows: flowsFor(stages), faults, faultPatches, faultStagePatches,
+  return { pathId, pathLabel: label, milestones: mod.MILESTONES, stages, flows: flowsFor(stages, pathId), faults, faultPatches, faultStagePatches,
     evidenceTrace: mod.evidenceTrace, zones: zonesFor(pathId), artifacts: artifactsFor(pathId, stages), verdictQuestion: 'Why is the DC01 certificate NOT suitable?' };
 }
 

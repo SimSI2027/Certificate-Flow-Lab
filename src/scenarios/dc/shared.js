@@ -3,7 +3,9 @@
 import { DC, URLS } from '../../artifacts/synthetic.js';
 
 export const CFG = 'Depends on your configuration';
-export const cfg = (text) => `${text} (${CFG}.)`;
+// A configuration-dependent statement: a complete sentence, then the marker naming what varies.
+// cfg('A firewall blocks RPC/DCOM.', 'which ports are needed') -> 'A firewall blocks RPC/DCOM. Depends on your configuration: which ports are needed.'
+export const cfg = (sentence, aspect) => `${sentence.trim().replace(/([^.!?])$/, '$1.')} ${CFG}: ${aspect}.`;
 export const NEVER_EXECUTED = 'Shown for learning; never executed by this simulator.';
 export const KIND = { REAL: 'Real fixture data', SIM: 'Simulated environment', DERIVED: 'Derived conclusion', FAULT: 'User-selected fault' };
 
@@ -41,7 +43,7 @@ export const TEMPLATE_CARDS = [
     rows: [['Subject name', 'Supply in the request'], ['Enroll', `Only the "${DC.operatorGroup}" group`], ['Issuance requirement', 'CA certificate manager approval'], ['Autoenroll', 'No'], ['Publication', 'On ICA01 only for the duration of the change'], ['Status', 'Organization-specific, simulated']],
     warning: ESC1_WARNING },
   { id: 'kerberos', name: DC.template, display: 'Kerberos Authentication', oid: DC.templateOid, version: DC.templateVersion, path: 'mmc',
-    rows: [['Subject name', 'Built from Active Directory'], ['Depends on', 'DC01 → ICA01 RPC/DCOM connectivity'], ['Enroll', cfg('SIMSI2027\\DC01$ needs Read and Enroll (via Domain Controllers / Enterprise Domain Controllers; template permission defaults)')]],
+    rows: [['Subject name', 'Built from Active Directory'], ['Depends on', 'DC01 → ICA01 RPC/DCOM connectivity'], ['Enroll', cfg('SIMSI2027\\DC01$ needs Read and Enroll, normally through Domain Controllers or Enterprise Domain Controllers.', 'the template permission defaults')]],
     why: 'Cannot be used in Path A: when PKIOperator submits, the CA builds the identity from the submitter, not from DC01.' },
   { id: 'dcauth', name: DC.altTemplate, display: 'Domain Controller Authentication', comparison: true,
     rows: [['EKU', 'Client Authentication, Server Authentication, Smart Card Logon'], ['SAN', 'DC DNS name and DC object GUID'], ['Lacks', 'KDC Authentication EKU and the domain-name SAN this lesson\'s strict-KDC check expects']],
@@ -56,7 +58,7 @@ export const ARTIFACTS = {
   package: { label: 'Transfer package', icon: 'a-box', color: 'slate', tag: 'CSR + SHA-256 hash', chips: ['dc01-request.req', 'SHA-256 hash'], stamp: 'no private key' },
   record: { label: 'Request record', icon: 'a-ledger', color: 'purple', tag: `Request ${DC.requestId}` },
   leaf: { label: 'Issued leaf', icon: 'a-ribbon', color: 'gold', tag: 'DC01 certificate · public', role: 'dc-cert', mmcRole: 'dc-enrolled' },
-  accepted: { label: 'Accepted leaf', icon: 'a-ribbon-key', color: 'gold', tag: 'in Personal with its private key', role: 'dc-cert', mmcRole: 'dc-enrolled' },
+  accepted: { label: 'Accepted leaf', mmcLabel: 'Installed leaf', icon: 'a-ribbon-key', color: 'gold', tag: 'in Personal with its private key', mmcTag: 'installed by the wizard with its private key', role: 'dc-cert', mmcRole: 'dc-enrolled' },
   ica: { label: 'Issuing CA certificate', icon: 'a-cert-ca', color: 'teal', tag: 'no private key here', role: 'ica' },
   root: { label: 'Root CA certificate', icon: 'a-cert-anchor', color: 'green', tag: 'public copy · trust anchor · no private key here', role: 'root' },
   chain: { label: 'Chain', icon: 'a-chain', color: 'teal', tag: 'leaf → Issuing CA → Root', role: 'dc-chain' },
@@ -68,7 +70,9 @@ export const ARTIFACTS = {
   wizard: { label: 'Enrollment wizard', icon: 'a-wizard', color: 'slate', tag: 'Request New Certificate…' },
   remediation: { label: 'Remediation card', icon: 'a-check', color: 'slate', tag: 'root cause still open' }
 };
-export const artifactLabel = (id) => ARTIFACTS[id]?.label ?? id;
+// Path-aware label and tag (Path B has no accept step, so its leaf is "installed", not "accepted").
+export const artifactLabel = (id, pathId) => (pathId === 'mmc' && ARTIFACTS[id]?.mmcLabel) || ARTIFACTS[id]?.label || id;
+export const artifactTag = (id, pathId) => (pathId === 'mmc' && ARTIFACTS[id]?.mmcTag) || ARTIFACTS[id]?.tag || '';
 
 // ---------- Commands: every token has a meaning; nothing is executed ----------
 const TOKENS = {
@@ -121,7 +125,8 @@ export function command(text, extra = {}) {
 
 // ---------- Conditions (Path A) ----------
 export const CONDITIONS = [
-  { id: 'trust-missing', label: 'Trust certificates missing on DC01', note: 'Exceptional condition for this lesson', default: true },
+  { id: 'trust-missing', label: 'Trust certificates missing on DC01', note: 'Exceptional condition for this lesson', default: true,
+    longTerm: cfg('Repair AD publication, replication or Group Policy so the Root and Issuing CA certificates arrive in the Enterprise store, then remove the manual copies.', 'the distribution method') },
   { id: 'trust-present', label: 'Trust certificates present via AD (Enterprise store)' }
 ];
 
@@ -140,7 +145,7 @@ export const initialState = {
 export const FAULTS = [
   { id: 'rpc-blocked', label: 'RPC/DCOM blocked (DC01 → ICA01)', at: { mmc: 'b-enroll' }, stops: true, check: 'rpc',
     symptom: 'Wizard: enrollment failed, "The RPC server is unavailable" (0x800706BA).', evidence: [{ text: 'certutil -ping from DC01 to ICA01 fails.', kind: KIND.SIM }],
-    owner: 'Network / firewall team', remediation: cfg('Restore DC01 → ICA01 RPC/DCOM (the ports used depend on the CA and firewall setup), or switch to Path A as an approved exception'),
+    owner: 'Network / firewall team', remediation: cfg('Restore DC01 → ICA01 RPC/DCOM, or switch to Path A as an approved exception.', 'which RPC/DCOM ports the CA and firewalls use'),
     longTerm: 'Document the firewall rule and verify autoenrollment afterwards.', switchPath: 'csr',
     patch: { rpcState: 'blocked', requestRecord: 'none', trustDecision: 'rejected' } },
   { id: 'wrong-template-handoff', label: 'Wrong template for the handoff', at: { csr: 'a-policy' }, stops: true, check: 'handoff-template',
@@ -154,7 +159,7 @@ export const FAULTS = [
     longTerm: 'Periodic template ACL review.', patch: { permissionState: 'denied', requestRecord: 'denied', trustDecision: 'rejected' } },
   { id: 'template-not-published', label: 'Template not published', at: { csr: 'a-policy', mmc: 'b-template' }, stops: true, check: 'published',
     symptom: 'The template is not available on this CA.', evidence: [{ text: 'ICA01 certificate templates to issue does not list it.', kind: KIND.SIM }],
-    owner: 'PKI administrator', remediation: cfg('Publish the template on ICA01 and allow AD replication'), longTerm: 'Path A: unpublish the offline template again after the change.',
+    owner: 'PKI administrator', remediation: cfg('Publish the template on ICA01 and wait for AD replication.', 'how long replication takes'), longTerm: 'Path A: unpublish the offline template again after the change.',
     patch: { templateState: 'missing', requestRecord: 'denied', trustDecision: 'rejected' } },
   { id: 'pending-no-approver', label: 'Pending, no approver', at: { csr: 'a-approve' }, stops: true, check: 'approval',
     symptom: `Request ${DC.requestId} remains pending.`, evidence: [{ text: `CA database: request ${DC.requestId} disposition "Taken Under Submission"; no certificate manager action.`, kind: KIND.SIM }],
@@ -164,16 +169,19 @@ export const FAULTS = [
     effects: { 'a-inf': { infState: 'written-user' }, 'a-new': { keyState: 'user-store', pendingRequest: 'user-store' } },
     symptom: 'Machine accept finds no pending machine request; the key sits in the operator\'s user store.', evidence: [{ text: 'fault-user-context.inf: MachineKeySet = FALSE.', kind: KIND.REAL }, { text: 'Local Computer\\Certificate Enrollment Requests is empty.', kind: KIND.SIM }],
     owner: 'Operator', remediation: 'Recreate the request in machine context (certreq -new -machine) and remove the stray user-store key and request.', longTerm: 'Add a machine-context check to the runbook.',
-    patch: { keyAssociation: 'missing', trustDecision: 'rejected' } },
+    // -accept -machine fails: nothing is linked or installed; the key stays where it was created (the operator's user store).
+    patch: { pendingRequest: 'user-store', keyState: 'user-store', leafState: 'on-dc01', keyAssociation: 'missing', trustDecision: 'rejected' } },
   { id: 'accepted-on-wrong-machine', label: 'Accepted on the wrong machine', at: { csr: 'a-accept' }, stops: true, check: 'accept-host',
     symptom: 'The operator runs certreq -accept on PKI-TRANSFER01: no matching pending request; the certificate shows without a private key.',
     evidence: [{ text: 'No pending request with this public key exists on PKI-TRANSFER01, so no private key can be linked.', kind: KIND.DERIVED }, { text: 'Leaf public key (SPKI SHA-256) matches only DC01\'s request.', kind: KIND.REAL }],
-    owner: 'Operator', remediation: 'Accept only on DC01; delete the keyless copy from PKI-TRANSFER01.', longTerm: '—',
-    patch: { keyAssociation: 'missing', leafState: 'keyless-copy', trustDecision: 'rejected' } },
+    owner: 'Operator', remediation: 'Accept only on DC01; delete the keyless copy from PKI-TRANSFER01.', longTerm: 'Name the target host in the runbook step for certreq -accept.',
+    // Nothing ran on DC01: its pending request and private key are untouched.
+    patch: { pendingRequest: 'present', keyState: 'pending-on-dc01', keyAssociation: 'missing', leafState: 'keyless-copy', trustDecision: 'rejected' } },
   { id: 'pending-request-lost', label: 'Pending request lost', at: { csr: 'a-accept' }, stops: true, check: 'pending',
     symptom: `DC01 Certificate Enrollment Requests no longer holds request ${DC.requestId}'s key.`, evidence: [{ text: 'Local Computer\\Certificate Enrollment Requests has no entry for this public key.', kind: KIND.SIM }],
     owner: 'Operator', remediation: 'Run a new certreq -new on DC01 and resubmit; revoke the orphan certificate per policy.', longTerm: 'Investigate request-store cleanup.',
-    patch: { pendingRequest: 'lost', keyState: 'lost', keyAssociation: 'missing', trustDecision: 'rejected' } },
+    // Without the pending request, -accept cannot link a key and installs nothing.
+    patch: { pendingRequest: 'lost', keyState: 'lost', leafState: 'on-dc01', keyAssociation: 'missing', trustDecision: 'rejected' } },
   { id: 'root-thumbprint-mismatch', label: 'Root thumbprint mismatch', at: { csr: 'a-return-move' }, stops: true, check: 'root-thumbprint', fixtures: { 'dc-root-candidate': 'root-thumbprint-mismatch' },
     symptom: 'The Root file thumbprint does not equal the known-good value in the change record.',
     evidence: [{ text: 'Thumbprint computed from fault-rootca-impostor.cer.', kind: KIND.REAL }, { text: 'Known-good thumbprint from the change record.', kind: KIND.SIM }],
@@ -182,7 +190,7 @@ export const FAULTS = [
   { id: 'cdp-unreachable', label: 'CDP unreachable', at: { csr: 'a-chain', mmc: 'b-chain' }, stops: false, check: 'cdp',
     symptom: 'The chain builds, but revocation is "offline" (CRYPT_E_REVOCATION_OFFLINE 0x80092013): "Not confirmed suitable — revocation status unknown".',
     evidence: [{ text: `HTTP GET ${URLS.icaCdp} times out from DC01.`, kind: KIND.SIM }], owner: 'Network + PKI publication',
-    remediation: `Open HTTP to PKIWEB01 and confirm the CRL is published and current. ${cfg('Whether relying parties enforce revocation')}`, longTerm: 'Monitor CRL publication.',
+    remediation: cfg('Open HTTP to PKIWEB01 and confirm the CRL is published and current.', 'whether relying parties enforce revocation'), longTerm: 'Monitor CRL publication.',
     patch: { revocationState: 'offline' }, finalPatch: { trustDecision: 'withheld' } },
   { id: 'wrong-eku', label: 'KDC Authentication EKU missing', at: { csr: 'a-purposes', mmc: 'b-verify' }, stops: true, check: 'eku', fixtures: { 'dc-cert': 'wrong-eku' },
     symptom: 'KDC Authentication is missing from the issued certificate.', evidence: [{ text: 'fault-dc-wrong-eku.cer EKU list.', kind: KIND.REAL }],
@@ -191,8 +199,12 @@ export const FAULTS = [
     symptom: 'The SAN lacks simsi2027.test, so it fails this lesson\'s strict KDC validation.', evidence: [{ text: 'fault-dc-san-no-domain.cer SAN list.', kind: KIND.REAL }],
     owner: 'Operator / PKI administrator', remediation: 'Re-request with the domain DNS name simsi2027.test in the SAN.', longTerm: '—', patch: { purposeState: 'unsuitable', validation: { name: 'fail' }, trustDecision: 'rejected' } },
   { id: 'key-mismatch', label: 'Certificate key ≠ CSR key', at: { csr: 'a-key' }, stops: true, check: 'key-match', fixtures: { 'dc-cert': 'key-mismatch' },
-    symptom: 'The certificate public key does not equal the CSR public key.', evidence: [{ text: 'fault-dc-key-mismatch.cer SPKI SHA-256 differs from dc01-request.req.', kind: KIND.REAL }],
-    owner: 'Operator', remediation: 'Do not use it. Accept the certificate issued for DC01\'s own request.', longTerm: '—', patch: { keyAssociation: 'mismatch', trustDecision: 'rejected' } },
+    // certreq -accept matches by public key, so it cannot link this certificate: it sits in Personal unlinked and the pending request remains.
+    effects: { 'a-accept': { leafState: 'unlinked', pendingRequest: 'present', keyState: 'pending-on-dc01', keyAssociation: 'none' } },
+    symptom: 'The certificate public key does not equal the CSR public key: certreq -accept found no pending request for it, so no private key was linked and request 1042 is still pending.',
+    evidence: [{ text: 'fault-dc-key-mismatch.cer SPKI SHA-256 differs from dc01-request.req.', kind: KIND.REAL }, { text: 'Local Computer\\Certificate Enrollment Requests still holds request 1042.', kind: KIND.SIM }],
+    owner: 'Operator', remediation: 'Do not use it. Remove it from Personal and accept the certificate issued for DC01\'s own request.', longTerm: 'Compare the certificate SPKI with the CSR before accepting.',
+    patch: { leafState: 'unlinked', pendingRequest: 'present', keyState: 'pending-on-dc01', keyAssociation: 'mismatch', trustDecision: 'rejected' } },
   { id: 'expired', label: 'Certificate expired', at: { csr: 'a-purposes', mmc: 'b-verify' }, stops: true, check: 'dates', fixtures: { 'dc-cert': 'expired' },
     symptom: 'The certificate is outside its validity period at the simulation clock.', evidence: [{ text: 'fault-dc-expired.cer validity dates.', kind: KIND.REAL }],
     owner: 'Operator', remediation: 'Renew, then remove the expired certificate.', longTerm: 'Rely on autoenrollment renewal.', patch: { purposeState: 'unsuitable', validation: { dates: 'fail' }, trustDecision: 'rejected' } }
@@ -217,11 +229,11 @@ export function step(p) {
   };
 }
 // Derives the engine flow objects from the step connectors.
-export function flowsFor(steps) {
+export function flowsFor(steps, pathId = 'csr') {
   return steps.filter((s) => s.connector).map((s) => {
     const c = s.connector;
     const from = c.from ?? s.zone, to = c.to ?? (c.store ? `store:${c.store}` : s.zone);
     return { id: `f-${s.id}`, stage: s.id, from, to, kind: c.blocked ? 'blocked' : c.association ? 'association' : c.store ? 'store' : 'transport', protocol: c.channel ?? (c.store ? 'local store write' : 'DC01 internal association'),
-      payload: artifactLabel(s.artifact), identity: s.actor, result: s.result ?? '', evidence: s.purpose, artifact: s.artifact, window: [0, 1], blocked: !!c.blocked, channel: c.channel, store: c.store, association: !!c.association };
+      payload: artifactLabel(s.artifact, pathId), identity: s.actor, result: s.result ?? '', evidence: s.purpose, artifact: s.artifact, window: [0, 1], blocked: !!c.blocked, channel: c.channel, store: c.store, association: !!c.association };
   });
 }

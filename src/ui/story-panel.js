@@ -2,7 +2,7 @@
 // Raw artifact · Evidence · Troubleshoot (moves to position 2 and opens when a fault halts). Every field comes from parsed fixtures
 // or is labelled as a simulated value. Pure HTML builders: no DOM access.
 import { DC, ENV } from '../artifacts/synthetic.js';
-import { ARTIFACTS, TEMPLATE_CARDS, STORES, PENDING_STORE, NEVER_EXECUTED, CFG, KIND, FAULTS } from '../scenarios/dc/shared.js';
+import { ARTIFACTS, TEMPLATE_CARDS, STORES, PENDING_STORE, NEVER_EXECUTED, CFG, KIND, FAULTS, CONDITIONS, artifactLabel } from '../scenarios/dc/shared.js';
 import { FOLLOWUP_ITEMS } from '../scenarios/dc/path-csr.js';
 import { buildTrace, getFault } from '../engine/engine.js';
 import { colonHex } from '../artifacts/model.js';
@@ -41,7 +41,7 @@ export function summaryHtml(ctx) {
 export function plainHtml(ctx) {
   const st = step(ctx); const s = ctx.state; const x = st.explain; const sel = ctx.selection;
   let head = '';
-  if (sel?.type === 'artifact' && ARTIFACTS[sel.id]) head = `<div class="card about"><h4>About this object: ${esc(ARTIFACTS[sel.id].label)}</h4><p>${esc(plainArtifact(sel.id, ctx))}</p></div>`;
+  if (sel?.type === 'artifact' && ARTIFACTS[sel.id]) head = `<div class="card about"><h4>About this object: ${esc(artifactLabel(sel.id, ctx.scenario.pathId))}</h4><p>${esc(plainArtifact(sel.id, ctx))}</p></div>`;
   else if (sel?.type === 'store') { const so = STORES.find((q) => q.id === sel.id); head = `<div class="card about"><h4>About this store</h4><p>${esc(so?.full)} on DC01. ${esc(storePlain(sel.id))}</p></div>`; }
   else if (sel?.type === 'entity' && sel.id === 'rootca') head = '<div class="card about"><h4>About the offline Root CA</h4><p>SIMSI2027-ROOTCA signed the Issuing CA certificate earlier, offline. It is not contacted for this request and never signs the DC01 certificate.</p></div>';
   else if (sel?.type === 'zone') { const z = ctx.scenario.zones.find((q) => q.id === sel.id); head = `<div class="card about"><h4>About zone ${z?.n}: ${esc(z?.name)}</h4><p>${esc(zonePlain(sel.id, ctx))}</p></div>`; }
@@ -49,7 +49,13 @@ export function plainHtml(ctx) {
   if (s.direction === 'reverse') { const t = buildTrace(ctx.scenario, s.activeFault)[s.evidenceIndex]; return `${head}<p class="lead"><strong>${esc(t.question)}</strong> ${esc(t.claim)}</p><p>${kindBadge(t.evidenceKind)}</p><p class="muted">Reverse evidence walks from the result back to its causes; it is not a reversed animation.</p>`; }
   if (st.skipped) return `${head}<p class="lead">${esc(st.title)}: <strong>${esc(st.result)}</strong></p><p>The Root and Issuing CA certificates already arrived from Active Directory (Enterprise store), so this installation step is not needed.</p>`;
   return `${head}<p class="lead">${esc(st.purpose)}</p><dl class="qa"><dt>What happens</dt><dd>${esc(x.what)}</dd><dt>Who acts</dt><dd>${esc(x.who)}</dd><dt>What moves</dt><dd>${esc(x.moves)}</dd><dt>What stays on DC01</dt><dd>${esc(x.staysLocal)}</dd><dt>What can go wrong</dt><dd>${esc(x.canGoWrong)}</dd></dl>
-    ${st.result ? `<p><strong>Result:</strong> ${esc(st.result)}</p>` : ''}${st.notes.map((n) => `<p class="note">${esc(n)}</p>`).join('')}${st.id === 'a-followup' ? `<h4>Open items</h4><ul class="tight">${FOLLOWUP_ITEMS.map((i) => `<li>${esc(i)}</li>`).join('')}</ul>` : ''}`;
+    ${st.result ? `<p><strong>Result:</strong> ${esc(st.result)}</p>` : ''}${st.notes.map((n) => `<p class="note">${esc(n)}</p>`).join('')}${conditionNote(ctx)}${st.id === 'a-followup' ? `<h4>Open items</h4><ul class="tight">${FOLLOWUP_ITEMS.map((i) => `<li>${esc(i)}</li>`).join('')}</ul>` : ''}`;
+}
+// The lesson condition and its long-term fix, shown where the condition matters (trust check and the installation steps).
+export function conditionNote(ctx) {
+  const st = step(ctx); const c = CONDITIONS.find((x) => x.id === ctx.scenario.conditionId);
+  if (!c?.longTerm || !(st.id === 'a-trust-check' || st.conditional === c.id)) return '';
+  return `<p class="note"><strong>Condition: ${esc(c.label)}</strong> (${esc(c.note)}). Long term: ${esc(c.longTerm)}</p>`;
 }
 function plainArtifact(id, ctx) {
   const B = ctx.scenario.pathId === 'mmc';
@@ -99,7 +105,7 @@ export function technicalHtml(ctx) {
     ['Channel', st.connector ? (st.connector.association ? 'DC01 internal association (never on the network)' : st.connector.channel ?? 'local store write') : 'None (no movement)'], ['Result', st.result ?? '—'],
     ['CA configuration', DC.caConfig], ['Request ID', ['none'].includes(s.requestRecord) ? 'not assigned yet' : String(DC.requestId)]]);
   if (['a-template', 'b-template', 'b-permission', 'b-wizard', 'a-policy'].includes(st.id)) h += templateCards(ctx);
-  if (st.artifact && ARTIFACTS[st.artifact]?.role && !st.skipped) h += `<p><button class="linkbtn" data-open="artifact:${st.artifact}">Inspect the ${esc(ARTIFACTS[st.artifact].label)}</button></p>`;
+  if (st.artifact && ARTIFACTS[st.artifact]?.role && !st.skipped) h += `<p><button class="linkbtn" data-open="artifact:${st.artifact}">Inspect the ${esc(artifactLabel(st.artifact, ctx.scenario.pathId))}</button></p>`;
   return h;
 }
 
@@ -171,7 +177,9 @@ export function privateKeyText(ctx, id) {
   const s = ctx.state;
   if (!['leaf', 'accepted'].includes(id)) return 'No. That private key lives only on the CA.';
   if (s.activeFault === 'accepted-on-wrong-machine' && s.halted) return 'No: this copy on PKI-TRANSFER01 has no private key. Copying a CER neither copies nor recreates the key.';
-  if (s.keyAssociation === 'mismatch') return 'No: its public key matches no private key on DC01.';
+  if (s.keyAssociation === 'mismatch' || s.leafState === 'unlinked') return 'No: its public key matches no pending request on DC01, so certreq -accept could not link a key. Request 1042 and its key are still waiting.';
+  if (s.pendingRequest === 'user-store') return 'No: the key was created in the operator\'s user store, so certreq -accept -machine found no machine request to link.';
+  if (s.pendingRequest === 'lost') return 'No: the pending request that held the key is gone, so nothing can be linked. Create a new request on DC01.';
   if (['linked', 'matched'].includes(s.keyAssociation)) return 'Yes: linked on DC01 to the key created at the start (it never travelled).';
   return 'Not yet: the key waits in the pending request on DC01 until certreq -accept links it.';
 }
@@ -191,7 +199,7 @@ export function storeInspector(ctx, storeId) {
 export function certCard(ctx, id) {
   const fx = fixture(ctx, id === 'accepted' ? 'accepted' : id); const c = fx?.parsed; if (!c) return '';
   const s = ctx.state; const leaf = id === 'accepted';
-  const source = leaf ? 'certreq -accept on DC01' : id === 'ica' ? s.trust.icaSource : s.trust.rootSource;
+  const source = leaf ? (ctx.scenario.pathId === 'mmc' ? 'Installed automatically by the enrollment wizard on DC01' : 'certreq -accept on DC01') : id === 'ica' ? s.trust.icaSource : s.trust.rootSource;
   const rows = [
     ['What is it?', leaf ? 'The DC01 Domain Controller certificate (public)' : id === 'ica' ? 'The Issuing CA certificate (public copy)' : 'The Root CA certificate (public copy)'],
     ['Who issued it?', c.issuer],
@@ -228,7 +236,7 @@ export function rawHtml(ctx, mode) {
   const p = fx.parsed;
   const btns = `<p><button class="btn small" data-raw="pem" aria-pressed="${mode === 'pem'}">Show PEM</button> <button class="btn small" data-raw="asn1" aria-pressed="${mode === 'asn1'}" ${p.asn1 ? '' : 'disabled'}>Show ASN.1</button></p>`;
   const body = mode === 'pem' ? `<pre class="pem" tabindex="0">${esc(p.pem ?? p.text ?? '')}</pre>` : mode === 'asn1' && p.asn1 ? `<pre class="pem" tabindex="0">${esc(p.asn1)}</pre>` : '<p class="muted">Shown on demand.</p>';
-  return `<p class="muted">${esc(ARTIFACTS[id]?.label ?? id)} · <span class="mono">${esc(fx.manifest.filename)}</span></p>${btns}${body}`;
+  return `<p class="muted">${esc(artifactLabel(id, ctx.scenario.pathId))} ·<span class="mono">${esc(fx.manifest.filename)}</span></p>${btns}${body}`;
 }
 
 // ---------- 5. Evidence ----------

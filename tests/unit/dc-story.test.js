@@ -40,7 +40,10 @@ describe('paths, milestones and step schema', () => {
   it('scenario identity, layout mode, paths and conditions', () => {
     expect(DCS).toMatchObject({ id: 'dc-manual-certificate-request', title: 'Domain Controller Manual Enrollment', layoutMode: 'story-zones', defaultPath: 'csr' });
     expect(Object.keys(DCS.paths)).toEqual(['csr', 'mmc']);
-    expect(DCS.conditions).toEqual([{ id: 'trust-missing', label: 'Trust certificates missing on DC01', note: 'Exceptional condition for this lesson', default: true }, { id: 'trust-present', label: 'Trust certificates present via AD (Enterprise store)' }]);
+    // v0.4.1: trust-missing also carries its long-term fix (audit P8), so the specified fields are matched rather than the whole object.
+    expect(DCS.conditions).toHaveLength(2);
+    expect(DCS.conditions[0]).toMatchObject({ id: 'trust-missing', label: 'Trust certificates missing on DC01', note: 'Exceptional condition for this lesson', default: true });
+    expect(DCS.conditions[1]).toEqual({ id: 'trust-present', label: 'Trust certificates present via AD (Enterprise store)' });
     expect(E.pathOf(DCS, {}).pathId).toBe('csr'); expect(E.pathOf(DCS, {}).conditionId).toBe('trust-missing');
     expect(E.pathOf(TLS, { pathId: 'mmc' })).toBe(TLS);
   });
@@ -142,6 +145,11 @@ describe('golden PKI rules', () => {
     const dependent = /\bports?\b|event details|event ID|Group Policy|\bdefaults?\b|enforce|pickup timing|replication/i;
     const offenders = ALL_TEXT.filter((t) => dependent.test(t) && !t.includes(CFG) && !/^(Check prerequisites)$/.test(t));
     expect(offenders).toEqual([]);
+    // Audit P7: the marker follows a complete sentence and names what varies ("… . Depends on your configuration: <aspect>.").
+    for (const t of ALL_TEXT.filter((x) => x.includes(CFG))) {
+      expect(t, t).toMatch(new RegExp(`[.!?)"] ${CFG}: [a-z][^.]*\\.$`));
+      expect(t, t).not.toMatch(/\(Depends on your configuration\.\)/);
+    }
   });
 });
 
@@ -170,7 +178,19 @@ describe('commands', () => {
   });
 });
 
+describe('Path B wording (audit P5, P6, P9)', () => {
+  it('Path B never calls its leaf "accepted" and says the wizard signs with the DC01 key', () => {
+    expect(B.artifacts.find((a) => a.id === 'accepted').label).toBe('Installed leaf');
+    expect(A.artifacts.find((a) => a.id === 'accepted').label).toBe('Accepted leaf');
+    expect(B.stages.find((s) => s.id === 'b-enroll').purpose).toMatch(/signs it with the new DC01 private key/);
+    expect(B.flows.every((f) => !/Accepted/.test(f.payload))).toBe(true);
+  });
+});
+
 describe('conditions', () => {
+  it('trust-missing carries its long-term fix (audit P8)', () => {
+    const c = CONDITIONS.find((x) => x.id === 'trust-missing'); expect(c.longTerm).toMatch(/Enterprise store/); expect(c.longTerm).toContain(CFG);
+  });
   it('trust-missing (default) installs Root and Issuing CA before accept', () => {
     expect(at(A, 'a-trust-check').trust).toMatchObject({ root: 'missing', ica: 'missing' });
     expect(at(A, 'a-ica').trust).toMatchObject({ root: 'present', ica: 'present', rootSource: 'Local (manual, emergency)', icaSource: 'Local (manual)' });

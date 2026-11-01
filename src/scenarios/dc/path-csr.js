@@ -20,18 +20,18 @@ export const steps = [
   step({ id: 'a-why', milestone: M1, title: 'Autoenrollment fails: RPC/DCOM blocked', zone: 'Z1', adjacent: ['Z4'], actor: 'SYS', artifact: 'error',
     purpose: 'Autoenrollment could not reach the Issuing CA because RPC/DCOM from DC01 to ICA01 is blocked.',
     command: command(`certutil -ping -config ${CA}`), connector: { from: 'Z1', to: 'Z4', channel: 'RPC/DCOM', blocked: true },
-    result: cfg('"The RPC server is unavailable" 0x800706BA. The exact event details'),
+    result: cfg('"The RPC server is unavailable" (0x800706BA).', 'the exact event IDs and event details'),
     during: { rpcState: 'testing' }, done: { rpcState: 'blocked' },
     explain: X('DC01 normally asks the Issuing CA for its certificate automatically (autoenrollment) over RPC/DCOM, a Windows remote-call protocol. The test call fails: the network path is blocked.',
       'The system (DC01 calling ICA01); the operator reads the result.', 'A request that never arrives: the connector is blocked.', 'All keys and files stay on DC01.',
-      cfg('A firewall between DC01 and ICA01 blocks the RPC/DCOM ports; which ports are needed'))
+      cfg('A firewall between DC01 and ICA01 blocks RPC/DCOM.', 'which ports are needed'))
   }),
   step({ id: 'a-trust-check', milestone: M1, title: 'Inspect trust stores', zone: 'Z6', adjacent: ['Z1'], actor: 'OP', artifact: null, stores: true,
     purpose: 'Check whether DC01 already trusts the SIMSI2027 Root CA and holds the Issuing CA certificate.',
     command: command('certutil -store Root ; certutil -store CA', { ';': 'Separator: run the second command after the first.' }), result: 'Root and Issuing CA certificates are missing (lesson condition).',
     during: { storeView: 'trust' }, done: { storeView: 'trust', trust: { root: 'missing', ica: 'missing', rootSource: null, icaSource: null } },
     explain: X('The operator lists the Trusted Root and Intermediate Certification Authorities stores on DC01. In this lesson they are missing, which is exceptional: in a healthy forest they arrive from Active Directory.',
-      'SIMSI2027\\PKIOperator on DC01.', 'Nothing moves.', 'The stores are local to DC01.', cfg('Trust distribution from Active Directory (Enterprise store) or Group Policy has not reached DC01')) }),
+      'SIMSI2027\\PKIOperator on DC01.', 'Nothing moves.', 'The stores are local to DC01.', cfg('Trust distribution from Active Directory (Enterprise store) or Group Policy has not reached DC01.', 'how CA certificates are distributed')) }),
   // ---- M2 Define request ----
   step({ id: 'a-identity', milestone: M2, title: 'Confirm DC01 identity and names', zone: 'Z1', adjacent: [], actor: 'OP', artifact: 'identity',
     purpose: 'Confirm the names the certificate must carry: FQDN, domain DNS name, NetBIOS name and the Domain Controller role.',
@@ -83,7 +83,7 @@ export const steps = [
     purpose: 'ICA01 checks that DCOfflineKerberosAuth is published, that PKI Operators may enroll, records the supplied SANs and holds the request for manager approval.',
     result: 'Published · PKI Operators may enroll · supplied SANs recorded · held for certificate manager approval.', during: { requestRecord: 'evaluating' }, done: { templateState: 'published', permissionState: 'granted', requestRecord: 'pending' },
     explain: X('The CA policy module evaluates the request against the template. Because names are supplied in the request, the template requires a certificate manager to approve it.',
-      'The CA (system).', 'Nothing leaves the CA.', 'The private key stays on DC01.', cfg('Template not published, PKI Operators lacks Enroll, or the request names the wrong template. Template permission defaults')) }),
+      'The CA (system).', 'Nothing leaves the CA.', 'The private key stays on DC01.', cfg('The template is not published, PKI Operators lacks Enroll, or the request names the wrong template.', 'the template permission defaults')) }),
   step({ id: 'a-approve', milestone: M5, title: 'Certificate manager approves after out-of-band verification', zone: 'Z4', adjacent: [], actor: 'MGR', artifact: 'record', vault: true,
     purpose: 'SIMSI2027\\PKICertManager verifies the request against the change record and issues it from the console.',
     gui: 'Certification Authority console → Pending Requests → All Tasks → Issue', connector: { from: 'Z4', to: 'Z4', channel: 'CA approval (console)', local: true },
@@ -117,7 +117,7 @@ export const steps = [
     notes: ['Preferred fix: the PKI administrator publishes the Root to AD with certutil -dspublish -f simsi2027-rootca.cer RootCA.'],
     done: { trust: { root: 'present', rootSource: 'Local (manual, emergency)' } },
     explain: X('Because trust is missing on DC01, the authorized change installs the verified Root as a local, manual exception. The proper fix is AD publication (certutil -dspublish -f simsi2027-rootca.cer RootCA) by the PKI administrator.',
-      'SIMSI2027\\PKIOperator under an emergency change.', 'A public Root certificate into the Trusted Root store.', 'No private key: the Root CA key stays offline.', cfg('A manual Root can drift from the Enterprise store that AD and Group Policy maintain')) }),
+      'SIMSI2027\\PKIOperator under an emergency change.', 'A public Root certificate into the Trusted Root store.', 'No private key: the Root CA key stays offline.', cfg('A manually installed Root can drift from the Enterprise store that AD and Group Policy maintain.', 'how Root certificates are distributed')) }),
   step({ id: 'a-ica', milestone: M8, title: 'Install Issuing CA certificate', zone: 'Z6', adjacent: ['Z5'], actor: 'OP', artifact: 'ica', vault: true, stores: true, conditional: 'trust-missing', connector: { from: 'Z5', store: 'intermediate', channel: 'local store write' },
     purpose: 'Add the Issuing CA certificate to Local Computer\\Intermediate Certification Authorities.',
     command: command('certutil -addstore -f CA simsi2027-ica01.cer'), result: 'Issuing CA present · source tag Local (manual).',
@@ -127,7 +127,7 @@ export const steps = [
   step({ id: 'a-accept', milestone: M9, title: 'Accept on the original DC01', zone: 'Z6', adjacent: ['Z1'], actor: 'OP', artifact: 'accepted', vault: true, stores: true, connector: { from: 'Z1', to: 'Z6', association: true },
     purpose: 'certreq -accept matches the leaf to the pending request by public key, links the existing key, installs into Personal and removes the pending request.',
     command: command('certreq -accept -machine dc01-issued.cer'), result: 'Leaf in Personal with its private key; pending request removed.',
-    notes: [cfg('Exact certreq behavior can vary with the response format and existing stores; it never makes a Root trusted by itself')],
+    notes: [cfg('certreq -accept never makes a Root trusted by itself.', 'the exact certreq behaviour with a CER or PKCS #7 response and the existing stores')],
     during: { leafState: 'accepting' }, done: { leafState: 'accepted', pendingRequest: 'consumed', keyState: 'associated', keyAssociation: 'linked' },
     explain: X('On DC01 — the same computer that created the key — certreq finds the pending request whose public key equals the certificate\'s, links that private key to the certificate and installs it in Personal. The key never travels.',
       'SIMSI2027\\PKIOperator on DC01.', 'Nothing on the network: an internal link between the key vault and Personal.', 'The private key stays exactly where it was created.', 'Accepting on another machine, or after the pending request was deleted, gives a certificate without a private key.') }),
@@ -146,17 +146,18 @@ export const steps = [
     command: command('certutil -verify -urlfetch dc01-issued.cer'), result: 'Chain leaf → Issuing CA → Root; CRL current; serial not listed.',
     during: { chainState: 'building', revocationState: 'checking' }, done: { chainState: 'trusted', revocationState: 'good', validation: { signatures: 'pass', root: 'pass' } },
     explain: X('The chain is built from DC01\'s stores. AIA (Authority Information Access: where to download the issuer certificate) is only needed if the Intermediate store lacked the Issuing CA certificate. The CDP (CRL Distribution Point) is where the CRL (Certificate Revocation List) is downloaded to check revocation. The Root CA signed the Issuing CA certificate earlier, offline.',
-      'DC01 (system).', 'The CRL, from PKIWEB01 over HTTP.', 'The private key stays on DC01.', cfg('CDP unreachable gives "revocation offline"; whether services enforce revocation')) }),
+      'DC01 (system).', 'The CRL, from PKIWEB01 over HTTP.', 'The private key stays on DC01.', cfg('An unreachable CDP gives "revocation offline".', 'whether services enforce revocation')) }),
   step({ id: 'a-followup', milestone: M10, title: 'Suitable now; root cause still open', zone: 'Z1', adjacent: ['Z6'], actor: 'OP', artifact: 'remediation',
     purpose: 'The certificate is suitable now, but the reason autoenrollment failed is still open.',
     command: command('certutil -pulse'), result: 'Open items recorded in the change.',
     notes: ['Run certutil -pulse only after the repair, to let autoenrollment take over.'],
     done: { trustDecision: 'suitable', followupState: 'open' },
-    explain: X('Manual enrollment is an exception, not a repair. Open items: the DC01 → ICA01 RPC/DCOM firewall rule; the autoenrollment Group Policy and the template Autoenroll permission; trust distribution (AD publication, replication, Group Policy); CDP/AIA reachability; replacing this manual certificate through autoenrollment and revoking it per policy; unpublishing DCOfflineKerberosAuth. This manual certificate will not be renewed automatically. How trust and autoenrollment are distributed (Depends on your configuration.)',
-      'SIMSI2027\\PKIOperator, with the network team and PKI administrator.', 'Nothing moves.', 'Everything stays on DC01.', cfg('Leaving the firewall, Group Policy or replication problem unfixed means the next renewal fails too')) })
+    explain: X(cfg('Manual enrollment is an exception, not a repair. Open items: the DC01 → ICA01 RPC/DCOM firewall rule; the autoenrollment Group Policy and the template Autoenroll permission; trust distribution (AD publication, replication, Group Policy); CDP/AIA reachability; replacing this manual certificate through autoenrollment and revoking it per policy; unpublishing DCOfflineKerberosAuth. This manual certificate will not be renewed automatically.', 'how trust and autoenrollment are distributed'),
+      'SIMSI2027\\PKIOperator, with the network team and PKI administrator.', 'Nothing moves.', 'Everything stays on DC01.', cfg('Leaving the firewall, Group Policy or replication problem unfixed means the next renewal fails too.', 'which of these applies')) })
 ];
 
-export const FOLLOWUP_ITEMS = [cfg('DC01 → ICA01 RPC/DCOM firewall rule'), cfg('Autoenrollment Group Policy and template Autoenroll permission'), cfg('Trust distribution: AD publication, replication, Group Policy'),
+export const FOLLOWUP_ITEMS = [cfg('Open the DC01 → ICA01 RPC/DCOM firewall rule.', 'the ports'), cfg('Repair the autoenrollment Group Policy and the template Autoenroll permission.', 'the policy and permission defaults'),
+  cfg('Repair trust distribution: AD publication, replication, Group Policy.', 'the distribution method'),
   'CDP/AIA reachability from DC01', 'Replace the manual certificate via autoenrollment; revoke it per policy', 'Unpublish DCOfflineKerberosAuth from ICA01', 'The manual certificate will not be renewed automatically'];
 
 const T = (id, stage, question, claim, entity, artifact, evidenceKind, faults = []) => ({ id, stage, question, claim, entity, artifact, evidenceKind, faults });

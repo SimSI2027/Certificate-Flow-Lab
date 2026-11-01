@@ -1,6 +1,6 @@
 // Pure geometry and disclosure model for the v0.4.0 story scene (viewBox 1600 x 720). No DOM access: everything is derived
 // from the canonical state so that tests can check zones, connectors, cards and stores exactly as they are drawn.
-import { ZONES, OFFLINE_TRUST, PUB, STORES, ARTIFACTS, zonesFor } from '../scenarios/dc/shared.js';
+import { ZONES, OFFLINE_TRUST, PUB, STORES, ARTIFACTS, zonesFor, artifactLabel } from '../scenarios/dc/shared.js';
 
 export const VIEW = { w: 1600, h: 720 };
 export const LANE_Y = 360, ASSOC_Y = 624, HISTORY_Y = 60;
@@ -42,7 +42,7 @@ export function storyModel(sc, state, { started = true, full = false, inspectCa 
     let crumbs = [];
     if (mode === 'finished') {
       const seen = []; for (const p of prev) if (p.zone === z.id && p.artifact && !seen.includes(p.artifact)) seen.push(p.artifact);
-      crumbs = seen.slice(-CRUMB_ROWS.length).map((a, i) => ({ artifact: a, rect: crumbRect(z, i), label: ARTIFACTS[a]?.label ?? a }));
+      crumbs = seen.slice(-CRUMB_ROWS.length).map((a, i) => ({ artifact: a, rect: crumbRect(z, i), label: artifactLabel(a, sc.pathId) }));
     }
     return { ...z, mode, crumbs, station: mode === 'placeholder' || mode === 'finished' ? null : stationRect(z) };
   });
@@ -59,13 +59,16 @@ export function storyModel(sc, state, { started = true, full = false, inspectCa 
     else if (conn && !conn.association && conn.from && conn.from !== 'Z6' && zoneById(conn.from)) spotlight = { zone: conn.from, artifact: step.artifact, rect: spotRect(zoneById(conn.from)), source: true };
   }
   const badge = step ? { zone: step.zone, actor: step.actor, text: ACTOR_TEXT[step.actor], full: ACTOR_FULL[step.actor], rect: step.zone === 'Z6' ? null : badgeRect(zoneById(step.zone)), inStation: step.zone === 'Z6' } : null;
-  const vault = { visible: !!step?.vault && (sc.pathId ?? 'csr') === 'csr', rect: VAULT, state: state.pendingRequest, keyState: state.keyState };
+  // Key vault (Path A): from a-new while a pending request (or its fault state) exists; after a successful accept it disappears.
+  const afterNew = sc.stages.findIndex((s) => s.id === 'a-new') <= state.stage;
+  const vault = { visible: !!step && (sc.pathId ?? 'csr') === 'csr' && afterNew && state.pendingRequest !== 'none' && (!!step.vault || state.pendingRequest !== 'consumed'),
+    rect: VAULT, state: state.pendingRequest, keyState: state.keyState };
   const storesVisible = !!step && (isShown('Z6'));
   const stores = storesVisible ? storeEntries(sc, state, step) : null;
   const pubVisible = !!step?.pub;
   const otEmphasis = !!step && (step.rootHistory || inspectCa);
   const connectors = [];
-  if (conn) connectors.push(connectorFor(conn, step, { spotlight, vault, stores }));
+  if (conn) connectors.push(connectorFor(conn, step, { spotlight, vault, stores, state }));
   if (step && otEmphasis) connectors.push(historyLink());
   if (full && step) for (const p of prev) if (p.connector) { const c = connectorFor(p.connector, p, { spotlight: null, vault: { visible: false }, stores: null }); connectors.push({ ...c, kind: 'finished', id: `${c.id}-done` }); }
   const cards = [];
@@ -86,7 +89,8 @@ export const zoneStates = (sc, state, opts) => storyModel(sc, state, opts).zones
 function storeEntries(sc, s, step) {
   const pathB = (sc.pathId ?? 'csr') === 'mmc';
   const entries = { personal: [], intermediate: [], root: [] };
-  if (['accepted'].includes(s.leafState)) entries.personal.push({ artifact: 'accepted', label: pathB ? 'DC01 certificate (empty subject)' : 'DC01.simsi2027.test', key: ['linked', 'matched'].includes(s.keyAssociation), keyText: ['linked', 'matched'].includes(s.keyAssociation) ? 'private key on DC01' : 'no matching private key', active: step?.artifact === 'accepted' || step?.artifact === 'chain' });
+  // 'unlinked' = a certificate placed in Personal that no pending request matched (key-mismatch): it has no private key.
+  if (['accepted', 'unlinked'].includes(s.leafState)) entries.personal.push({ artifact: 'accepted', label: pathB ? 'DC01 certificate (empty subject)' : 'DC01.simsi2027.test', key: ['linked', 'matched'].includes(s.keyAssociation), keyText: ['linked', 'matched'].includes(s.keyAssociation) ? 'private key on DC01' : 'no matching private key', active: step?.artifact === 'accepted' || step?.artifact === 'chain' });
   if (s.trust?.ica === 'present') entries.intermediate.push({ artifact: 'ica', label: 'SIMSI2027 Issuing CA 01', key: false, keyText: 'no private key here', source: s.trust.icaSource, active: step?.artifact === 'ica' });
   if (s.trust?.root === 'present') entries.root.push({ artifact: 'root', label: 'SIMSI2027 Root CA', key: false, keyText: 'trust anchor · no private key here', source: s.trust.rootSource, anchor: true, active: step?.artifact === 'root' });
   const status = (id) => (entries[id].length ? null : id === 'personal' ? (s.dcCertState === 'missing' ? 'No suitable DC certificate' : 'Not checked yet') : s.trust?.[id === 'root' ? 'root' : 'ica'] === 'missing' ? 'Missing (lesson condition)' : 'Not checked yet');
@@ -112,8 +116,15 @@ function connectorFor(c, step, ctx) {
   const channel = c.channel ?? (c.store ? 'local store write' : '');
   if (c.association) {
     const start = ctx.vault?.visible ? [cx(VAULT), bottom(VAULT)] : [cx(stationRect(zoneById('Z1'))), bottom(stationRect(zoneById('Z1')))];
-    const pr = storeRect('personal');
-    return { id, kind: 'association', channel: 'DC01 internal association', label: ASSOC_LABEL, from: 'Z1', to: 'store:personal', fromCard: ctx.vault?.visible ? 'vault' : 'station:Z1', toCard: 'store:personal',
+    const pr = storeRect('personal'); const s = ctx.state ?? {};
+    // Once the step has completed (or halted), the link either exists or it does not: a failed accept is drawn blocked.
+    const settled = s.halted || s.stageProgress >= 1;
+    const failed = settled && !['linked', 'matched'].includes(s.keyAssociation);
+    const failLabel = s.leafState === 'keyless-copy' ? 'certreq -accept ran on PKI-TRANSFER01, not DC01: nothing linked'
+      : s.pendingRequest === 'user-store' ? 'no pending machine request on DC01: nothing linked'
+        : s.pendingRequest === 'lost' ? 'pending request lost: nothing linked'
+          : 'no pending request matches this certificate: nothing linked';
+    return { id, kind: failed ? 'blocked' : 'association', channel: 'DC01 internal association', label: failed ? failLabel : ASSOC_LABEL, cross: failed ? [853, ASSOC_Y] : null, from: 'Z1', to: 'store:personal', fromCard: ctx.vault?.visible ? 'vault' : 'station:Z1', toCard: 'store:personal',
       points: [start, [start[0], ASSOC_Y], [1560, ASSOC_Y], [1560, cy(pr)], [right(pr), cy(pr)]], labelAt: { x: 853, y: ASSOC_Y, anchor: 'middle', pill: true }, carriesKey: false };
   }
   if (c.local) {

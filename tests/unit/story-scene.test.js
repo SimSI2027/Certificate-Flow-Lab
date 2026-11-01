@@ -94,6 +94,42 @@ describe('StoryScene disclosure', () => {
   });
 });
 
+describe('key, vault and store consistency (audit P1-P4, T1)', () => {
+  const linked = (s) => ['linked', 'matched'].includes(s.keyAssociation);
+  for (const pathId of ['csr', 'mmc']) {
+    it(`Path ${pathId}: for every fault and step, the key state, the vault and the Personal store agree`, () => {
+      const v = E.pathOf(DCS, { pathId });
+      for (const f of v.faults) for (let t = 0; t <= v.stages.length; t += 0.5) {
+        const s = E.worldAt(v, f.id, t); const m = storyModel(v, s); const where = `${f.id} @ ${v.stages[s.stage].id} (t=${t})`;
+        // A request is "consumed" only by a successful accept, which links the key.
+        if (s.pendingRequest === 'consumed') expect(linked(s), where).toBe(true);
+        if (s.keyState === 'associated') expect(linked(s), where).toBe(true);
+        if (linked(s) && pathId === 'csr') expect(s.pendingRequest, where).toBe('consumed');
+        // The vault never claims a completed link that did not happen.
+        if (m.vault.visible && m.vault.state === 'consumed') expect(linked(s), where).toBe(true);
+        // A leaf in Personal shows the key badge exactly when the key is linked.
+        const leaf = m.stores?.find((x) => x.id === 'personal').entries.find((e) => e.artifact === 'accepted');
+        if (leaf) expect(leaf.key, where).toBe(linked(s));
+        // A successful association lane is drawn only when the key is (or is being) linked.
+        const assoc = m.connectors.find((c) => c.kind === 'association');
+        if (assoc && (s.halted || s.stageProgress >= 1)) expect(linked(s), where).toBe(true);
+      }
+    });
+  }
+  it('failed accepts: nothing installed or linked on DC01, and the association lane is drawn blocked with the reason', () => {
+    const v = E.pathOf(DCS, {}); const at = (fault) => { const s = E.worldAt(v, fault, 99); return { s, m: storyModel(v, s) }; };
+    const uc = at('user-context'); expect(uc.s).toMatchObject({ pendingRequest: 'user-store', keyState: 'user-store', leafState: 'on-dc01' }); expect(uc.m.vault.state).toBe('user-store');
+    expect(uc.m.stores.find((x) => x.id === 'personal').entries).toEqual([]);
+    expect(uc.m.connectors[0]).toMatchObject({ kind: 'blocked', label: 'no pending machine request on DC01: nothing linked' });
+    const wm = at('accepted-on-wrong-machine'); expect(wm.s).toMatchObject({ pendingRequest: 'present', keyState: 'pending-on-dc01', leafState: 'keyless-copy' });
+    expect(wm.m.vault).toMatchObject({ visible: true, state: 'present' }); expect(wm.m.connectors[0].label).toMatch(/PKI-TRANSFER01, not DC01/);
+    const pl = at('pending-request-lost'); expect(pl.s).toMatchObject({ pendingRequest: 'lost', leafState: 'on-dc01' }); expect(pl.m.stores.find((x) => x.id === 'personal').entries).toEqual([]);
+    const km = at('key-mismatch'); expect(km.s).toMatchObject({ leafState: 'unlinked', pendingRequest: 'present', keyAssociation: 'mismatch' });
+    expect(km.m.vault).toMatchObject({ visible: true, state: 'present' }); expect(km.m.stores.find((x) => x.id === 'personal').entries[0]).toMatchObject({ key: false });
+    const kmAccept = E.worldAt(v, 'key-mismatch', v.stages.findIndex((x) => x.id === 'a-accept') + 1); expect(kmAccept).toMatchObject({ leafState: 'unlinked', keyAssociation: 'none', pendingRequest: 'present' });
+  });
+});
+
 describe('StoryScene stores', () => {
   const v = E.pathOf(DCS, {}); const at = (id, fault) => storyModel(v, stateAt(v, v.stages.findIndex((s) => s.id === id), fault));
   const entries = (m, store) => m.stores.find((s) => s.id === store).entries;

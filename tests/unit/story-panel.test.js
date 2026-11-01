@@ -76,6 +76,20 @@ describe('details panel', () => {
     const h = P.troubleshootHtml(ctx('b-enroll', { pathId: 'mmc', faultId: 'rpc-blocked' }));
     for (const w of ['Symptom', 'Evidence', 'Owner', 'Remediation', 'Stops the flow?', 'Long term', 'Simulated environment', 'data-switch-path="csr"', 'Depends on your configuration']) expect(h, w).toContain(w);
   });
+  it('audit P5: the Path B certificate card says the wizard installed it; Path A says certreq -accept', () => {
+    const b = P.technicalHtml(ctx('b-verify', { pathId: 'mmc', selection: { type: 'store', id: 'personal' } }));
+    expect(b).toContain('Installed automatically by the enrollment wizard on DC01'); expect(b).not.toContain('certreq -accept on DC01');
+    expect(P.technicalHtml(ctx('a-key', { selection: { type: 'store', id: 'personal' } }))).toContain('certreq -accept on DC01');
+  });
+  it('audit P1-P4: private-key text never claims a link after a failed accept', () => {
+    for (const f of ['user-context', 'accepted-on-wrong-machine', 'pending-request-lost']) expect(P.privateKeyText(ctx('a-accept', { faultId: f }), 'accepted'), f).toMatch(/^No/);
+    expect(P.privateKeyText(ctx('a-key', { faultId: 'key-mismatch' }), 'accepted')).toMatch(/could not link a key/);
+  });
+  it('audit P8: the trust-missing condition shows its long-term fix at the trust check and the install steps only', () => {
+    expect(P.plainHtml(ctx('a-trust-check'))).toContain('Long term: Repair AD publication');
+    expect(P.plainHtml(ctx('a-root'))).toContain('Long term:'); expect(P.plainHtml(ctx('a-new'))).not.toContain('Long term:');
+    expect(P.plainHtml(ctx('a-trust-check', { conditionId: 'trust-present' }))).not.toContain('Long term:');
+  });
   it('final card: suitable, withheld, or stopped', () => {
     expect(P.finalCardHtml(ctx('a-followup')).title).toBe('Suitable now; root cause still open');
     expect(P.finalCardHtml(ctx('a-followup', { faultId: 'cdp-unreachable' })).title).toBe('Not confirmed suitable — revocation status unknown');
