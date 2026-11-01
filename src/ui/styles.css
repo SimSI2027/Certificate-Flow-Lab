@@ -273,17 +273,20 @@ body[data-layout='story'] .workspace { height: 100vh; min-height: 0; }
 .story-scene .pubep.aia.failed rect { stroke: var(--crit); stroke-dasharray: none; }
 /* Milestone rail grouped by act: a quiet sentence-case label over each group, a hairline between the acts. */
 .srail:has(> .act) { flex-wrap: nowrap; gap: 0; }
-.srail .act { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 0 1 auto; }
-.srail .act .mchip .dots { min-width: calc(var(--dots, 0) * 11px); }
+/* The act label sits on the bar's top hairline like a tab, so the two halves are named without costing the plate a row. */
+.sbar { position: relative; } .sbar:has(.act) { padding-bottom: 3px; }
+.srail .act { position: relative; display: flex; flex-direction: column; min-width: 0; flex: 0 1 auto; }
 .srail .act + .act { border-left: 1px solid var(--line-strong); padding-left: 10px; margin-left: 6px; }
-.srail .act-label { font-size: 13px; font-weight: 600; color: var(--muted); padding-left: 2px; }
-.srail .act.current .act-label { color: var(--accent-ink); } .srail .act.done .act-label { color: var(--good); }
-.srail .act-chips { display: flex; flex-wrap: wrap; gap: 3px; }
+.srail .act-label { position: absolute; top: -19px; left: 0; z-index: 2; font-size: 13px; line-height: 16px; font-weight: 600; color: var(--muted); background: var(--sheet); border: 1px solid var(--line); border-radius: 9px; padding: 0 8px; white-space: nowrap; }
+.srail .act + .act .act-label { left: 10px; }
+.srail .act.current .act-label { color: var(--accent-ink); border-color: var(--accent-line); } .srail .act.done .act-label { color: var(--good); border-color: var(--good-line); }
+.srail .act-chips { display: grid; grid-template-columns: repeat(var(--cols, 3), max-content); gap: 2px 3px; }
+.srail .act .mchip { padding: 1px 7px; min-height: 24px; }
 /* Glossary: the first use of a term is an inline button that opens a one-line definition. */
 .gloss { font: inherit; color: var(--accent-ink); background: none; border: 0; border-bottom: 1.5px dotted var(--accent-ink); padding: 0; cursor: pointer; }
 .gloss[aria-expanded='true'] { background: var(--accent-soft); border-bottom-style: solid; }
 .gloss:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
-.gloss-def { color: var(--ink-2); }
+.gloss-def { display: block; margin: 4px 0 2px; padding: 3px 8px; border-left: 3px solid var(--accent); background: var(--accent-soft); color: var(--ink); font-size: 13px; }
 .psec-body .card.hs { border-color: var(--a-hs); background: var(--a-hs-soft); }
 
 @keyframes zone-in { from { opacity: .35; } to { opacity: 1; } }

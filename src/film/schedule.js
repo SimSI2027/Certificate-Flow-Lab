@@ -1,6 +1,6 @@
 // Deterministic film schedule (v0.4.0): film time (seconds) -> screen, scenario, session, selection, panel. Pure functions, no clocks,
 // no randomness. Everything visible is then derived from the canonical scenario state exactly as in the interactive app.
-// Story: title -> home -> TLS segment (classic workspace) -> DC Path A in story mode (one beat per step, grouped by milestone)
+// Story: title -> home -> TLS story (26 steps, both acts) -> DC Path A in story mode (one beat per step, grouped by milestone)
 // -> reverse evidence -> full topology -> outro.
 import dc from '../scenarios/dc-manual-certificate-request.js';
 import tls from '../scenarios/tls-manual-enrollment.js';
@@ -12,8 +12,13 @@ export const TLS_ID = tls.id;
 const A = pathOf(dc, { pathId: 'csr', conditionId: 'trust-missing' });
 export const TITLE_SECONDS = 3;
 export const HOME_SECONDS = 3;
-export const TLS_STAGE_SECONDS = 0.6;
-export const TLS_SECONDS = TLS_STAGE_SECONDS * tls.stages.length;
+// v0.5.0: the TLS segment follows the story lesson's 26 steps; key moments get a longer beat.
+const TLS_LONG = { 't-warning': 1.6, 't-new': 1.8, 't-submit': 1.6, 't-sign': 1.6, 't-accept': 1.8, 't-bind': 1.6, 't-cert-msg': 1.8, 't-proof': 1.8, 't-chain': 1.6, 't-trusted': 1.8 };
+export const TLS_STEP_SECONDS = tls.stages.map((s) => TLS_LONG[s.id] ?? 1.0);
+export const TLS_SECONDS = TLS_STEP_SECONDS.reduce((a, b) => a + b, 0);
+export const tlsStageStart = (i) => TLS_START + TLS_STEP_SECONDS.slice(0, i).reduce((a, b) => a + b, 0);
+// TLS steps where the panel opens on the object that explains the step best.
+const TLS_SHOW = { 't-inspect-csr': { type: 'artifact', id: 'csr' }, 't-cert-msg': { type: 'artifact', id: 'handshake' } };
 export const REVERSE_SECONDS = 5;
 export const TOPOLOGY_SECONDS = 2.2;
 export const OUTRO_SECONDS = 2.8;
@@ -46,8 +51,11 @@ export function frameAt(time) {
   if (t < TITLE_SECONDS) return { ...base, screen: 'home', segment: 'title', titleOpacity: t > TITLE_SECONDS - 0.5 ? (TITLE_SECONDS - t) / 0.5 : 1 };
   if (t < TLS_START) return { ...base, screen: 'home', segment: 'home' };
   if (t < FORWARD_START) {
-    const u = (t - TLS_START) / TLS_STAGE_SECONDS; const i = Math.min(tls.stages.length - 1, Math.floor(u)); const p = Math.min(1, (u - i) / ANIMATE_FRACTION);
-    return { ...base, scenario: TLS_ID, segment: 'tls-forward', session: { ...base.session, t: p >= 1 ? i + 1 : i + Math.max(p, 1e-6) } };
+    let i = 0; while (i < tls.stages.length - 1 && t >= tlsStageStart(i + 1)) i++;
+    const u = (t - tlsStageStart(i)) / TLS_STEP_SECONDS[i]; const p = Math.min(1, u / ANIMATE_FRACTION); const sel = TLS_SHOW[tls.stages[i].id];
+    const out = { ...base, scenario: TLS_ID, segment: 'tls-forward', session: { ...base.session, t: p >= 1 ? i + 1 : i + Math.max(p, 1e-6) } };
+    if (sel && u >= 0.55) { out.panel = true; out.select = sel; out.session.selectedArtifact = sel.id; }
+    return out;
   }
   if (t < FORWARD_END) {
     let i = 0; while (i < N - 1 && t >= stageStart(i + 1)) i++;
@@ -66,15 +74,15 @@ export function frameAt(time) {
   return { ...base, segment: 'outro', full: true, outroOpacity: Math.min(1, Math.max(0, u / 0.3)), session: { ...base.session, t: N } };
 }
 
-// Contact sheet: title, home, TLS beats, one frame per DC milestone, reverse evidence and full topology.
+// Contact sheet: title, home, one frame per TLS milestone, one frame per DC milestone, reverse evidence and full topology.
 export function contactBeats() {
   const at = (i, f) => stageStart(i) + STAGE_SECONDS[i] * f;
-  const tlsAt = (frac) => TLS_START + TLS_SECONDS * frac;
+  const tlsBeats = tls.milestones.map((m, mi) => { const idx = tls.stages.map((q, i) => (q.milestone === m ? i : -1)).filter((i) => i >= 0); const i = idx.at(-1); return [tlsStageStart(i) + TLS_STEP_SECONDS[i] * 0.92, `TLS ${mi + 1} ${m}`]; });
   const milestoneBeats = A.milestones.map((m) => {
     const idx = A.stages.map((s, i) => (s.milestone === m ? i : -1)).filter((i) => i >= 0);
     const pick = idx.find((i) => SHOW[A.stages[i].id]) ?? idx[Math.floor((idx.length - 1) / 2)];
     return [at(pick, 0.92), `${A.milestones.indexOf(m) + 1} ${m}`];
   });
-  return [[1.5, 'Title'], [4.5, 'Scenario home'], [tlsAt(0.35), 'TLS request'], [tlsAt(0.97), 'TLS trusted'], ...milestoneBeats,
+  return [[1.5, 'Title'], [4.5, 'Scenario home'], ...tlsBeats, ...milestoneBeats,
     [FORWARD_END + REVERSE_SECONDS * 0.5, 'Reverse evidence'], [TOPOLOGY_END - 0.6, 'Full topology']];
 }

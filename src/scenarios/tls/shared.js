@@ -106,7 +106,7 @@ export function guiPath(segments) {
 }
 
 // ---------- Actors (the badge sits on the acting zone only) ----------
-export const ACTOR_TEXT = { VIS: 'Jordan acts', OWN: 'Morgan acts', CA: 'Issuing CA acts', CLI: 'CLIENT01 checks', WEB: 'WEB01 acts' };
+export const ACTOR_TEXT = { VIS: 'Jordan acts', OWN: 'Morgan acts', CA: 'Issuing CA acts', CLI: 'CLIENT01 acts', WEB: 'WEB01 acts' };
 export const ACTOR_FULL = { VIS: `Visitor ${JORDAN}`, OWN: `Application owner (operator) ${MORGAN}`, CA: 'SIMSI2027 Issuing CA 01 (system)', CLI: 'CLIENT01 (system: browser and Windows chain engine)', WEB: 'WEB01 (system: IIS and HTTP.sys)' };
 
 // ---------- Canonical initial state ----------

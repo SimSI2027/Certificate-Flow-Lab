@@ -167,12 +167,12 @@ export class StoryController {
     if (multi && !cond.disabled) cond.value = this.sc.conditionId;
     const f = $('#s-fault'); f.innerHTML = this.sc.faults.map((x) => `<option value="${x.id}">${esc(x.id === 'healthy' ? 'None (healthy)' : x.label)}</option>`).join(''); f.value = this.s.faultId;
     $('#s-full').checked = this.app.full;
-    // Act-grouped rails reserve room for the step dots so the rail never re-flows between steps.
-    const dots = (m) => (this.sc.acts ? ` style="--dots:${this.sc.stages.filter((q) => q.milestone === m).length}"` : '');
-    const chip = (m, i) => `<button class="mchip" data-milestone="${esc(m)}" data-mi="${i}"><span class="mn">${i + 1}</span> ${esc(m)}<span class="dots" aria-hidden="true"${dots(m)}></span></button>`;
-    // Lessons with acts group their milestones under a quiet act label, so the two halves are obvious.
+    const chip = (m, i) => `<button class="mchip" data-milestone="${esc(m)}" data-mi="${i}"><span class="mn">${i + 1}</span> ${esc(m)}<span class="dots" aria-hidden="true"></span></button>`;
+    // Lessons with acts group their milestones under a quiet act label, so the two halves are obvious. Each act lays its chips out in
+    // two rows, so the rail keeps one height at every width and never re-flows between steps.
+    const inAct = (a) => this.sc.milestones.filter((m) => this.sc.milestoneAct[m] === a.id);
     $('#s-rail').innerHTML = this.sc.acts
-      ? this.sc.acts.map((a) => `<div class="act" role="group" aria-label="Act ${a.n}: ${esc(a.title)}"><span class="act-label" aria-hidden="true">Act ${a.n} · ${esc(a.title)}</span><div class="act-chips">${this.sc.milestones.map((m, i) => (this.sc.milestoneAct[m] === a.id ? chip(m, i) : '')).join('')}</div></div>`).join('')
+      ? this.sc.acts.map((a) => `<div class="act" role="group" aria-label="Act ${a.n}: ${esc(a.title)}"><span class="act-label" aria-hidden="true">Act ${a.n}: ${esc(a.title)}</span><div class="act-chips" style="--cols:${Math.ceil(inAct(a).length / 2)}">${this.sc.milestones.map((m, i) => (this.sc.milestoneAct[m] === a.id ? chip(m, i) : '')).join('')}</div></div>`).join('')
       : this.sc.milestones.map(chip).join('');
   }
   render(force = false) {

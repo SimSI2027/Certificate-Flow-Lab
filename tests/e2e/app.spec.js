@@ -47,7 +47,7 @@ test('TLS home card: 26 steps in two acts, the visitor only reports; Start opens
   expect(await page.locator('#story-scene .szone[data-mode="placeholder"]').count()).toBe(6);
   await expect(page.locator('#story-scene .ot')).toHaveClass(/muted/);
   await expect(page.locator('#s-rail .act')).toHaveCount(2);
-  expect(await page.locator('#s-rail .act-label').allTextContents()).toEqual(['Act 1 · Get the certificate', 'Act 2 · Use the certificate']);
+  expect(await page.locator('#s-rail .act-label').allTextContents()).toEqual(['Act 1: Get the certificate', 'Act 2: Use the certificate']);
   await expect(page.locator('#s-rail .act').first().locator('.mchip')).toHaveCount(6); await expect(page.locator('#s-rail .act').nth(1).locator('.mchip')).toHaveCount(4);
   await page.click('#s-home'); await expect(page.locator('#home')).toBeVisible(); await expect(page.locator('#btn-continue')).toBeVisible();
   await page.click('#btn-continue'); await expect(page.locator('#workspace')).toBeVisible(); await expect(page.locator('#s-title')).toHaveText('Website TLS Certificate');

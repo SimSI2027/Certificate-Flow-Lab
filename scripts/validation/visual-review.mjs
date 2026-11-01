@@ -9,6 +9,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dc from '../../src/scenarios/dc-manual-certificate-request.js';
+import tls from '../../src/scenarios/tls-manual-enrollment.js';
 import { pathOf } from '../../src/engine/engine.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -26,6 +27,12 @@ function milestoneShots(pathId) {
   const v = pathOf(dc, { pathId });
   return v.milestones.map((m, mi) => { const idx = v.stages.map((s, i) => (s.milestone === m ? i : -1)).filter((i) => i >= 0); const i = idx.at(-1);
     return { name: `${pathId === 'csr' ? 'A' : 'B'}${String(mi + 1).padStart(2, '0')}-${m.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, query: `${DC}&path=${pathId}&t=${i + 1}` }; });
+}
+const TL = `scenario=${tls.id}`;
+// TLS: the last step of each milestone, completed (milestone 10's last step is the final card).
+function tlsMilestoneShots() {
+  return tls.milestones.map((m, mi) => { const idx = tls.stages.map((s, i) => (s.milestone === m ? i : -1)).filter((i) => i >= 0); const i = idx.at(-1);
+    return { name: `W${String(mi + 1).padStart(2, '0')}-${m.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-$/, '')}`, query: `${TL}&t=${i + 1}` }; });
 }
 export const SHOTS = [
   { name: 'H0-home', query: '' },
@@ -45,8 +52,29 @@ export const SHOTS = [
   { name: 'P7-store-requests', query: `${DC}&t=12`, act: click('#story-scene [data-sel="artifact:private-key"]') },
   { name: 'R1-reverse-evidence', query: `${DC}&dir=reverse` },
   { name: 'T1-full-topology', query: `${DC}&t=12&full=1` },
-  { name: 'L1-tls-start', query: 'scenario=tls-manual-enrollment&t=1' },
-  { name: 'L2-tls-end', query: 'scenario=tls-manual-enrollment&t=19' }
+  // v0.5.0 Website TLS story: every milestone, four faults, every inspector, the final card, reverse evidence and a glossary chip.
+  { name: 'W00-tls-before-start', query: TL },
+  ...tlsMilestoneShots(),
+  { name: 'WF1-no-enroll-permission', query: `${TL}&fault=no-enroll-permission&t=10` },
+  { name: 'WF2-wrong-binding', query: `${TL}&fault=wrong-binding&t=19` },
+  { name: 'WF3-missing-ica', query: `${TL}&fault=missing-ica&t=21` },
+  { name: 'WF4-wrong-dns', query: `${TL}&fault=wrong-dns&t=23` },
+  { name: 'WP01-inf', query: `${TL}&t=6`, act: click('#story-scene .spot[data-artifact="inf"]') },
+  { name: 'WP02-csr', query: `${TL}&t=8`, act: click('#story-scene .spot[data-artifact="csr"]') },
+  { name: 'WP03-request-record', query: `${TL}&t=10`, act: click('#story-scene .spot[data-artifact="record"]') },
+  { name: 'WP04-leaf', query: `${TL}&t=11`, act: click('#story-scene .spot[data-artifact="leaf"]') },
+  { name: 'WP05-store-web01', query: `${TL}&t=14`, act: click('#story-scene [data-sel="store:personal"]') },
+  { name: 'WP06-ica', query: `${TL}&t=14`, act: click('#story-scene [data-sel="artifact:ica"]') },
+  { name: 'WP07-binding', query: `${TL}&t=15`, act: click('#story-scene [data-sel="artifact:binding"]') },
+  { name: 'WP08-handshake', query: `${TL}&t=19`, act: click('#story-scene .spot[data-artifact="handshake"]') },
+  { name: 'WP09-store-client01', query: `${TL}&t=21`, act: click('#story-scene [data-sel="store:client-root"]') },
+  { name: 'WP10-root', query: `${TL}&t=22`, act: click('#story-scene [data-sel="artifact:root"]') },
+  { name: 'WP11-crl', query: `${TL}&t=24`, act: click('#story-scene .spot[data-artifact="crl"]') },
+  { name: 'WP12-selfsigned', query: `${TL}&t=2`, act: click('#story-scene .spot[data-artifact="selfsigned"]') },
+  { name: 'WP13-private-key', query: `${TL}&t=8`, act: click('#story-scene [data-sel="artifact:private-key"]') },
+  { name: 'WP14-glossary', query: `${TL}&t=18&panel=open`, act: click('#sec-plain [data-gloss="SNI"]') },
+  { name: 'WR1-reverse-evidence', query: `${TL}&dir=reverse` },
+  { name: 'WT1-full-topology', query: `${TL}&t=19&full=1` }
 ].filter((s) => !ONLY || s.name.includes(ONLY));
 
 // Runs inside the page: returns the list of problems for the current screen.
@@ -70,7 +98,10 @@ function inspect(minPx) {
     overlaps(texts, 'svg');
     const st = window.__cfl.getState(); const step = window.__cfl.app.sc.stages[st.stage];
     const started = document.body.dataset.started === 'true';
-    const expected = started && st.direction === 'forward' && step.connector && !step.skipped ? 1 : 0;
+    // A step moves something when it has a connector, or when the selected fault adds a route at this step (TLS missing-ica: blocked AIA).
+    const faultRoute = window.__cfl.app.sc.faults.find((f) => f.id === st.activeFault)?.connector?.[step.id];
+    // Reverse evidence shows the evidence step's route statically (never animated), so the same rule applies in both directions.
+    const expected = (started || st.direction === 'reverse') && (step.connector || faultRoute) && !step.skipped ? 1 : 0;
     const active = story.querySelectorAll('.conn[data-kind="active"], .conn[data-kind="blocked"], .conn[data-kind="association"]').length;
     if (active !== expected) problems.push(`${active} active connectors (expected ${expected} at ${step.id})`);
     // HTML overlays (final card, tour bar) must not cover any SVG text.

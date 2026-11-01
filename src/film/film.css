@@ -1,14 +1,7 @@
 /* Film mode: fixed 1920x1080 composition. No animation or transition may depend on wall-clock time. */
 body.film { height: 100vh; overflow: hidden; min-height: 0; }
 .film *, .film *::before, .film *::after { animation: none !important; transition: none !important; }
-.film .controls .row, .film .timeline, .film #btn-back, .film .wtools, .film .legend, .film .tour-bar { display: none !important; }
-.film .controls { position: static; box-shadow: none; }
 .film .workspace { min-height: 0; height: 100vh; }
-.film .layout { grid-template-columns: minmax(0, 1fr) 520px; gap: 14px; padding: 12px 18px; }
-.film .scene { aspect-ratio: 2 / 1; }
-.film .side { position: static; max-height: 700px; min-height: 0; height: 700px; }
-.film .panel { font-size: 15px; }
-.film .step-purpose { font-size: 15px; } .film .stepmeta strong { font-size: 20px; }
 .film .home { padding-top: 90px; max-width: 1400px; } .film .htop h1 { font-size: 52px; }
 .film .scard { padding: 30px 34px; } .film .scard h2 { font-size: 30px; } .film .kv.small { font-size: 16px; }
 .film #build-info { display: none; }

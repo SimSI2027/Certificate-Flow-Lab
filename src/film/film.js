@@ -31,18 +31,13 @@ function setTime(time) {
   else {
     if (app.screen !== 'workspace' || app.base?.id !== f.scenario) app.startScenario(f.scenario, { full: false });
     app.full = f.full;
-    if (app.storyMode) {
-      const ctl = app.storyCtl;
-      Object.assign(app.session, { faultId: 'healthy', playing: false, playbackSpeed: 1, selectedFlow: null, pathId: 'csr', conditionId: 'trust-missing', started: true }, f.session);
-      ctl.applyPath(false); ctl.clearSelection();
-      if (f.select) { ctl.selection = f.select; if (f.select.type === 'artifact') app.session.selectedArtifact = f.select.id; ctl.inspectCa = ['ica', 'root'].includes(f.select.id); }
-      ctl.panelOpen = !!f.panel; ctl.open = { plain: true, technical: !!f.select, evidence: f.segment === 'reverse' };
-      ctl.buildControls();
-    } else {
-      $('chk-topology').checked = f.full;
-      Object.assign(app.session, { faultId: 'healthy', playing: false, playbackSpeed: 1, selectedFlow: null }, f.session);
-      app.tab = f.tab; app.inspTab = f.inspTab;
-    }
+    // Every lesson is a story since v0.5.0; the DC lesson also fixes its path and condition.
+    const ctl = app.storyCtl; const dcPath = app.base.paths ? { pathId: 'csr', conditionId: 'trust-missing' } : {};
+    Object.assign(app.session, { faultId: 'healthy', playing: false, playbackSpeed: 1, selectedFlow: null, started: true, ...dcPath }, f.session);
+    ctl.applyPath(false); ctl.clearSelection();
+    if (f.select) { ctl.selection = f.select; if (f.select.type === 'artifact') app.session.selectedArtifact = f.select.id; ctl.inspectCa = ['ica', 'root'].includes(f.select.id); }
+    ctl.panelOpen = !!f.panel; ctl.open = { plain: true, technical: !!f.select, evidence: f.segment === 'reverse' };
+    ctl.buildControls();
     app.render(true);
   }
   const s = app.sc && app.screen === 'workspace' ? app.state() : null;

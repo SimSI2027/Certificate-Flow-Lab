@@ -1,9 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { frameAt, DURATION, FPS, STAGE_SECONDS, stageStart, FORWARD_START, FORWARD_END, REVERSE_END, TOPOLOGY_END, TLS_START, contactBeats, SCENARIO_ID, TLS_ID } from '../../src/film/schedule.js';
+import { frameAt, DURATION, FPS, STAGE_SECONDS, stageStart, FORWARD_START, FORWARD_END, REVERSE_END, TOPOLOGY_END, TLS_START, contactBeats, SCENARIO_ID, TLS_ID, TLS_STEP_SECONDS, tlsStageStart } from '../../src/film/schedule.js';
 import * as E from '../../src/engine/engine.js';
 import { scenarioById } from '../../src/scenarios/index.js';
 
 // v0.4.0: the film keeps a TLS segment, then follows DC Path A in story mode (24 steps, 10 milestones), ending "suitable".
+// v0.5.0: the TLS segment follows the TLS story's 26 steps in both acts (one contact beat per TLS milestone); the bound on the film
+// length rose from 80 s to 110 s for that segment. The DC segment is unchanged.
 const base = scenarioById[SCENARIO_ID];
 const sc = E.pathOf(base, { pathId: 'csr' });
 const N = sc.stages.length;
@@ -11,7 +13,7 @@ const st = (f) => E.computeState(f.scenario === TLS_ID ? scenarioById[TLS_ID] : 
 
 describe('deterministic v0.4.0 film schedule', () => {
   it('runs at 60 fps for a bounded duration and covers every DC Path A step', () => {
-    expect(FPS).toBe(60); expect(DURATION).toBeGreaterThan(35); expect(DURATION).toBeLessThan(80); expect(STAGE_SECONDS).toHaveLength(N); expect(N).toBe(24);
+    expect(FPS).toBe(60); expect(DURATION).toBeGreaterThan(35); expect(DURATION).toBeLessThan(110); expect(STAGE_SECONDS).toHaveLength(N); expect(N).toBe(24);
     expect(SCENARIO_ID).toBe('dc-manual-certificate-request');
   });
   it('the same timestamp always yields the same frame and canonical state', () => {
@@ -38,11 +40,18 @@ describe('deterministic v0.4.0 film schedule', () => {
     const csrStage = sc.stages.findIndex((s) => s.id === 'a-inspect-csr');
     const f = frameAt(stageStart(csrStage) + STAGE_SECONDS[csrStage] * 0.9); expect(f).toMatchObject({ panel: true, full: false, select: { type: 'artifact', id: 'csr' } }); expect(f.session.selectedArtifact).toBe('csr');
   });
-  it('contact sheet: one frame per DC milestone plus TLS, title, home, reverse and topology beats', () => {
-    const b = contactBeats(); expect(b.length).toBe(16);
+  it('the TLS segment walks the 26 TLS steps in order and ends trusted', () => {
+    const T = scenarioById[TLS_ID]; expect(TLS_STEP_SECONDS).toHaveLength(26);
+    let last = -1;
+    for (let t = TLS_START + 0.01; t < FORWARD_START; t += 0.1) { const f = frameAt(t); expect(f.scenario).toBe(TLS_ID); expect(f.session.t).toBeGreaterThanOrEqual(last); last = f.session.t; }
+    let i = 0; const s = st(frameAt(tlsStageStart(25) + 0.1)); i = s.stage; expect(T.stages[i].id).toBe('t-followup');
+  });
+  it('contact sheet: one frame per TLS milestone and per DC milestone, plus title, home, reverse and topology beats', () => {
+    const b = contactBeats(); expect(b.length).toBe(24);
     for (const [t] of b) { expect(t).toBeGreaterThanOrEqual(0); expect(t).toBeLessThan(DURATION); }
     const dcBeats = b.filter(([t]) => t >= FORWARD_START && t < FORWARD_END);
     expect(dcBeats.map(([t]) => sc.stages[st(frameAt(t)).stage].milestone)).toEqual(sc.milestones);
-    expect(b.filter(([t]) => t >= TLS_START && t < FORWARD_START)).toHaveLength(2);
+    const tlsBeats = b.filter(([t]) => t >= TLS_START && t < FORWARD_START); expect(tlsBeats).toHaveLength(10);
+    expect(tlsBeats.map(([t]) => scenarioById[TLS_ID].stages[st(frameAt(t)).stage].milestone)).toEqual(scenarioById[TLS_ID].milestones);
   });
 });

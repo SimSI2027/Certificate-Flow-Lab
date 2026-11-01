@@ -27,16 +27,18 @@ const fault = (ctx) => FAULTS.find((f) => f.id === ctx.state.activeFault) ?? nul
 // ---------- Glossary chips: the first use of a term in a section opens a one-line definition (a button, so it is focusable) ----------
 const TERMS = Object.keys(GLOSSARY);
 export function glossarize(text, seen, open = new Set()) {
-  let out = esc(text); const marks = [];
+  let out = esc(text); const marks = []; const defs = [];
   for (const term of TERMS) {
     if (seen.has(term)) continue;
     const re = new RegExp(`(^|[^A-Za-z0-9-])(${term.replace(/ /g, '\\s')})(?![A-Za-z0-9])`);
     const m = re.exec(out); if (!m) continue;
     seen.add(term); const on = open.has(term);
-    marks.push(`<button type="button" class="gloss" data-gloss="${esc(term)}" aria-expanded="${on}" title="What is ${esc(term)}?">${esc(m[2])}</button>${on ? `<span class="gloss-def" role="note"> (${esc(GLOSSARY[term])})</span>` : ''}`);
+    marks.push(`<button type="button" class="gloss" data-gloss="${esc(term)}" aria-expanded="${on}" title="What is ${esc(term)}?">${esc(m[2])}</button>`);
+    if (on) defs.push(`<span class="gloss-def" role="note"><strong>${esc(term)}.</strong> ${esc(GLOSSARY[term])}</span>`);
     out = `${out.slice(0, m.index)}${m[1]}\u0000${marks.length - 1}\u0000${out.slice(m.index + m[0].length)}`;
   }
-  return out.replace(/\u0000(\d+)\u0000/g, (_, i) => marks[Number(i)]);
+  // Opened definitions follow the text as one line each, so the sentence itself is never split.
+  return out.replace(/\u0000(\d+)\u0000/g, (_, i) => marks[Number(i)]) + defs.join('');
 }
 
 // ---------- Identity: Visitor, Subject, Operator and Requester are separate labelled fields (rule 1) ----------
@@ -133,17 +135,17 @@ function privateKeyCard(ctx) {
   const inf = fixture(ctx, 'inf')?.parsed;
   return kv([['Location', `${PENDING_STORE.full} on WEB01 (pending request), then linked to the certificate in Personal`], ['Created by', 'certreq -new -machine on WEB01'], ['Exportable', `${inf?.fields['NewRequest.Exportable'] ?? 'FALSE'} (INF Exportable)`],
     ['Machine key set', `${inf?.fields['NewRequest.MachineKeySet'] ?? 'TRUE'} (INF MachineKeySet)`], ['Used by', 'HTTP.sys on WEB01, in place, to sign CertificateVerify'], ['Travels on the network', 'Never'], ['In this project', 'Never: no private key file exists']])
-    + `<p>${SIMV} The key location is simulated; the INF values are parsed from the fixture.</p>`;
+    + `<p>${SIMV}</p><p class="muted">The key location is simulated; the INF values are parsed from the fixture.</p>`;
 }
 function bindingCard(ctx) {
   const s = ctx.state; const state = { 'temporary-selfsigned': 'Temporary self-signed certificate (the cause of the warning)', binding: 'Being switched', bound: 'New certificate portal.simsi2027.test (serial …CC10)', 'still-selfsigned': 'Still the temporary self-signed certificate (fault)', 'failed-no-key': 'Not saved: the certificate has no private key (fault)' }[s.iisBindingState];
   return kv([['Site', 'portal (IIS)'], ['Type', 'https'], ['IP address', 'All Unassigned'], ['Port', '443'], ['Host name', SITE], ['Require Server Name Indication', 'Yes'], ['SSL certificate', state ?? s.iisBindingState], ['Stored as', 'Certificate thumbprint + store name (My); the key stays in WEB01\'s machine key store']])
-    + `<p>${SIMV} IIS configuration is simulated. Check it with <span class="mono">netsh http show sslcert</span> (read-only).</p>`;
+    + `<p>${SIMV}</p><p class="muted">IIS configuration is simulated. Check it with <span class="mono">netsh http show sslcert</span> (read-only).</p>`;
 }
 function recordCard(ctx) {
   const s = ctx.state; const disp = { received: 'Received', evaluating: 'Being evaluated', allowed: 'Allowed by policy', issued: 'Issued', denied: 'Denied by policy' }[s.requestRecord] ?? '—';
   return kv([['Request ID', String(REQ)], ['Requester (CA record)', s.requester ?? '—'], ['Template', `${TLS.template.name} (${TLS.template.display})`], ['Supplied subject / SAN', `CN=${SITE} / dNSName ${SITE}`], ['Disposition', disp], ['CA', TLS.caConfig]])
-    + `<p>${SIMV} The CA database row is simulated; the request content is parsed from the CSR fixture.</p>`;
+    + `<p>${SIMV}</p><p class="muted">The CA database row is simulated; the request content is parsed from the CSR fixture.</p>`;
 }
 
 // ---------- Inspectors ----------

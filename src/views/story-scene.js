@@ -105,8 +105,8 @@ export class StoryScene {
     if (m.stores) for (const s of m.stores) out += this.storeHtml(s, sel);
     if (m.iis) out += this.iisHtml(m.iis, sel);
     if (m.clientRoot) out += this.clientRootHtml(m.clientRoot, sel);
-    // Connectors
-    for (const c of m.connectors) out += this.connectorHtml(c);
+    // Connectors. When the final card occupies the top band (a halt at the chain step), the muted Root history link is not drawn.
+    for (const c of m.connectors) if (!(opts.final && c.kind === 'history')) out += this.connectorHtml(c);
     // Spotlight artifact (active artifact only).
     if (m.spotlight) out += this.spotHtml(m.spotlight, state, sel);
     // Travel token: one short eased trip along the active route when a step begins (hidden under reduced motion).
