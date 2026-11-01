@@ -47,6 +47,8 @@ dialog::backdrop { background: rgba(23, 32, 51, .45); }
 .ic-b { fill: #3d5575; } .ic-w { fill: #fff; } .ic-a { fill: #4fc3b0; } .ic-g { fill: #d4a017; } .ic-p { fill: #7b4bd1; } .ic-r { fill: #d64545; } .ic-m { fill: #aab4c4; }
 .ic-s { stroke: #fff; stroke-width: 2; fill: none; stroke-linecap: round; } .ic-s2 { stroke: #3d5575; stroke-width: 2; fill: none; stroke-linecap: round; } .ic-s3 { stroke: #fff; stroke-width: 3; fill: none; stroke-linecap: round; stroke-linejoin: round; }
 .ic-t { font: 800 8px 'Segoe UI'; fill: #1b2a41; }
+.ic-amb { fill: #c77700; } .ic-gr { fill: #7a8699; } .ic-bl { fill: #2f6fd1; } .ic-sl { fill: #52627a; } .ic-pu { fill: #7b4bd1; } .ic-te { fill: #0f8a83; } .ic-gn { fill: #2e8540; }
+.ic-s3b { stroke: #1b2a41; stroke-width: 3; fill: none; stroke-linecap: round; stroke-linejoin: round; } .ic-s2g { stroke: #2e8540; stroke-width: 2.4; fill: none; stroke-linecap: round; }
 
 /* ---------- workspace ---------- */
 .workspace { display: flex; flex-direction: column; min-height: 100vh; }

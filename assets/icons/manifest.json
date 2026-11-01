@@ -153,6 +153,171 @@
       "official": false,
       "modified": false,
       "source": "src/views/icons.js"
+    },
+    {
+      "id": "a-key",
+      "label": "Private key (stays on DC01)",
+      "description": "A key with a padlock: the private key, which never leaves DC01",
+      "origin": "custom",
+      "official": false,
+      "modified": false,
+      "source": "src/views/icons.js",
+      "added": "0.4.0",
+      "use": "DC story artifact vocabulary (always paired with its fixed text label and colour token)"
+    },
+    {
+      "id": "a-doc",
+      "label": "Document (INF or CRL)",
+      "description": "A plain document page",
+      "origin": "custom",
+      "official": false,
+      "modified": false,
+      "source": "src/views/icons.js",
+      "added": "0.4.0",
+      "use": "DC story artifact vocabulary (always paired with its fixed text label and colour token)"
+    },
+    {
+      "id": "a-envelope",
+      "label": "CSR",
+      "description": "A sealed envelope: the certificate signing request (public key and names, signed by the DC01 key)",
+      "origin": "custom",
+      "official": false,
+      "modified": false,
+      "source": "src/views/icons.js",
+      "added": "0.4.0",
+      "use": "DC story artifact vocabulary (always paired with its fixed text label and colour token)"
+    },
+    {
+      "id": "a-box",
+      "label": "Package",
+      "description": "An open box with content chips: a transfer or return package (no private key)",
+      "origin": "custom",
+      "official": false,
+      "modified": false,
+      "source": "src/views/icons.js",
+      "added": "0.4.0",
+      "use": "DC story artifact vocabulary (always paired with its fixed text label and colour token)"
+    },
+    {
+      "id": "a-ledger",
+      "label": "Request record",
+      "description": "A ledger row: the CA request record (Request 1042)",
+      "origin": "custom",
+      "official": false,
+      "modified": false,
+      "source": "src/views/icons.js",
+      "added": "0.4.0",
+      "use": "DC story artifact vocabulary (always paired with its fixed text label and colour token)"
+    },
+    {
+      "id": "a-ribbon",
+      "label": "Issued leaf",
+      "description": "A certificate with a ribbon: the issued DC01 certificate",
+      "origin": "custom",
+      "official": false,
+      "modified": false,
+      "source": "src/views/icons.js",
+      "added": "0.4.0",
+      "use": "DC story artifact vocabulary (always paired with its fixed text label and colour token)"
+    },
+    {
+      "id": "a-ribbon-key",
+      "label": "Accepted leaf",
+      "description": "A certificate with a key badge: the accepted DC01 certificate linked to its private key",
+      "origin": "custom",
+      "official": false,
+      "modified": false,
+      "source": "src/views/icons.js",
+      "added": "0.4.0",
+      "use": "DC story artifact vocabulary (always paired with its fixed text label and colour token)"
+    },
+    {
+      "id": "a-cert-ca",
+      "label": "Issuing CA certificate",
+      "description": "A certificate with a \"CA\" tab: the public Issuing CA certificate (no private key here)",
+      "origin": "custom",
+      "official": false,
+      "modified": false,
+      "source": "src/views/icons.js",
+      "added": "0.4.0",
+      "use": "DC story artifact vocabulary (always paired with its fixed text label and colour token)"
+    },
+    {
+      "id": "a-cert-anchor",
+      "label": "Root CA certificate",
+      "description": "A certificate with an anchor: the public copy of the Root CA certificate, the trust anchor",
+      "origin": "custom",
+      "official": false,
+      "modified": false,
+      "source": "src/views/icons.js",
+      "added": "0.4.0",
+      "use": "DC story artifact vocabulary (always paired with its fixed text label and colour token)"
+    },
+    {
+      "id": "a-chain",
+      "label": "Chain",
+      "description": "Three stacked mini-certificates: leaf, Issuing CA, Root",
+      "origin": "custom",
+      "official": false,
+      "modified": false,
+      "source": "src/views/icons.js",
+      "added": "0.4.0",
+      "use": "DC story artifact vocabulary (always paired with its fixed text label and colour token)"
+    },
+    {
+      "id": "a-alert",
+      "label": "Error record",
+      "description": "A warning triangle: an error record",
+      "origin": "custom",
+      "official": false,
+      "modified": false,
+      "source": "src/views/icons.js",
+      "added": "0.4.0",
+      "use": "DC story artifact vocabulary (always paired with its fixed text label and colour token)"
+    },
+    {
+      "id": "a-id",
+      "label": "Identity card",
+      "description": "An identity card: the names the certificate must carry",
+      "origin": "custom",
+      "official": false,
+      "modified": false,
+      "source": "src/views/icons.js",
+      "added": "0.4.0",
+      "use": "DC story artifact vocabulary (always paired with its fixed text label and colour token)"
+    },
+    {
+      "id": "a-template",
+      "label": "Template card",
+      "description": "A form with policy lines: a certificate template",
+      "origin": "custom",
+      "official": false,
+      "modified": false,
+      "source": "src/views/icons.js",
+      "added": "0.4.0",
+      "use": "DC story artifact vocabulary (always paired with its fixed text label and colour token)"
+    },
+    {
+      "id": "a-wizard",
+      "label": "Enrollment wizard",
+      "description": "A dialog window with a progress bar: the Request New Certificate wizard",
+      "origin": "custom",
+      "official": false,
+      "modified": false,
+      "source": "src/views/icons.js",
+      "added": "0.4.0",
+      "use": "DC story artifact vocabulary (always paired with its fixed text label and colour token)"
+    },
+    {
+      "id": "a-check",
+      "label": "Remediation card",
+      "description": "A checklist: follow-up and remediation items",
+      "origin": "custom",
+      "official": false,
+      "modified": false,
+      "source": "src/views/icons.js",
+      "added": "0.4.0",
+      "use": "DC story artifact vocabulary (always paired with its fixed text label and colour token)"
     }
   ]
 }
