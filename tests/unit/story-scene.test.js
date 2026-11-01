@@ -155,6 +155,18 @@ describe('StoryScene stores', () => {
   });
 });
 
+describe('artifact location wording (re-review R1)', () => {
+  it('the card footer never places an artifact on a host it has left', async () => {
+    const { StoryScene } = await import('../../src/views/story-scene.js');
+    const v = E.pathOf(DCS, {}); const where = (id, t) => { const i = v.stages.findIndex((s) => s.id === id); const s = E.worldAt(v, 'healthy', i + t); return StoryScene.prototype.whereText.call({ sc: v }, storyModel(v, s).spotlight, s); };
+    expect(where('a-return-pack', 1)).toBe('on PKI-TRANSFER01');
+    expect(where('a-return-move', 0.5)).toBe('on the way to DC01'); expect(where('a-return-move', 1)).toBe('on DC01, in the return package');
+    for (const id of ['a-root', 'a-ica']) for (const t of [0.5, 1]) expect(where(id, t)).toBe('from the return package on DC01');
+    expect(where('a-template', 1)).not.toMatch(/on DC01/);
+    expect(where('a-sign', 1)).toBe('at ICA01'); expect(where('a-new', 1)).toBe('on DC01');
+  });
+});
+
 describe('drawing helpers', () => {
   it('rounded corners keep orthogonal endpoints; text wraps', () => {
     expect(roundedPath([[0, 0], [100, 0], [100, 100]])).toBe('M0 0 L88 0 Q100 0 100 12 L100 100');

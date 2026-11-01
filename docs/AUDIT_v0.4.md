@@ -69,3 +69,30 @@ All conform, except **P8** (the condition's long-term fix is missing). The v0.4.
 
 ### Audit F summary
 No forbidden file is tracked (keys, pfx/p12, .lnk, dist, screenshots, output media, node_modules). There are no console errors on any captured screen. Video and contact-sheet names derive from `package.json`. TLS tests and behaviour are unchanged.
+
+## Fix status (v0.4.1)
+| Commit | Findings fixed |
+|---|---|
+| 3cf55b1 fix(pki) | P1, P2 (Critical); P3, P4, T1 (High); P5, P6, P7, P8 (Medium); P9 (Low) |
+| 05224a9 fix(hygiene) | E1, E2, W2, W3 (Medium); E4 (Low) |
+| b898fde fix(a11y) | A1 (High); A2, W1 (Medium) |
+| cb5a300 fix(layout) | S1, S2, S3 (Medium) |
+| e99792f design | D1 (High); W4, W5, S4, S5 (Low) |
+| (this commit) | R1, R2 from the second PKI review |
+W6 is justified (not fixed). E3: the bundle shrank 541.3 -> 536.8 kB after dead-code removal and grew again with the design pass; accepted.
+
+## Second review passes (release gate)
+- **pki-accuracy-review (invoked as a skill, second time).** Text sweep clean: the only matches are correct negations (LIMITATIONS.md:29, path-csr.js:130). Identity, key/store, flow, fixture (fixtures:validate) and test sweeps are green. New findings in the design-pass text:
+
+| id | rule | severity | file:line | evidence | fix | status |
+|---|---|---|---|---|---|---|
+| R1 | Artifact location accuracy | Medium | src/views/story-scene.js (whereText) | The card footer placed the return package and the Root/Issuing CA copies "on PKI-TRANSFER01" after a-return-move had moved them to DC01. | Step-aware wording; unit test "artifact location wording". | Fixed |
+| R2 | Template location | Low | src/views/story-scene.js (whereText) | The Path A template card said "on DC01". | "chosen for the change record". | Fixed |
+
+- **web-design-guidelines (invoked as a skill, second time).** Rules re-fetched over plain HTTP (identical to the first fetch, 8,055 bytes). The changed UI files have no transition: all, no zoom blocking and no paste blocking. They have tabular numerals, balanced headings, theme-color, overscroll containment, a skip link, translate=no on identifiers, reduced-motion variants and aria-live status. The only remaining item is W6 (Title Case), justified above.
+- **axe:** 0 violations of any impact (16 screens, light and dark). **review:visual:** 136/136 screens pass, light and dark.
+
+## Deviations (v0.4.1)
+- No WebFetch tool and no subagents in this run: the web-design-guidelines rules were fetched with a plain HTTP GET and applied as written.
+- In dark mode the TLS classic workspace intentionally stays light, which keeps its layout and screenshots unchanged.
+- `key-mismatch` still halts at a-key, as specified. The a-accept step now shows the certificate unlinked in Personal and the pending request still present, because certreq -accept cannot link a key by a mismatched public key.

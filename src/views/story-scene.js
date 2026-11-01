@@ -178,6 +178,10 @@ export class StoryScene {
   // Where the active artifact is now, in words (the zone's host).
   whereText(sp, state) {
     if (sp.blocked) return 'still in the wizard on DC01';
+    // Step-specific locations: the return package reaches DC01 in a-return-move; the CA copies are installed from it on DC01.
+    const stepId = this.sc?.stages[state.stage]?.id; const done = state.stageProgress >= 1;
+    const special = { 'a-return-move': done ? 'on DC01, in the return package' : 'on the way to DC01', 'a-root': 'from the return package on DC01', 'a-ica': 'from the return package on DC01', 'a-template': 'chosen for the change record' }[stepId];
+    if (special) return special;
     const host = { Z1: 'on DC01', Z2: this.sc?.pathId === 'mmc' ? 'in the wizard on DC01' : 'on DC01', Z3: this.sc?.pathId === 'mmc' ? 'on the wire' : 'on PKI-TRANSFER01', Z4: 'at ICA01', Z5: this.sc?.pathId === 'mmc' ? 'arriving on DC01' : 'on PKI-TRANSFER01', Z6: 'on DC01' }[sp.zone];
     return sp.source && state.stageProgress < 1 ? `leaving ${host?.replace(/^(on|at|in) /, '')}` : host ?? '';
   }
