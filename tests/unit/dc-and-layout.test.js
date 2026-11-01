@@ -110,7 +110,8 @@ describe('Domain Controller scenario model', () => {
   });
   it('certreq educational commands are present and never executed', () => {
     expect(DCS.commands.new).toBe('certreq.exe -new dc01-request.inf dc01-request.req');
-    expect(DCS.commands.submit).toBe('certreq.exe -submit -config "SIMSI2027-ICA01\\SIMSI2027 Issuing CA" dc01-request.req dc01-issued.cer');
+    // v0.4.0: the CA configuration string is derived from DC.caHost and DC.caName (the Issuing CA certificate CN).
+    expect(DCS.commands.submit).toBe('certreq.exe -submit -config "ICA01.simsi2027.test\\SIMSI2027 Issuing CA 01" dc01-request.req dc01-issued.cer');
     expect(DCS.commands.accept).toBe('certreq.exe -accept dc01-issued.cer');
     const src = readFileSync(join(root, 'src/scenarios/dc-manual-certificate-request.js'), 'utf8'); expect(src).not.toMatch(/child_process|execFile|spawn/);
   });
