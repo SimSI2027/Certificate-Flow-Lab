@@ -33,3 +33,10 @@
 - **Path B request file:** the wizard builds its request in memory. `dc01-mmc-request.der` exists only so it can be inspected.
 - **Fault certificates are shared by both paths** and carry the Path A subject and key (see SCENARIO_MODEL.md, v0.4.0 deviations).
 - **Fixture regeneration changes every thumbprint**, because keys are never persisted.
+
+
+## v0.4.1
+- **Dark mode covers the home screen and the DC story.** The TLS classic workspace stays light in both schemes, so its layout and tests are unchanged.
+- **Copy buttons use the browser clipboard API.** Where clipboard access is blocked, the button says "Copy failed" and the text can be selected by hand. Nothing is ever executed.
+- **The artifact travel animation is decorative.** It plays once per step (750 ms) and never changes state; reduced-motion users see instant state changes.
+- **Regenerating fixtures rotates every key.** Signing keys are never persisted, so `npm run fixtures:generate` changes every thumbprint. The release keeps the committed v0.4.0 fixture set; regeneration was verified in a scratch run and then reverted.

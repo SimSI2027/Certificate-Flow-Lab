@@ -90,5 +90,12 @@
 - Every command shows "Shown for learning; never executed by this simulator."
 - Configuration-dependent claims carry the marker "Depends on your configuration".
 
+## Release process and project skills (v0.4.1)
+- Run the project skill `pki-accuracy-review` (`.claude/skills/pki-accuracy-review/SKILL.md`, committed) before every release and whenever a certificate scenario changes; record findings in the release's audit document and fix every Critical/High/Medium before tagging.
+- The `frontend-design` plugin may guide visual work, but it is always constrained by docs/UX_LAYOUT.md (zone geometry, disclosure rules, one active zone/artifact/route, Root CA never an endpoint, private key never on a route) and by the design tokens in src/ui/styles.css (light and dark must stay WCAG AA; tests/unit/theme-contrast.test.js).
+- `web-design-guidelines` is a third-party skill installed locally (`.claude/skills/web-design-guidelines/`, `skills-lock.json`); both are git-ignored and never committed.
+- Release target rule: if the planned tag already exists on origin, release the next patch version instead. Never edit, move, delete or recreate a published tag.
+- Release gate: fixtures:validate, npm test, npm run test:e2e (includes the axe gate: zero serious/critical violations), npm run review:visual (light and dark), build, pages-smoke, npm run video, PowerShell 5.1 parse checks; then push main, tag, and verify that the live version.json commit equals origin/main.
+
 ## Future expansion points to preserve
 NDES, SCEP, CEP, CES, autoenrollment, AIA retrieval, CDP/CRL validation, OCSP, smart-card, device and user certificates, client authentication, cross-forest enrollment.

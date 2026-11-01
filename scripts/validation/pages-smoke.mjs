@@ -9,7 +9,11 @@ let fail = 0;
 const check = (ok, m) => { console.log(`${ok ? 'PASS' : 'FAIL'}  ${m}`); if (!ok) fail++; };
 
 const html = readFileSync(join(dist, 'index.html'), 'utf8');
-const refs = [...html.matchAll(/(?:src|href)="([^"]+)"/g)].map((m) => m[1]).filter((u) => !u.startsWith('data:'));
+// In-page fragments (the skip link's "#home") are not asset requests; every other reference must sit under the base path.
+const all = [...html.matchAll(/(?:src|href)="([^"]+)"/g)].map((m) => m[1]).filter((u) => !u.startsWith('data:'));
+const fragments = all.filter((u) => u.startsWith('#'));
+const refs = all.filter((u) => !u.startsWith('#'));
+check(fragments.every((f) => /^#[a-z][\w-]*$/i.test(f) && html.includes(`id="${f.slice(1)}"`)), `in-page links resolve to elements: ${fragments.join(', ') || 'none'}`);
 check(refs.length >= 2, `index.html references ${refs.length} assets`);
 for (const r of refs) {
   check(r.startsWith(BASE), `asset url under base: ${r}`);

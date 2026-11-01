@@ -46,3 +46,30 @@ The screenshots were then reviewed by eye in three passes: Generator (what works
 - The plain-language section deliberately repeats "no private key" in the object summary and the step text.
 - In **Show full topology**, thin finished connectors may cross each other. The focused view, which is the default, is crossing-free (unit-tested).
 - The expanded drawer at widths below 1600 px covers zones 5–6 by design; Escape or Close restores the view.
+
+
+## v0.4.1 review (audit, fixes and the "technical plate" design pass)
+`review:visual` now captures 34 screens at 1920x1080 and 1366x768 in **light and dark** (136 screenshots): home; DC before START FLOW; every milestone of both paths; faults rpc-blocked, wrong-template-handoff, accepted-on-wrong-machine, root-thumbprint-mismatch and cdp-unreachable; the panel on the CSR, the leaf, the Root, each store and the key vault; reverse evidence; full topology; TLS start and end. New automatic checks: the exact active-connector count for the step (1 when it moves something, else 0), and no HTML overlay (final card, tour bar) covering SVG text.
+
+### Iteration 1 — audit (before fixes)
+| Finding | Fix |
+|---|---|
+| accepted-on-wrong-machine: DC01's vault said "consumed … key now linked" and the association lane was drawn as completed (PKI error) | Fault state corrected; lane drawn blocked "certreq -accept ran on PKI-TRANSFER01, not DC01: nothing linked" |
+| Full topology drew the finished blocked route with its cross, and finished routes overlapped | Finished routes are de-duplicated zone hand-offs only |
+| The final card covered zone titles and the association-lane label | Compact card docked in the plate's free top band; new overlay check |
+| Native-viewer button and note overlapped in the panel | Stacked |
+| TLS classic rail labels rendered at 10 px | 11 px |
+| No dark theme ("dark" screenshots were light) | Token system with a dark theme |
+
+### Iteration 2 — after the design pass
+| Finding | Fix |
+|---|---|
+| The new artifact-card footer rendered at 10.5 px at 1366x768 | Footer at the 14-unit scene minimum |
+| At 1920 px the milestone rail wrapped its last chip (done ticks widened the chips) | Tighter chip padding and gap |
+
+### Iteration 3 — accuracy re-review of the new text
+| Finding | Fix |
+|---|---|
+| The card footer placed the return package and the Root/Issuing CA copies "on PKI-TRANSFER01" after they had reached DC01 | Step-aware wording ("on DC01, in the return package", "from the return package on DC01"); unit test |
+
+**Final result:** 136/136 screens pass in light and dark; axe reports 0 violations; the token contrast test passes for both themes. Accepted, non-material: the 1600x720 plate keeps its aspect ratio, which leaves space above and below at 1920x1080; the TLS classic workspace stays light in dark mode by design.

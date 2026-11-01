@@ -17,6 +17,13 @@ describe('repository hygiene', () => {
       expect(f, f).not.toMatch(/^(node_modules|dist|test-results|playwright-report|screenshots)\//);
     }
   });
+  it('v0.4.1 (audit E4): third-party skills and generated media stay untracked; the project skill is committed', () => {
+    const gi = readFileSync(join(root, '.gitignore'), 'utf8');
+    for (const p of ['.claude/skills/web-design-guidelines/', 'skills-lock.json', 'screenshots/', 'output/*']) expect(gi).toContain(p);
+    const files = tracked(); if (!files.length) return;
+    expect(files.filter((f) => f.startsWith('.claude/skills/web-design-guidelines/') || f === 'skills-lock.json' || /^output\/.+\.(mp4|jpg|png)$/i.test(f))).toEqual([]);
+    expect(files).toContain('.claude/skills/pki-accuracy-review/SKILL.md');
+  });
   it('has the launcher and shortcut installer and no CMD wrapper', () => {
     expect(existsSync(join(root, 'tools/windows/Launch-Demo.ps1'))).toBe(true);
     expect(existsSync(join(root, 'Install-Shortcuts.ps1'))).toBe(true);
@@ -34,6 +41,6 @@ describe('repository hygiene', () => {
     expect(l).not.toMatch(/RunAs|-Verb/i);
   });
   it('documentation set exists', () => {
-    for (const f of ['README.md', 'docs/ARCHITECTURE.md', 'docs/SCENARIO_MODEL.md', 'docs/FIXTURES.md', 'docs/LIMITATIONS.md', 'docs/FUTURE_SCENARIOS.md', 'CLAUDE.md', '.github/workflows/deploy-pages.yml']) expect(existsSync(join(root, f)), f).toBe(true);
+    for (const f of ['README.md', 'docs/ARCHITECTURE.md', 'docs/SCENARIO_MODEL.md', 'docs/FIXTURES.md', 'docs/LIMITATIONS.md', 'docs/FUTURE_SCENARIOS.md', 'docs/AUDIT_v0.4.md', 'docs/VISUAL_REVIEW.md', 'docs/UX_LAYOUT.md', 'CLAUDE.md', '.github/workflows/deploy-pages.yml']) expect(existsSync(join(root, f)), f).toBe(true);
   });
 });

@@ -178,7 +178,7 @@ const EVIDENCE_KIND = { trusted: 'Derived conclusion', 'leaf-policy': 'Real fixt
   binding: 'Simulated environment', installed: 'Real fixture data', produced: 'Real fixture data', template: 'Simulated environment', 'csr-name': 'Real fixture data', key: 'Simulated environment', owner: 'Simulated environment', visitor: 'Simulated environment' };
 
 export default {
-  id: 'tls-manual-enrollment', title: 'Website TLS Certificate', version: '0.4.0',
+  id: 'tls-manual-enrollment', title: 'Website TLS Certificate', version: '0.4.1',
   subtitle: 'An IIS application receives and deploys a server certificate.',
   home: PRES.home, initialState,
   stages: stages.map((s) => ({ ...s, explain: TLS_EXPLAIN[s.id], show: PRES.SHOW[s.id] ?? [] })),

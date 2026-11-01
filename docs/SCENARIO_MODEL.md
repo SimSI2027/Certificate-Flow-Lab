@@ -133,3 +133,16 @@ Where the release specification was impossible or ambiguous, the closest faithfu
 13. **Skipped steps stay in the step list** so they can say "Already present — skipped". Navigation and playback jump over them.
 14. **The film includes a TLS segment.** The v0.3.0 film had none, so "keep the TLS segment" was read as "include one".
 15. **The `a-approve` route** is a short in-zone route from the certificate manager badge to the request record, labelled "CA approval (console)".
+
+
+## v0.4.1 model corrections (audit)
+- **Failed accepts are modelled honestly.** `certreq -accept` links a key only on DC01, and only to a pending request with the same public key. The fault states are now:
+  - `user-context`: key and request stay in the operator's user store; nothing is installed in machine Personal.
+  - `accepted-on-wrong-machine`: DC01's pending request and key are untouched; a keyless copy exists on PKI-TRANSFER01.
+  - `pending-request-lost`: nothing is installed.
+  - `key-mismatch`: `-accept` cannot link the certificate. It sits in Personal as `leafState: 'unlinked'`, request 1042 is still pending, and the flow halts at `a-key` as specified.
+  The DC01 association lane is drawn blocked, with the reason. An invariant test over every fault and step of both paths checks that a request is "consumed" only when the key is linked, and that the Personal key badge appears exactly when the key is linked.
+- **Configuration markers** use `cfg(sentence, aspect)`: "A complete sentence. Depends on your configuration: what varies." A test rejects fragments.
+- **Condition long-term fix:** `trust-missing.longTerm` is shown at the trust check and the installation steps.
+- **Path B wording:** the leaf is "Installed leaf" (there is no accept step), and its certificate card says "Installed automatically by the enrollment wizard on DC01".
+- **Removed:** the unreachable classic-DC code (`src/ui/details-dc.js`, `DC_EXPLAIN`, `isDc` branches, DC entities).

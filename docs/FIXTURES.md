@@ -105,3 +105,7 @@ Every entry now also records `spkiSha256` (certificates and CSRs), `role` and `p
 
 ### What `fixtures:validate` asserts (v0.4.0 additions)
 Both CSR signatures verify and contain no private-key material; leaf SPKI equals CSR SPKI on both paths; Path B uses a new key; the leaves are signed by the Issuing CA and not by the Root; the Issuing CA is signed by the Root; EKU, SAN, Key Usage, Basic Constraints and template-information expectations hold; `1.3.6.1.4.1.311.20.2` is absent; the p7b holds exactly the three certificates; the CRL is signed by the Issuing CA and lists neither DC leaf serial; the INF values are correct; the impostor Root has the same subject and a different key; every manifest entry has thumbprints, SPKI, role and path; per path, every fault first fails at its declared step; no file in the tree matches PRIVATE KEY markers and no `.pfx`, `.p12` or `.key` file exists.
+
+
+## v0.4.1
+No fixture changed. The committed v0.4.0 set is kept. `npm run fixtures:generate` was run in a scratch check: it completed and its output passed `fixtures:validate`. Because keys are never persisted, every thumbprint rotated, so the committed set was restored with `git checkout -- fixtures`. Thumbprints in the v0.4.0 table above remain current.

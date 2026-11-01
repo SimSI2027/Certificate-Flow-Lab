@@ -84,3 +84,11 @@ No network calls beyond serving static files. Downloads are generated client-sid
 - **Markup:** `index.html` holds both workspaces (`.story-only` / `.classic-only`, toggled by `body[data-layout]`). `film.html` now imports `index.html` at startup instead of keeping a copy.
 - **Fixture model:** `parseCsr` decodes request attributes (1.3.6.1.4.1.311.13.2.1 template name/value pair, 1.3.6.1.4.1.311.21.20 client information). `parseCertificate` resolves the template name from the 21.7 OID (`TEMPLATE_NAMES`). `parseP7b` reads PKCS #7 bundles.
 - **Validation tooling:** `scripts/validation/visual-review.mjs` (`npm run review:visual`). Video names come from `package.json`, and partial renders write `-preview` files.
+
+
+## v0.4.1 additions
+- **StoryScene** (`src/views/story-scene.js`) takes `{ film }`. In film mode the travel token follows the stage progress (deterministic). Interactively it runs one 750 ms eased trip per step, and none under reduced motion. `opts.final` hides the plate headline while the final card occupies the top band. `whereText()` gives the artifact's current location.
+- **story-layout.js:** `HEADLINE` band, history link along y 112, failed-accept association drawn `blocked`, vault visibility derived from `pendingRequest`, full topology reduced to de-duplicated hand-offs.
+- **story-app.js:** URL sync (`history.replaceState`), the rail rewritten only when its state changes, copy buttons (copy only), token explanations on focus/hover, final-card open items.
+- **Skip link and landmarks:** `index.html` has one visible `<main>` per screen (home, story, classic) and a skip link that follows it.
+- **Quality gates:** `tests/e2e/a11y.spec.js` (axe), `tests/unit/theme-contrast.test.js` (token contrast), and `scripts/validation/visual-review.mjs`. The visual review covers 34 screens × 2 sizes × light/dark, checks the exact active-connector rule, and checks that no HTML overlay covers SVG text.

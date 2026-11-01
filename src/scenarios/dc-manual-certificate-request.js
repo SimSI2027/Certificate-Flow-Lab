@@ -60,7 +60,7 @@ export const tour = [
 
 const base = paths.csr;
 export default {
-  id: 'dc-manual-certificate-request', title: 'Domain Controller Manual Enrollment', version: '0.4.0', layoutMode: 'story-zones',
+  id: 'dc-manual-certificate-request', title: 'Domain Controller Manual Enrollment', version: '0.4.1', layoutMode: 'story-zones',
   subtitle: 'DC01 has no Domain Controller certificate. Follow a controlled manual CSR transfer, or a direct Certificates console enrollment.',
   home: { purpose: 'Give DC01 a certificate with KDC Authentication when autoenrollment has not produced one.', requester: 'Path A: SIMSI2027\\PKIOperator (for DC01) · Path B: SIMSI2027\\DC01$',
     destination: 'Local Computer\\Personal on DC01, with the private key that never left DC01', method: 'Path A: certreq transfer via PKI-TRANSFER01 · Path B: Certificates (Local Computer) wizard' },

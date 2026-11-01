@@ -77,3 +77,38 @@ The DC scenario uses `StoryScene` (src/views/story-scene.js), whose geometry and
 - Details panel: collapsed by default (a 320 px summary at 1600 px and wider, a 48 px "Details" tab below that). Expanded it is a 480 px column at 1600 px and wider, otherwise an overlay drawer. Sections, in order: 1 Plain language (open) · 2 Technical details · 3 Command explanation (clickable tokens; "Shown for learning; never executed by this simulator.") · 4 Raw artifact (PEM / ASN.1 on demand) · 5 Evidence · 6 Troubleshoot (moves to position 2 and opens when a fault halts). Escape closes the panel and returns focus to the trigger. Selecting never moves the timeline. Below 980 px the layout stacks.
 - Final step card: "Suitable now; root cause still open", "Not confirmed suitable — revocation status unknown", or "Stopped: <fault>", with Restart and Reverse evidence buttons (and "Switch to Path A" for `rpc-blocked`).
 - Accessibility: every zone, artifact, store, certificate, chip, endpoint and milestone is focusable and has an accessible name. Status is shown as text plus colour. Panel sections use ARIA disclosure. Space plays or pauses, ←/→ step. Focus is visible. `prefers-reduced-motion` hides the moving packet.
+
+
+## v0.4.1 visual system ("technical plate")
+Geometry and disclosure above are unchanged. The design pass (frontend-design, constrained by this document) adds:
+
+### Tokens (src/ui/styles.css, one place)
+- **Surfaces and ink:** `--paper` page, `--plate` scene, `--sheet` cards and panel, `--sheet-2` quiet fills, `--grid` drafting grid; `--ink`, `--ink-2`, `--muted`, `--line`, `--line-strong`.
+- **One accent:** `--accent` (cobalt `#2448b8` light / `#8eaeff` dark), plus `--accent-ink`, `--accent-soft`, `--accent-line`, `--on-accent` and `--focus`.
+- **Status:** `--good`, `--warn` and `--crit`, each with a `-soft` (and `-line`) variant.
+- **Fixed artifact colours:** private key amber `--a-key`, INF grey `--a-inf`, CSR blue `--a-csr`, package slate `--a-pkg`, request record purple `--a-rec`, leaf gold `--a-leaf`, Issuing CA teal `--a-ica`, Root green `--a-root`; each has a `-soft` fill.
+- **Themes:** light is the default; dark follows `prefers-color-scheme`. The TLS classic workspace (`body[data-layout='classic']`) keeps the light set in both schemes. `tests/unit/theme-contrast.test.js` checks 48 token pairs per theme: text at least 4.5:1, UI graphics at least 3:1.
+
+### Typography
+- System UI stack (`Segoe UI Variable Text`, `Segoe UI`, system-ui…) for text, and `Cascadia Mono` / `Consolas` for commands, OIDs, thumbprints and PEM, with tabular numerals.
+- Scale: caption 13, body 14, label 14/600, zone name 16/600, plate headline 20/650, lede 15.
+- Scene text is at least 14 viewBox units, so it renders at 11 px or more at 1366x768 (checked by `review:visual`).
+
+### Plate and cards
+- The scene is a plate: a faint 24-unit drafting grid, with a **plate headline** in the free top band: "Step n of N · title" plus one plain-language sentence. In reverse mode it shows the evidence question, its claim and its kind. The headline narrows to 860 units when the Root history link is shown.
+- The muted Root history link runs from the bottom of Offline Trust along y 112, just above the zones, into the Z4 station card.
+- Only the active zone is elevated.
+- Artifact cards carry a colour band, an icon, the name, what the artifact is, and where it is now (for example "on PKI-TRANSFER01", "at ICA01", "from the return package on DC01"). Shape, label and colour together identify every object; colour is never the only signal.
+
+### Motion
+- When a step begins, the artifact travels the active route once (750 ms, ease-in-out). A blocked route stops at its cross.
+- The active zone and the spotlight fade in (200 ms), and the panel slides in (200 ms).
+- `prefers-reduced-motion` removes the travel token and the animations; state changes are instant.
+- In film mode the travel position follows the canonical stage progress, never the wall clock, so frames stay deterministic.
+
+### Chrome
+- The header and bottom bar sit on paper with hairline rules. Pressed segments use the accent.
+- Milestone chips are done (✓, green tint), current (accent, with step dots) or future (plain), and every chip has a focus ring.
+- The panel keeps a 70–75 character measure. It has copy buttons for commands, thumbprints and PEM (copy only, with live status), and command tokens explain themselves on hover, focus or click.
+- The final card sits in the plate's top band: result, "Open items" (7 on Path A, 3 on Path B, or fix and long term after a fault), Restart and Reverse evidence.
+- Home: the DC card starts Path A or Path B from a path picker and states the lesson condition. The TLS card content is unchanged.
