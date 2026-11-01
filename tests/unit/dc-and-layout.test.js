@@ -3,18 +3,16 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as E from '../../src/engine/engine.js';
 import { scenarios, scenarioById, COMING_LATER } from '../../src/scenarios/index.js';
-import { visibleSets, routeFor, stageEndpoints } from '../../src/views/scene.js';
-import { entities } from '../../src/entities/entities.js';
+import { storyModel, isOrthogonal } from '../../src/views/story-layout.js';
 import { ICONS, ICON_IDS } from '../../src/views/icons.js';
 import { loadModel, root } from '../helpers/fixtures.js';
 import { evaluateAll } from '../../src/artifacts/model.js';
-import { explainHtml, evidenceItems, evidenceHtml, troubleshootHtml, friendlyHtml } from '../../src/ui/teach.js';
+import * as TP from '../../src/ui/tls-panel.js';
 import { DC } from '../../src/artifacts/synthetic.js';
 
 // v0.4.0: the DC scenario is a two-path story (layoutMode 'story-zones'); its model tests live in dc-story.test.js and its layout
-// tests in story-scene.test.js. The focused-layout tests below now apply to the classic-layout scenarios (TLS) only.
+// tests in story-scene.test.js. v0.5.0: the TLS lesson uses the story layout too (tests/unit/tls-*.test.js).
 const DCS = E.pathOf(scenarioById['dc-manual-certificate-request'], { pathId: 'csr' }), TLS = scenarioById['tls-manual-enrollment'];
-const classic = scenarios.filter((s) => !s.layoutMode);
 let M, EV;
 beforeAll(async () => { const l = await loadModel(); M = l.model; EV = await evaluateAll(M, DCS); });
 const ctx = (faultId = 'healthy', t = 99) => ({ scenario: DCS, state: E.computeState(DCS, { faultId, t }), model: M, evidence: EV, ev: EV[faultId] });
@@ -29,39 +27,32 @@ describe('scenario home', () => {
   });
 });
 
-describe('focused layout, full topology and active path (classic layout scenarios)', () => {
-  it('the classic focused layout still serves TLS; the DC scenario uses the story layout', () => {
-    expect(classic.map((s) => s.id)).toEqual(['tls-manual-enrollment']); expect(scenarioById['dc-manual-certificate-request'].layoutMode).toBe('story-zones');
+// v0.5.0: the classic focused layout (src/views/scene.js) was removed with the classic TLS workspace. Its assertions (Root CA at the far
+// right and never on a request path; orthogonal routes; disclosure follows the step) now run on the story layout for every scenario;
+// the detailed TLS geometry tests live in tests/unit/tls-scene.test.js.
+describe('story layout for every scenario (migrated from the v0.3.0 classic focused-layout block)', () => {
+  it('every scenario uses the story layout; there is no classic layout any more', () => {
+    expect(scenarios.every((s) => s.layoutMode === 'story-zones')).toBe(true); expect(scenarioById['dc-manual-certificate-request'].layoutMode).toBe('story-zones');
   });
-  for (const sc of classic) {
-    it(`${sc.id}: focused views show fewer entities than full topology, and full shows every scenario entity`, () => {
-      const full = visibleSets(sc, 3, { full: true });
-      expect([...full.all].sort()).toEqual([...sc.entityIds].sort());
-      for (let i = 0; i < sc.stages.length; i++) { const v = visibleSets(sc, i); expect(v.all.size, `${sc.id}#${i}`).toBeLessThan(sc.entityIds.length); expect(v.current.has(sc.stages[i].focus.entity)).toBe(true); for (const e of v.all) expect(sc.layout[e], e).toBeTruthy(); }
-    });
-    it(`${sc.id}: offline Root CA sits in the far-right Offline Trust zone and never in an active request path`, () => {
-      expect(sc.zoneOf.rootca).toBe('offline');
-      const z = sc.zones.find((q) => q.id === 'offline'); expect(z.offline).toBe(true);
-      expect(Math.max(...sc.zones.map((q) => q.x))).toBe(z.x);
-      expect(sc.layout.rootca[0]).toBe(Math.max(...Object.values(sc.layout).map((p) => p[0])));
-      expect(sc.flows.some((f) => f.from === 'rootca' || f.to === 'rootca')).toBe(false);
-      for (const art of sc.artifacts) for (const p of art.presence) if (p.via) expect(p.at === 'rootca').toBe(false);
-      const rootStages = sc.stages.filter((s) => visibleSets(sc, sc.stages.indexOf(s)).all.has('rootca')).map((s) => s.id);
-      for (const id of rootStages) { const s = sc.stages.find((q) => q.id === id); expect((s.show ?? []).includes('rootca') || s.focus.entity === 'rootca').toBe(true); }
-      expect(visibleSets(sc, 0).all.has('rootca')).toBe(false);
-    });
-    it(`${sc.id}: connectors are orthogonal and active-path filtering follows the stage`, () => {
-      for (const f of sc.flows) {
-        const pts = routeFor(sc, f); if (!pts) { expect(f.from).toBe(f.to); continue; }
-        for (let i = 0; i < pts.length - 1; i++) expect(pts[i][0] === pts[i + 1][0] || pts[i][1] === pts[i + 1][1], `${f.id} segment ${i}`).toBe(true);
-        expect(['request', 'policy', 'cert', 'install', 'validate', 'trust']).toContain(f.kind);
+  for (const sc of scenarios) {
+    const v = E.pathOf(sc, {});
+    it(`${sc.id}: focused views show fewer zones than full topology; the step's zone is always active`, () => {
+      for (let i = 0; i < v.stages.length; i++) {
+        const s = E.worldAt(v, 'healthy', i + 1);
+        const shown = storyModel(v, s).zones.filter((z) => ['active', 'adjacent'].includes(z.mode)).length;
+        expect(shown, `${sc.id}#${i}`).toBeLessThan(storyModel(v, s, { full: true }).zones.length);
+        expect(storyModel(v, s).zones.find((z) => z.mode === 'active').id).toBe(v.stages[i].zone);
       }
-      for (let i = 0; i < sc.stages.length; i++) { const v = visibleSets(sc, i); for (const e of stageEndpoints(sc, sc.stages[i].id)) expect(v.current.has(e)).toBe(true); }
+    });
+    it(`${sc.id}: the offline Root CA sits in the far-right Offline Trust box and never in an active request path`, () => {
+      const m = storyModel(v, E.worldAt(v, 'healthy', 1));
+      expect(m.ot.rect.x).toBe(Math.max(...m.zones.map((z) => z.x))); expect(m.ot.rect.y).toBeLessThan(m.zones[0].y);
+      expect(v.flows.some((f) => /OT|root/i.test(f.from) || /^OT|rootca/i.test(f.to))).toBe(false);
+    });
+    it(`${sc.id}: connectors are orthogonal`, () => {
+      for (let i = 0; i < v.stages.length; i++) for (const c of storyModel(v, E.worldAt(v, 'healthy', i + 1)).connectors) expect(isOrthogonal(c.points), `${sc.id} ${c.id}`).toBe(true);
     });
   }
-  it('flows never cross through the Root CA zone: only the muted history link reaches it', () => {
-    for (const sc of classic) { const z = sc.zones.find((q) => q.offline); for (const f of sc.flows) for (const p of routeFor(sc, f) ?? []) expect(p[0], `${sc.id} ${f.id}`).toBeLessThan(z.x); }
-  });
 });
 
 // v0.4.0: the v0.3.0 "Domain Controller scenario model" block (18 stages, ca-unavailable / ica-cert-unavailable faults, KerberosAuthentication
@@ -121,37 +112,41 @@ describe('Domain Controller scenario model (v0.4.0 Path A view, kept from v0.3.0
 });
 
 describe('educational content', () => {
-  it('every TLS stage has the classic explanation; every DC step has the v0.4.0 plain-language explanation', () => {
-    for (const s of TLS.stages) { const x = s.explain; expect(x, s.id).toBeTruthy(); for (const k of ['what', 'why', 'who', 'where', 'next', 'local', 'owner']) expect(x[k], `${s.id}.${k}`).toBeTruthy(); expect(x.wrong.length).toBeGreaterThan(0); expect(x.checks.length).toBeGreaterThan(0); }
+  // v0.5.0: the TLS lesson moved from the classic explain panel (teach.js) to the story panel (tls-panel.js). The intents are kept:
+  // every step explains itself in plain language, the panel answers the required questions, evidence uses the four kinds, and the
+  // CSR summary separates public and private keys.
+  it('every TLS step has the v0.5.0 plain-language explanation; every DC step has the v0.4.0 one', () => {
+    for (const s of TLS.stages) for (const k of ['what', 'why', 'who', 'where', 'moves', 'staysPrivate', 'checked', 'canGoWrong']) expect(s.explain[k], `${s.id}.${k}`).toBeTruthy();
     for (const p of Object.values(scenarioById['dc-manual-certificate-request'].paths)) for (const s of p.stages) for (const k of ['what', 'who', 'moves', 'staysLocal', 'canGoWrong']) expect(s.explain[k], `${s.id}.${k}`).toBeTruthy();
   });
-  it('explain tab answers the required questions (TLS classic panel)', () => {
-    const tm = { scenario: TLS, state: E.computeState(TLS, { faultId: 'healthy', t: 7 }), model: M, evidence: {}, ev: null };
-    const h = explainHtml(tm, { entity: 'web01' });
-    for (const q of ['What is happening?', 'Why is this necessary?', 'Who performs this action?', 'Where does it happen?', 'What moves to the next step?', 'What remains private or local?', 'What could commonly go wrong?']) expect(h).toContain(q);
+  it('the TLS plain-language section answers the required questions', async () => {
+    const tev = await evaluateAll(M, TLS);
+    const h = TP.plainHtml({ scenario: TLS, state: E.computeState(TLS, { faultId: 'healthy', t: 7 }), model: M, evidence: tev, ev: tev.healthy, started: true, selection: null, gloss: new Set() });
+    for (const q of ['What is happening', 'Why', 'Who', 'Where', 'What moves', 'What stays private', 'What is checked', 'What could go wrong']) expect(h).toContain(`<dt>${q}</dt>`);
   });
-  // v0.4.1 (audit E1): the classic teach.js panel is TLS-only; its DC branches were unreachable since v0.4.0 and were removed.
-  // The DC evidence kinds are now checked on the story panel (every step and fault of both paths); the DC CSR summary
-  // assertions live in tests/unit/story-panel.test.js ("CSR inspector: plain language first…").
-  it('evidence items are classified into the four allowed kinds: every DC step and fault (story panel) and every TLS step (classic panel)', async () => {
+  it('evidence items are classified into the four allowed kinds: every DC and every TLS step and fault (story panels)', async () => {
     const kinds = /^(Real fixture data|Simulated environment|Derived conclusion|User-selected fault)$/;
     const { evidenceHtml: storyEvidence } = await import('../../src/ui/story-panel.js');
+    const pill = (h) => [...h.matchAll(/class="pill pill-[a-z]+">([^<]+)</g)].map((m) => m[1]).filter((x) => !['pass', 'fail'].includes(x));
     for (const pathId of ['csr', 'mmc']) {
       const v = E.pathOf(scenarioById['dc-manual-certificate-request'], { pathId }); const ev = await evaluateAll(M, v);
       for (const f of v.faults.map((x) => x.id)) for (let t = 1; t <= v.stages.length; t += 1) {
         const c = { scenario: v, state: E.computeState(v, { faultId: f, t }), model: M, evidence: ev, ev: ev[f] };
-        for (const k of [...storyEvidence(c).matchAll(/class="pill pill-[a-z]+">([^<]+)</g)].map((m) => m[1]).filter((x) => !['pass', 'fail'].includes(x))) expect(k, `${pathId}/${f}/${t}`).toMatch(kinds);
+        for (const k of pill(storyEvidence(c))) expect(k, `${pathId}/${f}/${t}`).toMatch(kinds);
       }
     }
     const tev = await evaluateAll(M, TLS);
-    for (let t = 1; t <= TLS.stages.length; t += 1) for (const i of evidenceItems({ scenario: TLS, state: E.computeState(TLS, { t }), model: M, evidence: tev, ev: tev.healthy })) expect(i.kind).toMatch(kinds);
-    const tc = { scenario: TLS, state: E.computeState(TLS, { faultId: 'revoked', t: 99 }), model: M, evidence: tev, ev: tev.revoked };
-    expect(evidenceHtml(tc)).toContain('Real fixture data'); expect(troubleshootHtml(tc)).toContain('Simulated remediation');
+    for (const f of TLS.faults.map((x) => x.id)) for (let t = 1; t <= E.maxT(TLS, f); t += 1) {
+      const c = { scenario: TLS, state: E.computeState(TLS, { faultId: f, t }), model: M, evidence: tev, ev: tev[f] };
+      for (const k of pill(TP.evidenceHtml(c))) expect(k, `tls/${f}/${t}`).toMatch(kinds);
+    }
+    const tc = { scenario: TLS, state: E.computeState(TLS, { faultId: 'revoked', t: 99 }), model: M, evidence: tev, ev: tev.revoked, started: true };
+    expect(TP.evidenceHtml(tc)).toContain('Real fixture data'); expect(TP.troubleshootHtml(tc)).toContain('Remediation');
   });
-  it('TLS CSR friendly summary distinguishes public and private keys (classic panel)', async () => {
+  it('TLS CSR summary distinguishes public and private keys', async () => {
     const tev = await evaluateAll(M, TLS);
-    const h = friendlyHtml({ scenario: TLS, state: E.computeState(TLS, { t: 6 }), model: M, evidence: tev, ev: tev.healthy }, 'csr');
-    for (const w of ['Certificate Signing Request (CSR)', 'public key', 'does <strong>not</strong> contain the private key', 'private key remains on', 'WEB01', 'WebServer', 'What happens next', 'Common failures']) expect(h, w).toContain(w);
+    const h = TP.technicalHtml({ scenario: TLS, state: E.computeState(TLS, { t: 8 }), model: M, evidence: tev, ev: tev.healthy, started: true, selection: { type: 'artifact', id: 'csr' } });
+    for (const w of ['Certificate Signing Request', 'public key', 'does <strong>not</strong> contain the private key', 'The key stays on WEB01', 'SIMSI2027WebServer', 'Next:', 'Common failures']) expect(h, w).toContain(w);
   });
 });
 
@@ -162,7 +157,8 @@ describe('icon family', () => {
     for (const i of m.icons) { expect(i.label && i.description).toBeTruthy(); expect(i.official).toBe(false); expect(i.origin).toBe('custom'); }
     const src = readFileSync(join(root, 'assets/icons/SOURCES.md'), 'utf8'); expect(src).toMatch(/No official Microsoft icons are used/); expect(src).toMatch(/source URL/);
   });
-  it('every entity icon exists and names accompany icons', () => {
-    for (const e of entities) { expect(ICONS[e.icon], `${e.id}:${e.icon}`).toBeTruthy(); expect(e.label).toBeTruthy(); }
+  // v0.5.0: entities.js (classic) was removed; every story artifact icon must exist and is always paired with its label.
+  it('every story artifact icon exists and names accompany icons', () => {
+    for (const sc of scenarios) { const S = sc.story ?? null; const arts = S ? S.artifacts : E.pathOf(sc, {}).artifacts.reduce((o, a) => ({ ...o, [a.id]: a }), {}); for (const [id, a] of Object.entries(arts)) { expect(ICONS[a.icon], `${sc.id}:${id}:${a.icon}`).toBeTruthy(); expect(a.label).toBeTruthy(); } }
   });
 });

@@ -9,6 +9,7 @@ export const NATIVE_CERTIFICATES = Object.freeze({
   'fault-expired': 'fault-expired.cer',
   'fault-wrong-eku': 'fault-wrong-eku.cer',
   'fault-revoked': 'fault-revoked.cer',
+  'portal-selfsigned': 'fault-portal-selfsigned.cer',
   'dc-issued': 'dc01-issued.cer',
   'fault-dc-wrong-eku': 'fault-dc-wrong-eku.cer',
   'fault-dc-san-missing': 'fault-dc-san-missing.cer',

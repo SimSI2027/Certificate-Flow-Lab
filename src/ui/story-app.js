@@ -1,37 +1,41 @@
-// Story-mode controller (v0.4.0) for scenarios with layoutMode 'story-zones'. It shares the App's canonical session and only adds
-// the story header (path, condition, fault, START FLOW, direction, topology), milestone rail, details panel and final card.
-// Selecting anything never moves the timeline.
+// Story-mode controller for scenarios with layoutMode 'story-zones' (Domain Controller since v0.4.0, Website TLS since v0.5.0). It
+// shares the App's canonical session and only adds the story header (path, condition, fault, START FLOW, direction, topology), the
+// milestone rail (grouped by act when the lesson has acts), the details panel and the final card. Selecting never moves the timeline.
 import * as E from '../engine/engine.js';
 import { StoryScene } from '../views/story-scene.js';
-import { ARTIFACTS, FAULTS, artifactLabel } from '../scenarios/dc/shared.js';
-import * as P from './story-panel.js';
+import { storyOf } from '../views/story-layout.js';
+import * as DCP from './story-panel.js';
+import * as TP from './tls-panel.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
-const esc = P.esc;
+const esc = DCP.esc;
 const WIDE = 1600;
 
 export class StoryController {
   constructor(app) {
     this.app = app; this.scene = new StoryScene($('#story-scene'), (sel) => this.select(sel), { film: app.params.has('film') });
-    this.panelOpen = false; this.open = { plain: true }; this.selection = null; this.trigger = null; this.token = null; this.raw = null; this.lastPanelKey = ''; this.inspectCa = false;
+    this.panelOpen = false; this.open = { plain: true }; this.selection = null; this.trigger = null; this.token = null; this.raw = null; this.lastPanelKey = ''; this.inspectCa = false; this.gloss = new Set();
     this.bind();
   }
   get s() { return this.app.session; }
   get sc() { return this.app.sc; }
+  get S() { return storyOf(this.sc); }
+  // The details panel module for the active lesson.
+  get P() { return this.S.kind === 'tls' ? TP : DCP; }
 
   // ---------- lifecycle ----------
   start(params) {
     const base = this.app.base; const p = params ?? new URLSearchParams();
-    const pathId = base.paths[p.get('path')] ? p.get('path') : base.defaultPath;
-    const conditionId = base.conditions.some((c) => c.id === p.get('condition')) ? p.get('condition') : base.defaultCondition;
+    const pathId = base.paths ? (base.paths[p.get('path')] ? p.get('path') : base.defaultPath) : base.pathId;
+    const conditionId = base.conditions ? (base.conditions.some((c) => c.id === p.get('condition')) ? p.get('condition') : base.defaultCondition) : undefined;
     Object.assign(this.s, { pathId, conditionId, started: p.has('t') || p.get('dir') === 'reverse' || p.get('start') === '1' });
     this.applyPath(false);
     const fault = p.get('fault'); this.s.faultId = this.sc.faults.some((f) => f.id === fault) ? fault : 'healthy';
     this.s.t = E.clampT(Number(p.get('t')) || 0, E.maxT(this.sc, this.s.faultId));
     if (p.get('dir') === 'reverse') { this.s.direction = 'reverse'; this.s.tReverse = 1; }
     if (p.get('panel') === 'open') this.panelOpen = true;
-    this.selection = null; this.token = null; this.raw = null;
+    this.selection = null; this.token = null; this.raw = null; this.gloss = new Set();
     this.buildControls(); this.render(true);
   }
   applyPath(resetT = true) {
@@ -41,7 +45,7 @@ export class StoryController {
     if (!this.sc.faults.some((f) => f.id === this.s.faultId)) this.s.faultId = 'healthy';
     if (resetT) { this.s.t = 0; this.s.tReverse = 0; this.s.direction = 'forward'; this.clearSelection(); }
   }
-  setPath(id) { this.app.pause(); this.s.pathId = id; this.applyPath(); this.buildControls(); this.render(true); }
+  setPath(id) { if (!this.app.base.paths) return; this.app.pause(); this.s.pathId = id; this.applyPath(); this.buildControls(); this.render(true); }
   setCondition(id) { this.app.pause(); this.s.conditionId = id; this.applyPath(false); this.s.t = E.clampT(this.s.t, this.app.max); this.buildControls(); this.render(true); }
   setFault(id) { this.app.pause(); this.s.faultId = id; this.s.t = this.s.started ? E.clampT(this.s.t, E.maxT(this.sc, id)) : 0; this.s.tReverse = 0; this.render(true); }
   startFlow() { this.s.started = true; this.s.direction = 'forward'; this.s.t = 0; this.app.play(); this.render(true); $('#s-caption')?.focus?.(); }
@@ -85,7 +89,7 @@ export class StoryController {
     on('#s-play', 'click', () => { if (this.s.playing) this.app.pause(); else { this.s.started = true; this.app.play(); } this.render(true); });
     on('#s-speed', 'change', (e) => { this.s.playbackSpeed = Number(e.target.value); });
     on('#s-home', 'click', () => this.app.showHome());
-    on('#s-tour', 'click', () => { const t = this.app.tour; if (t.state === 'running' || t.state === 'paused') t.stop(); else { if (this.s.pathId !== 'csr') this.setPath('csr'); this.s.started = true; t.start(); } this.render(true); });
+    on('#s-tour', 'click', () => { const t = this.app.tour; if (t.state === 'running' || t.state === 'paused') t.stop(); else { if (this.app.base.paths && this.s.pathId !== this.app.base.defaultPath) this.setPath(this.app.base.defaultPath); this.s.started = true; t.start(); } this.render(true); });
     $('#spanel').addEventListener('click', (e) => this.panelClick(e));
     $('#final-card').addEventListener('click', (e) => this.panelClick(e));
     $('#final-card').addEventListener('toggle', (e) => { this.fcOpen = e.target.open; }, true);
@@ -108,6 +112,7 @@ export class StoryController {
     if (t('.popen')) return this.openPanel(t('.popen'));
     if (t('.pclose')) return this.closePanel();
     const d = t('[data-sec-toggle]'); if (d) { const id = d.dataset.secToggle; this.open[id] = !this.isOpen(id); this.renderPanel(true); $(`[data-sec-toggle="${id}"]`)?.focus(); return; }
+    const g = t('[data-gloss]'); if (g) { const term = g.dataset.gloss; if (this.gloss.has(term)) this.gloss.delete(term); else this.gloss.add(term); this.renderPanel(true); $(`[data-gloss="${CSS.escape(term)}"]`)?.focus(); return; }
     const o = t('[data-open]:not(#spanel)'); if (o) { const [type, id] = o.dataset.open.split(':'); return this.select({ type, id, trigger: o }); }
     const tk = t('[data-token]'); if (tk) { this.showToken(Number(tk.dataset.token)); return; }
     const r = t('[data-raw]'); if (r) { this.raw = r.dataset.raw; this.renderPanel(true); return; }
@@ -119,7 +124,7 @@ export class StoryController {
     const nat = t('[data-native]'); if (nat && !nat.disabled) this.app.native.open(nat.dataset.native).then(() => this.render(true));
   }
   showToken(i) {
-    const st = this.sc.stages[this.app.state().stage]; const tok = st.command?.tokens[i]; const out = $('#sec-command .token-meaning'); if (!tok || !out) return;
+    const st = this.sc.stages[this.app.state().stage]; const tok = (st.command?.tokens ?? st.gui?.tokens)?.[i]; const out = $('#sec-command .token-meaning'); if (!tok || !out) return;
     this.token = i; $$('#sec-command [data-token]').forEach((b) => { const on = Number(b.dataset.token) === i; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
     out.innerHTML = `<strong>${esc(tok.t)}</strong>: ${esc(tok.meaning)}`;
   }
@@ -128,20 +133,21 @@ export class StoryController {
     const text = btn.dataset.copy; const done = (ok) => { btn.dataset.copied = String(ok); btn.textContent = ok ? 'Copied' : 'Copy failed'; $('#copy-status').textContent = ok ? `${btn.dataset.what ?? 'Text'} copied to the clipboard.` : 'Copy failed: select the text and copy it manually.'; setTimeout(() => { btn.textContent = btn.dataset.label; delete btn.dataset.copied; }, 1600); };
     if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(() => done(true), () => done(false)); else done(false);
   }
-  isOpen(id) { const ctx = this.ctx(); if (id === 'troubleshoot' && P.faultHere(ctx) && this.open.troubleshoot === undefined) return true; return id === 'plain' ? this.open.plain !== false : !!this.open[id]; }
+  isOpen(id) { const ctx = this.ctx(); if (id === 'troubleshoot' && this.P.faultHere(ctx) && this.open.troubleshoot === undefined) return true; return id === 'plain' ? this.open.plain !== false : !!this.open[id]; }
 
   // ---------- rendering ----------
   ctx(s = this.app.state()) {
     const app = this.app;
-    return { scenario: this.sc, state: s, model: app.model, evidence: app.evidence, ev: app.evidence[s.activeFault] ?? app.evidence.healthy, started: !!this.s.started, selection: this.selection, sigs: app.sigs,
+    return { scenario: this.sc, state: s, model: app.model, evidence: app.evidence, ev: app.evidence[s.activeFault] ?? app.evidence.healthy, started: !!this.s.started, selection: this.selection, sigs: app.sigs, gloss: this.gloss,
       chainOf: (c, id) => app.chainOf(c, id), downloads: (fx) => app.downloadLinks(fx), nativeBlock: (fx) => app.nativeBlock(fx.manifest, fx.parsed) };
   }
   // The URL reflects the lesson position so a refresh or a shared link reopens it (audit W2). Never while the film is rendering.
   syncUrl(s) {
     if (this.app.params.has('film') || typeof history === 'undefined') return;
-    const q = new URLSearchParams(location.search);
-    q.set('scenario', this.app.base.id); q.set('path', this.sc.pathId);
-    if (this.sc.pathId === 'csr') q.set('condition', this.sc.conditionId); else q.delete('condition');
+    const q = new URLSearchParams(location.search); const multi = !!this.app.base.paths;
+    q.set('scenario', this.app.base.id);
+    if (multi) q.set('path', this.sc.pathId); else q.delete('path');
+    if (multi && this.sc.pathId === 'csr') q.set('condition', this.sc.conditionId); else q.delete('condition');
     if (s.activeFault !== 'healthy') q.set('fault', s.activeFault); else q.delete('fault');
     if (this.s.started && s.direction === 'forward') q.set('t', String(Math.floor(this.s.t + 1e-9))); else q.delete('t');
     if (s.direction === 'reverse') q.set('dir', 'reverse'); else q.delete('dir');
@@ -150,16 +156,24 @@ export class StoryController {
     if (url !== `${location.pathname}${location.search}${location.hash}`) history.replaceState(null, '', url);
   }
   buildControls() {
-    const base = this.app.base; this.railKey = null;
+    const base = this.app.base; const S = this.S; this.railKey = null;
+    $('#s-title').textContent = base.title; $('#story-scene').setAttribute('aria-label', S.ariaScene); $('#story-stage').setAttribute('aria-label', `${base.title} story`);
+    const multi = !!base.paths; $('#s-pathseg').hidden = !multi; $('#s-condwrap').hidden = !multi;
     $$('[data-path]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.path === this.sc.pathId)));
-    const cond = $('#s-condition'); cond.disabled = this.sc.pathId === 'mmc';
+    const cond = $('#s-condition'); cond.disabled = !multi || this.sc.pathId === 'mmc';
     // Path B has no conditional steps: its CA certificates arrive from AD (Enterprise store).
-    cond.innerHTML = cond.disabled ? '<option value="">Not applicable: CA certificates from AD (Enterprise store)</option>'
+    cond.innerHTML = !multi ? '' : cond.disabled ? '<option value="">Not applicable: CA certificates from AD (Enterprise store)</option>'
       : base.conditions.map((c) => `<option value="${c.id}" title="${esc(c.note ?? '')}">${esc(c.label)}${c.note ? ' (exceptional)' : ''}</option>`).join('');
-    if (!cond.disabled) cond.value = this.sc.conditionId;
+    if (multi && !cond.disabled) cond.value = this.sc.conditionId;
     const f = $('#s-fault'); f.innerHTML = this.sc.faults.map((x) => `<option value="${x.id}">${esc(x.id === 'healthy' ? 'None (healthy)' : x.label)}</option>`).join(''); f.value = this.s.faultId;
     $('#s-full').checked = this.app.full;
-    $('#s-rail').innerHTML = this.sc.milestones.map((m, i) => `<button class="mchip" data-milestone="${esc(m)}" data-mi="${i}"><span class="mn">${i + 1}</span> ${esc(m)}<span class="dots" aria-hidden="true"></span></button>`).join('');
+    // Act-grouped rails reserve room for the step dots so the rail never re-flows between steps.
+    const dots = (m) => (this.sc.acts ? ` style="--dots:${this.sc.stages.filter((q) => q.milestone === m).length}"` : '');
+    const chip = (m, i) => `<button class="mchip" data-milestone="${esc(m)}" data-mi="${i}"><span class="mn">${i + 1}</span> ${esc(m)}<span class="dots" aria-hidden="true"${dots(m)}></span></button>`;
+    // Lessons with acts group their milestones under a quiet act label, so the two halves are obvious.
+    $('#s-rail').innerHTML = this.sc.acts
+      ? this.sc.acts.map((a) => `<div class="act" role="group" aria-label="Act ${a.n}: ${esc(a.title)}"><span class="act-label" aria-hidden="true">Act ${a.n} · ${esc(a.title)}</span><div class="act-chips">${this.sc.milestones.map((m, i) => (this.sc.milestoneAct[m] === a.id ? chip(m, i) : '')).join('')}</div></div>`).join('')
+      : this.sc.milestones.map(chip).join('');
   }
   render(force = false) {
     if (this.app.screen !== 'workspace') return;
@@ -176,29 +190,30 @@ export class StoryController {
     const play = $('#s-play'); play.setAttribute('aria-pressed', String(!!this.s.playing)); play.innerHTML = this.s.playing ? '&#10073;&#10073; Pause' : '&#9654; Play';
     $('#s-speed').value = String(this.s.playbackSpeed ?? 1);
     // Rail: current milestone shows step dots; finished milestones are marked done. Rewritten only when its state changes (audit W3).
-    const railKey = `${this.sc.pathId}|${this.sc.conditionId}|${s.stage}|${s.stageProgress >= 1}|${rev}|${started}`;
+    const railKey = `${this.sc.id}|${this.sc.pathId}|${this.sc.conditionId}|${s.stage}|${s.stageProgress >= 1}|${rev}|${started}`;
     if (railKey !== this.railKey) { this.railKey = railKey; this.syncUrl(s); $$('#s-rail .mchip').forEach((b) => {
       const m = b.dataset.milestone; const idxs = this.sc.stages.map((q, i) => (q.milestone === m ? i : -1)).filter((i) => i >= 0);
       const cur = started && !rev && idxs.includes(s.stage); const done = started && idxs.every((i) => i < s.stage || (i === s.stage && s.stageProgress >= 1));
       b.classList.toggle('current', cur); b.classList.toggle('done', done && !cur); b.setAttribute('aria-current', cur ? 'step' : 'false');
       b.setAttribute('aria-label', `Milestone ${Number(b.dataset.mi) + 1}: ${m}${cur ? ' (current)' : done ? ' (done)' : ''}. Jump to its first step`);
       b.querySelector('.dots').innerHTML = cur ? idxs.map((i) => `<i class="${i < s.stage || (i === s.stage && s.stageProgress >= 1) ? 'd' : ''} ${i === s.stage ? 'c' : ''} ${this.sc.stages[i].skipped ? 'sk' : ''}"></i>`).join('') : '';
-    }); }
+    });
+    $$('#s-rail .act').forEach((a) => { const chips = [...a.querySelectorAll('.mchip')]; a.classList.toggle('current', chips.some((c) => c.classList.contains('current'))); a.classList.toggle('done', chips.length > 0 && chips.every((c) => c.classList.contains('done'))); }); }
     const banner = $('#fault-banner'); banner.hidden = !s.halted;
     if (s.halted) banner.textContent = `Simulated fault: ${E.getFault(this.sc, s.activeFault).label}. The flow stops at “${st.title}”.`;
     // Final step card: the lesson's ending (result, what is still open, Restart and Reverse evidence).
     const fc = $('#final-card'); fc.hidden = !atEnd;
-    if (atEnd) { const f = P.finalCardHtml(this.ctx(s)); const fault = FAULTS.find((x) => x.id === s.activeFault);
-      const open = f.openItems?.length ? `<details${this.fcOpen ? ' open' : ''}><summary>Open items (${f.openItems.length})</summary><ul>${f.openItems.map((i) => `<li>${esc(i)}</li>`).join('')}</ul></details>` : '';
+    if (atEnd) { const f = this.P.finalCardHtml(this.ctx(s)); const fault = this.sc.faults.find((x) => x.id === s.activeFault);
+      const open = f.openItems?.length ? `<details${this.fcOpen ? ' open' : ''}><summary>${esc(f.openLabel ?? 'Open items')} (${f.openItems.length})</summary><ul>${f.openItems.map((i) => `<li>${esc(i)}</li>`).join('')}</ul></details>` : '';
       const html = `<h2>${esc(f.title)}</h2><p>${esc(f.text)}</p><div class="fc-actions"><button class="btn" id="fc-restart">Restart</button><button class="btn primary" id="fc-reverse">Reverse evidence</button>${s.halted && fault?.switchPath ? `<button class="btn" data-switch-path="${fault.switchPath}">Switch to Path A (approved exception)</button>` : ''}</div>${open}`;
       // Rewrite only when the content changes, so the buttons stay attached between animation frames.
       if (this.fcHtml !== html || !fc.firstChild) { this.fcHtml = html; fc.className = `final-card fc-${f.kind}`; fc.innerHTML = html; } }
-    Object.assign(document.body.dataset, { stage: st.id, direction: s.direction, fault: s.activeFault, t: this.s.t.toFixed(2), playing: String(!!this.s.playing), full: String(this.app.full), storyPath: this.sc.pathId, condition: this.sc.conditionId, started: String(started), panel: this.panelOpen ? 'open' : 'closed', tour: this.app.tour.state });
+    Object.assign(document.body.dataset, { stage: st.id, direction: s.direction, fault: s.activeFault, t: this.s.t.toFixed(2), playing: String(!!this.s.playing), full: String(this.app.full), storyPath: this.sc.pathId ?? '', condition: this.sc.conditionId ?? '', started: String(started), panel: this.panelOpen ? 'open' : 'closed', tour: this.app.tour.state });
     this.renderPanel(force);
   }
   renderPanel(force) {
-    const s = this.app.state(); const ctx = this.ctx(s);
-    const key = JSON.stringify([s.stage, s.direction, s.evidenceIndex, s.activeFault, s.halted, this.sc.pathId, this.sc.conditionId, this.s.started, this.selection, this.panelOpen, this.open, this.token, this.raw, s.stageProgress >= 1, innerWidth >= WIDE]);
+    const s = this.app.state(); const ctx = this.ctx(s); const P = this.P; const S = this.S;
+    const key = JSON.stringify([this.sc.id, s.stage, s.direction, s.evidenceIndex, s.activeFault, s.halted, this.sc.pathId, this.sc.conditionId, this.s.started, this.selection, this.panelOpen, this.open, this.token, this.raw, [...this.gloss], s.stageProgress >= 1, innerWidth >= WIDE]);
     if (!force && key === this.lastPanelKey) return; this.lastPanelKey = key;
     const el = $('#spanel'); el.dataset.expanded = String(this.panelOpen);
     if (!this.panelOpen) {
@@ -207,8 +222,9 @@ export class StoryController {
     }
     const order = P.sectionOrder(ctx);
     const body = { plain: () => P.plainHtml(ctx), technical: () => P.technicalHtml(ctx), command: () => P.commandHtml(ctx, this.token), raw: () => P.rawHtml(ctx, this.raw), evidence: () => P.evidenceHtml(ctx), troubleshoot: () => P.troubleshootHtml(ctx) };
-    const sel = this.selection?.type === 'artifact' && ARTIFACTS[this.selection.id] ? artifactLabel(this.selection.id, this.sc.pathId) : null;
+    const sel = this.selection?.type === 'artifact' && S.artifacts[this.selection.id] ? S.label(this.selection.id, this.sc.pathId) : null;
+    const title = (id) => P.sectionTitle?.(id) ?? P.SECTION_TITLES[id];
     el.innerHTML = `<div class="phead"><h2>${esc(sel ? `Details: ${sel}` : 'Details')}</h2><button class="btn small pclose" aria-label="Close details (Escape)">Close</button></div>
-      ${order.map((id, i) => { const open = this.isOpen(id); return `<section class="psec" data-sec="${id}"><h3><button class="disc" data-sec-toggle="${id}" aria-expanded="${open}" aria-controls="sec-${id}" id="h-${id}">${i + 1} · ${esc(P.SECTION_TITLES[id])}</button></h3><div class="psec-body" id="sec-${id}" role="region" aria-labelledby="h-${id}" ${open ? '' : 'hidden'}>${open ? body[id]() : ''}</div></section>`; }).join('')}`;
+      ${order.map((id, i) => { const open = this.isOpen(id); return `<section class="psec" data-sec="${id}"><h3><button class="disc" data-sec-toggle="${id}" aria-expanded="${open}" aria-controls="sec-${id}" id="h-${id}">${i + 1} · ${esc(title(id))}</button></h3><div class="psec-body" id="sec-${id}" role="region" aria-labelledby="h-${id}" ${open ? '' : 'hidden'}>${open ? body[id]() : ''}</div></section>`; }).join('')}`;
   }
 }

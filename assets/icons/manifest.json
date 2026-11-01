@@ -318,6 +318,61 @@
       "source": "src/views/icons.js",
       "added": "0.4.0",
       "use": "DC story artifact vocabulary (always paired with its fixed text label and colour token)"
+    },
+    {
+      "id": "a-browser",
+      "label": "Browser warning",
+      "description": "A browser window with a warning triangle: the certificate warning on CLIENT01",
+      "origin": "custom",
+      "official": false,
+      "modified": false,
+      "source": "src/views/icons.js",
+      "added": "0.5.0",
+      "use": "Website TLS story artifact vocabulary (always paired with its fixed text label and colour token)"
+    },
+    {
+      "id": "a-ticket",
+      "label": "Problem report",
+      "description": "A speech bubble with text lines: the visitor's problem report",
+      "origin": "custom",
+      "official": false,
+      "modified": false,
+      "source": "src/views/icons.js",
+      "added": "0.5.0",
+      "use": "Website TLS story artifact vocabulary (always paired with its fixed text label and colour token)"
+    },
+    {
+      "id": "a-iis",
+      "label": "IIS site binding",
+      "description": "A site window with a globe and a padlock: the IIS https binding on WEB01",
+      "origin": "custom",
+      "official": false,
+      "modified": false,
+      "source": "src/views/icons.js",
+      "added": "0.5.0",
+      "use": "Website TLS story artifact vocabulary (always paired with its fixed text label and colour token)"
+    },
+    {
+      "id": "a-handshake",
+      "label": "TLS handshake message",
+      "description": "Two opposing arrows: a TLS handshake message (ClientHello, CertificateVerify)",
+      "origin": "custom",
+      "official": false,
+      "modified": false,
+      "source": "src/views/icons.js",
+      "added": "0.5.0",
+      "use": "Website TLS story artifact vocabulary (always paired with its fixed text label and colour token)"
+    },
+    {
+      "id": "a-padlock",
+      "label": "Trusted connection",
+      "description": "A closed padlock with a check mark: the trusted connection",
+      "origin": "custom",
+      "official": false,
+      "modified": false,
+      "source": "src/views/icons.js",
+      "added": "0.5.0",
+      "use": "Website TLS story artifact vocabulary (always paired with its fixed text label and colour token)"
     }
   ]
 }

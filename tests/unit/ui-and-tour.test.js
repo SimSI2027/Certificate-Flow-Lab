@@ -1,83 +1,69 @@
+// Details panels and inspectors (TLS story panel since v0.5.0) and the guided tour controller.
+// v0.5.0: the classic TLS detail panels (details.js) and the tabbed inspector (inspector.js) were removed with the classic workspace.
+// Their intents are migrated deliberately to the story panel: every object explains itself without throwing for every fault; required
+// identity fields; the IP address is context only; the Root CA does not issue the website certificate; AIA and CDP stay separate;
+// a fault explains symptom, evidence, owner and remediation; private keys are never exposed; inspector fields come from the fixtures.
 import { describe, it, expect, beforeAll, vi, afterEach } from 'vitest';
 import * as E from '../../src/engine/engine.js';
 import { loadModel } from '../helpers/fixtures.js';
-import { describeEntity, describeFlow, describeOtherArtifact, faultExplanation } from '../../src/ui/details.js';
-import { entities } from '../../src/entities/entities.js';
-import { tabsFor, tabId, renderTab, CERT_TABS, CSR_TABS, CRL_TABS } from '../../src/inspectors/inspector.js';
+import * as TP from '../../src/ui/tls-panel.js';
+import { ARTIFACTS } from '../../src/scenarios/tls/shared.js';
+import { colonHex } from '../../src/artifacts/model.js';
 import { Tour } from '../../src/tour/tour.js';
 
 let ctxFor;
 beforeAll(async () => {
   const { model, evidence, scenario } = await loadModel();
-  ctxFor = (faultId = 'healthy', t = 19) => { const state = E.computeState(scenario, { faultId, t }); return { scenario, state, model, evidence, ev: evidence[faultId] }; };
+  ctxFor = (faultId = 'healthy', t = 26, selection = null) => { const state = E.computeState(scenario, { faultId, t }); return { scenario, state, model, evidence, ev: evidence[faultId], started: true, selection, gloss: new Set() }; };
 });
 
-const FAULT_IDS = ['wrong-dns', 'expired', 'untrusted-root', 'wrong-eku', 'missing-ica', 'revoked', 'cdp-unavailable', 'no-private-key'];
+const FAULT_IDS = ['wrong-dns', 'expired', 'untrusted-root', 'wrong-eku', 'missing-ica', 'revoked', 'cdp-unavailable', 'no-private-key', 'no-enroll-permission', 'template-not-published', 'user-context', 'wrong-binding'];
+const SECTIONS = ['plainHtml', 'technicalHtml', 'evidenceHtml', 'troubleshootHtml'];
 
 describe('detail panels', () => {
-  it('every entity and flow produces content without throwing, for every fault', () => {
+  it('every artifact, store and zone produces content without throwing, for every fault', () => {
     for (const f of ['healthy', ...FAULT_IDS]) {
-      const c = ctxFor(f, 99);
-      for (const e of entities.filter((x) => c.scenario.entityIds.includes(x.id))) expect(describeEntity(e.id, c).length, `${f}/${e.id}`).toBeGreaterThan(100);
-      for (const fl of c.scenario.flows) expect(describeFlow(fl.id, c)).toContain('Conceptual protocol');
+      const sels = [...Object.keys(ARTIFACTS).map((id) => ({ type: 'artifact', id })), ...['personal', 'intermediate', 'root', 'client-root'].map((id) => ({ type: 'store', id })), ...['Z1', 'Z2', 'Z3', 'Z4', 'Z5', 'Z6'].map((id) => ({ type: 'zone', id })), { type: 'entity', id: 'rootca' }, { type: 'pub', id: 'aia' }, { type: 'pub', id: 'cdp' }];
+      for (const sel of sels) for (const fn of SECTIONS) expect(TP[fn](ctxFor(f, 99, sel)).length, `${f}/${sel.type}:${sel.id}/${fn}`).toBeGreaterThan(40);
     }
   });
-  it('required fields are present for visitor, client, owner, WEB01, template, CAs and PKIWEB01', () => {
-    const c = ctxFor();
-    const need = {
-      visitor: ['SIMSI2027\\Jordan', 'Role', 'Client computer', 'Synthetic IP', 'Authentication context', 'Observed browser error', 'Report submitted'],
-      client01: ['Hostname', 'Domain', 'Operating system', 'DNS server', 'Trust store', 'Active browser session', 'enrollment authority'],
-      owner: ['SIMSI2027\\Morgan', 'Group memberships', 'Assigned application', 'Permission to request', 'Request history'],
-      web01: ['Hostname', 'IIS role', 'Certificate store', 'Private-key state', 'Current HTTPS binding', 'SNI state', 'Installed certificate thumbprint'],
-      template: ['Template OID', 'Schema version', 'Subject / SAN source', 'EKU', 'Key requirements', 'Validity period', 'Renewal period', 'Enrollment permissions', 'Approval requirement', 'Issuing CA availability', 'Policy decision'],
-      ica01: ['CA name', 'Role', 'CA certificate', 'Request ID', 'Request disposition', 'Requester', 'Template', 'Issued serial number', 'Signature algorithm', 'Database record', 'AIA configuration', 'CDP configuration'],
-      rootca: ['Offline root', 'Self-signed', 'Trust-anchor purpose', 'Path-length', 'does'],
-      pkiweb01: ['Publication role', 'Available issuing CA certificate', 'Available CRL', 'AIA endpoint', 'CDP endpoint', 'Simulated retrieval result']
-    };
-    for (const [id, words] of Object.entries(need)) { const h = describeEntity(id, c); for (const w of words) expect(h, `${id}:${w}`).toContain(w); }
+  it('required identity fields: visitor, subject, operator and requester are separate', () => {
+    const h = TP.technicalHtml(ctxFor('healthy', 10));
+    for (const w of ['Visitor (reports only)', 'SIMSI2027\\Jordan on CLIENT01 (10.20.10.45)', 'Subject (certificate identity)', 'portal.simsi2027.test', 'Operator (human)', 'SIMSI2027\\Morgan (application owner)', 'Requester (CA record)']) expect(h, w).toContain(w);
+    expect(TP.technicalHtml(ctxFor('healthy', 6))).toContain('Not recorded yet (no submission)');
   });
-  it('IP address is presented as context, never as enrollment authority', () => {
-    const h = describeEntity('client01', ctxFor());
-    expect(h).toMatch(/contextual information/);
-    expect(h).toMatch(/not<\/strong> the enrollment authority/);
+  it('the IP address is presented as context, never as enrollment authority', () => {
+    const t = TP.technicalHtml(ctxFor('healthy', 1));
+    expect(t).toContain('CLIENT01 10.20.10.45 is context only: an address grants no certificate rights.');
   });
-  it('root CA does not issue the website certificate; the owner (not the visitor) is the requester', () => {
-    expect(describeEntity('rootca', ctxFor())).toMatch(/does <strong>not<\/strong> issue the website certificate/);
-    expect(describeEntity('visitor', ctxFor())).toMatch(/does not enroll/);
-    expect(describeEntity('ica01', ctxFor())).toContain('SIMSI2027\\Morgan');
+  it('the Root CA does not issue the website certificate; the owner (not the visitor) is the requester', () => {
+    expect(TP.plainHtml(ctxFor('healthy', 26, { type: 'entity', id: 'rootca' }))).toMatch(/never signs the website certificate/);
+    expect(TP.technicalHtml(ctxFor('healthy', 10, { type: 'artifact', id: 'record' }))).toContain('SIMSI2027\\Morgan');
+    expect(TP.plainHtml(ctxFor('healthy', 3))).toMatch(/Jordan never requests a certificate|never asks for a certificate/);
   });
-  it('AIA and CDP blocks show raw value, resolved URL, expected object, result, status and timestamp', () => {
-    const h = describeEntity('pkiweb01', ctxFor());
-    for (const w of ['Raw extension value', 'Resolved synthetic URL', 'Expected object', 'Simulated retrieval result', 'Status', 'Evidence timestamp']) expect(h.split(w).length - 1, w).toBeGreaterThanOrEqual(2);
+  it('AIA and CDP explanations stay separate', () => {
+    expect(TP.plainHtml(ctxFor('healthy', 21, { type: 'pub', id: 'aia' }))).toMatch(/issuer certificate/); expect(TP.plainHtml(ctxFor('healthy', 21, { type: 'pub', id: 'aia' }))).not.toMatch(/revocation list/i);
+    expect(TP.plainHtml(ctxFor('healthy', 24, { type: 'pub', id: 'cdp' }))).toMatch(/Revocation List/); expect(TP.plainHtml(ctxFor('healthy', 24, { type: 'pub', id: 'cdp' }))).toMatch(/different URL from the AIA/);
   });
-  it('fault explanation answers the five required questions', () => {
-    for (const f of FAULT_IDS) {
-      const h = faultExplanation(ctxFor(f, 99));
-      for (const w of ['What failed', 'Evidence', 'Still healthy', 'Likely remediation', 'Owner of the correction']) expect(h, `${f}:${w}`).toContain(w);
-    }
-    expect(faultExplanation(ctxFor('healthy', 99))).toBe('');
+  it('fault explanation answers symptom, evidence, owner, remediation, stops and long term', () => {
+    for (const f of FAULT_IDS) { const h = TP.troubleshootHtml(ctxFor(f, 99)); for (const w of ['Symptom', 'Evidence', 'Owner', 'Remediation', 'Stops the flow?', 'Long term']) expect(h, `${f}:${w}`).toContain(w); }
+    expect(TP.troubleshootHtml(ctxFor('healthy', 99))).toContain('No fault selected');
   });
-  it('private key panel never exposes key material', () => { expect(describeOtherArtifact('private-key', ctxFor())).not.toMatch(/BEGIN|[A-Za-z0-9+/]{80}/); });
+  it('private key panel never exposes key material', () => {
+    const h = TP.technicalHtml(ctxFor('healthy', 8, { type: 'artifact', id: 'private-key' }));
+    expect(h).not.toMatch(/BEGIN|[A-Za-z0-9+/]{80}/); expect(h).toContain('Never');
+  });
 });
 
 describe('artifact inspector fields', () => {
-  it('has the required certificate, CSR and CRL tab sets', () => {
-    expect(CERT_TABS).toEqual(['General', 'Details', 'Certification Path', 'Subject Alternative Names', 'Enhanced Key Usage', 'Key Usage', 'Basic Constraints', 'Authority Information Access', 'CRL Distribution Points', 'Thumbprints', 'PEM', 'Raw ASN.1 summary', 'Issuance history', 'Matching CSR']);
-    expect(CSR_TABS).toEqual(['Subject', 'SAN', 'Public key', 'Signature', 'Requested extensions', 'Template request', 'PEM', 'Raw ASN.1 summary']);
-    expect(CRL_TABS).toEqual(['Issuer', 'This Update', 'Next Update', 'CRL number', 'Revoked entries', 'Signature', 'Distribution location', 'Raw data summary']);
-  });
-  it('every tab renders from real fixture values and never exposes private keys', () => {
-    const c = ctxFor();
-    for (const role of ['leaf', 'ica', 'root', 'csr', 'crl', 'chain']) {
-      const p = c.model.resolve(role, null).parsed;
-      for (const tab of tabsFor(p)) { const h = renderTab(p, tab, c); expect(h.length, `${role}/${tab}`).toBeGreaterThan(10); expect(h).not.toMatch(/PRIVATE KEY/); }
-    }
-    const leaf = c.model.resolve('leaf', null).parsed;
-    expect(renderTab(leaf, 'Thumbprints', c)).toContain(leaf.thumbprints.sha1.match(/../g).join(' '));
-    expect(renderTab(leaf, 'PEM', c)).toContain('BEGIN CERTIFICATE');
-    expect(renderTab(leaf, 'Matching CSR', c)).toContain('yes');
-    expect(renderTab(c.model.resolve('csr', null).parsed, 'Template request', c)).toContain('WebServer');
-    expect(tabId('Raw ASN.1 summary')).toBe('raw-asn-1-summary');
+  it('certificate, CSR, CRL, chain and INF inspectors render from real fixture values and never expose private keys', () => {
+    for (const id of ['leaf', 'ica', 'root', 'csr', 'crl', 'chain', 'handshake', 'inf', 'selfsigned']) { const h = TP.technicalHtml(ctxFor('healthy', 26, { type: 'artifact', id })); expect(h.length, id).toBeGreaterThan(200); expect(h).not.toMatch(/PRIVATE KEY/); }
+    const c = ctxFor(); const leaf = c.model.resolve('leaf', null).parsed;
+    const h = TP.technicalHtml(ctxFor('healthy', 26, { type: 'artifact', id: 'leaf' }));
+    for (const w of [colonHex(leaf.thumbprints.sha1), colonHex(leaf.thumbprints.sha256), 'Thumbprint (SHA-1, as Windows shows it)', 'SIMSI2027WebServer (1.3.6.1.4.1.311.21.8.2027.1.1 v100.4; name resolved from the OID)', 'Server Authentication', 'DNS=portal.simsi2027.test', '/aia/SIMSI2027-ICA01.crt', '/cdp/SIMSI2027-ICA01.crl', 'Local Computer\\Personal on WEB01', 'Certification path', 'CA:FALSE']) expect(h, w).toContain(w);
+    expect(TP.rawHtml(ctxFor('healthy', 26, { type: 'artifact', id: 'leaf' }), 'pem')).toContain('BEGIN CERTIFICATE');
+    expect(TP.technicalHtml(ctxFor('healthy', 8, { type: 'artifact', id: 'csr' }))).toContain('SIMSI2027WebServer');
+    expect(TP.technicalHtml(ctxFor('healthy', 26, { type: 'artifact', id: 'crl' }))).toContain('2027000000000000000000000000DD99');
   });
 });
 

@@ -3,7 +3,9 @@ import { createCompanion, resolveArtifact } from '../../tools/companion/companio
 import { NATIVE_CERTIFICATES, COMPANION_ORIGINS } from '../../src/artifacts/native-ids.js';
 import { Native } from '../../src/ui/native.js';
 import { root } from '../helpers/fixtures.js';
-import { tabsFor, renderTab } from '../../src/inspectors/inspector.js';
+// v0.5.0: the classic tabbed inspector was removed; the browser inspector is the story panel's certificate inspector.
+import { certInspector } from '../../src/ui/tls-panel.js';
+import scenario from '../../src/scenarios/tls-manual-enrollment.js';
 import { loadModel } from '../helpers/fixtures.js';
 
 const TOKEN = 'unit-test-token-0123456789abcdef';
@@ -104,6 +106,9 @@ describe('public mode and browser fallback', () => {
   it('the browser certificate inspector works with no companion at all', async () => {
     const { model } = await loadModel();
     const leaf = model.resolve('leaf', null).parsed;
-    for (const t of tabsFor(leaf)) expect(renderTab(leaf, t, { model, state: { activeFault: 'healthy' }, evidence: (await loadModel()).evidence }).length).toBeGreaterThan(10);
+    const ctx = { scenario, model, state: { activeFault: 'healthy', keyAssociation: 'matched', leafState: 'accepted', requester: 'SIMSI2027\\Morgan' }, sigs: {} };
+    const h = certInspector(ctx, leaf, 'leaf');
+    for (const w of ['portal.simsi2027.test', 'Thumbprint (SHA-1, as Windows shows it)', 'Certification path', 'Expected store']) expect(h).toContain(w);
+    expect(h).not.toContain('data-native'); // no native viewer block without the companion
   });
 });

@@ -8,13 +8,13 @@ import { buildTrace, getFault } from '../engine/engine.js';
 import { colonHex } from '../artifacts/model.js';
 
 export const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const kv = (rows) => `<dl class="kv">${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v?.html ?? esc(v ?? '—')}</dd>`).join('')}</dl>`;
-const H = (html) => ({ html });
-const mono = (s) => H(`<span class="mono" translate="no">${esc(s)}</span>`);
+export const kv = (rows) => `<dl class="kv">${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v?.html ?? esc(v ?? '—')}</dd>`).join('')}</dl>`;
+export const H = (html) => ({ html });
+export const mono = (s) => H(`<span class="mono" translate="no">${esc(s)}</span>`);
 // Copy button (copy only; never execution). data-label restores the text after the confirmation.
 export const copyBtn = (text, what) => `<button type="button" class="copy" data-copy="${esc(text)}" data-what="${esc(what)}" data-label="Copy ${esc(what.toLowerCase())}">Copy ${esc(what.toLowerCase())}</button>`;
-const monoCopy = (s, what) => H(`<span class="copyrow"><span class="mono" translate="no">${esc(s)}</span>${copyBtn(s, what)}</span>`);
-const pill = (text, kind) => `<span class="pill pill-${kind}">${esc(text)}</span>`;
+export const monoCopy = (s, what) => H(`<span class="copyrow"><span class="mono" translate="no">${esc(s)}</span>${copyBtn(s, what)}</span>`);
+export const pill = (text, kind) => `<span class="pill pill-${kind}">${esc(text)}</span>`;
 const KIND_PILL = { [KIND.REAL]: 'ok', [KIND.SIM]: 'idle', [KIND.DERIVED]: 'policy', [KIND.FAULT]: 'fail' };
 export const kindBadge = (k) => String(k).split(' + ').map((x) => pill(x, KIND_PILL[x] ?? 'idle')).join(' ');
 const SIMV = '<span class="pill pill-idle">Simulated environment</span>';

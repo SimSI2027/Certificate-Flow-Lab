@@ -16,14 +16,14 @@
   <main id="home" class="home" aria-label="Scenario home" tabindex="-1"></main>
 
   <div id="workspace" class="workspace" hidden>
-    <header class="stop story-only" aria-label="Story controls">
+    <header class="stop story-only" aria-label="Lesson controls">
       <div class="srow">
         <button id="s-home" class="btn small">&larr; Home</button>
         <h1 id="s-title" class="stitle">Domain Controller Manual Enrollment</h1>
-        <div class="seg" role="group" aria-label="Path">
+        <div class="seg" id="s-pathseg" role="group" aria-label="Path">
           <button class="btn seg" data-path="csr" aria-pressed="true">Manual CSR transfer</button><button class="btn seg" data-path="mmc" aria-pressed="false">Certificates MMC enrollment</button>
         </div>
-        <label class="sl">Condition <select id="s-condition" aria-label="Condition"></select></label>
+        <label class="sl" id="s-condwrap">Condition <select id="s-condition" aria-label="Condition"></select></label>
       </div>
       <div class="srow">
         <button id="s-start" class="btn primary start">START FLOW</button>
@@ -36,53 +36,16 @@
         <button id="s-tour" class="btn small" aria-pressed="false">Guided tour</button>
       </div>
     </header>
-    <header class="wtop classic-only">
-      <button id="btn-back" class="btn small">&larr; Scenarios</button>
-      <div class="wtitle"><h1 id="ws-title"></h1><p id="ws-sub" class="subtitle"></p></div>
-      <div class="wtools">
-        <label>Failure <select id="sel-fault" aria-label="Failure scenario"></select></label>
-        <label class="chk"><input type="checkbox" id="chk-topology" /> Show full topology</label>
-        <label class="chk"><input type="checkbox" id="chk-labels" checked /> Labels</label>
-        <button id="btn-reset-camera" class="btn small">Reset camera</button>
-        <button id="btn-tour" class="btn small primary" aria-pressed="false">Guided tour</button>
-      </div>
-    </header>
     <div id="fault-banner" class="fault-banner" role="alert" hidden></div>
     <p id="copy-status" class="sr-only" aria-live="polite"></p>
 
     <main id="story-main" class="slayout story-only" tabindex="-1">
-      <section class="sstage" aria-label="Domain Controller story">
+      <section class="sstage" id="story-stage" aria-label="Lesson story">
         <div class="tour-bar s-tour-bar" hidden role="status" aria-live="polite"><strong class="s-tour-step"></strong><span class="s-tour-text"></span><button class="btn small s-tour-resume" hidden>Resume now</button></div>
         <svg id="story-scene" class="story-scene" role="group" aria-label="Domain Controller enrollment story: six zones"></svg>
         <div id="final-card" class="final-card" role="region" aria-label="Result" hidden></div>
       </section>
       <aside id="spanel" class="spanel" aria-label="Details" data-expanded="false"></aside>
-    </main>
-    <main id="classic-main" class="layout classic-only" tabindex="-1">
-      <section class="stage-wrap" aria-label="Certificate flow">
-        <div id="tour-bar" class="tour-bar" hidden role="status" aria-live="polite">
-          <strong id="tour-step"></strong><span id="tour-text"></span><button id="btn-tour-resume" class="btn small" hidden>Resume now</button>
-        </div>
-        <svg id="scene" class="scene" role="group" aria-label="Interactive certificate flow diagram" preserveAspectRatio="xMidYMid meet"></svg>
-        <ul class="legend" aria-label="Line legend">
-          <li><i class="ln request"></i>Request</li><li><i class="ln policy"></i>Policy</li><li><i class="ln cert"></i>Certificate</li><li><i class="ln install"></i>Install</li><li><i class="ln validate"></i>Check</li><li><i class="ln trust"></i>Trusted</li><li><i class="ln fail"></i>Failure</li>
-        </ul>
-      </section>
-
-      <aside id="side" class="side" aria-label="Details">
-        <div role="tablist" class="tabs main-tabs" aria-label="Detail views">
-          <button role="tab" class="tab" data-tabbtn="explain" aria-selected="true">Explain</button>
-          <button role="tab" class="tab" data-tabbtn="details" aria-selected="false">Technical details</button>
-          <button role="tab" class="tab" data-tabbtn="inspector" aria-selected="false">Artifact</button>
-          <button role="tab" class="tab" data-tabbtn="evidence" aria-selected="false">Evidence</button>
-          <button role="tab" class="tab" data-tabbtn="troubleshoot" aria-selected="false">Troubleshoot</button>
-        </div>
-        <div id="panel-explain" class="panel" role="tabpanel"></div>
-        <div id="panel-details" class="panel" role="tabpanel" hidden></div>
-        <div id="panel-inspector" class="panel" role="tabpanel" hidden></div>
-        <div id="panel-evidence" class="panel" role="tabpanel" hidden></div>
-        <div id="panel-troubleshoot" class="panel" role="tabpanel" hidden></div>
-      </aside>
     </main>
 
     <footer class="sbar story-only" aria-label="Milestones and playback">
@@ -94,33 +57,6 @@
         <button id="s-restart" class="btn">Restart</button>
         <label class="sl">Speed <select id="s-speed" aria-label="Speed"><option value="0.5">0.5x</option><option value="1" selected>1x</option><option value="2">2x</option></select></label>
       </div>
-    </footer>
-    <footer class="controls classic-only" aria-label="Stage rail and playback controls">
-      <div class="stepinfo">
-        <div class="stepmeta"><span id="step-count" class="step-count"></span><strong id="step-title"></strong></div>
-        <p id="step-purpose" class="step-purpose"></p>
-        <div class="progress" aria-hidden="true"><div id="step-bar" class="progress-bar"></div></div>
-      </div>
-      <nav id="rail" class="rail" aria-label="Milestones"></nav>
-      <div class="row">
-        <div class="group" role="group" aria-label="Transport">
-          <button id="btn-restart" class="btn" title="Restart">Restart</button>
-          <button id="btn-step-back" class="btn" title="Previous step">&#9664; Previous</button>
-          <button id="btn-play" class="btn primary">&#9654; Play</button>
-          <button id="btn-pause" class="btn" disabled>&#10073;&#10073; Pause</button>
-          <button id="btn-step-fwd" class="btn" title="Next step">Next &#9654;</button>
-        </div>
-        <div class="group" role="group" aria-label="Mode">
-          <button id="btn-mode-forward" class="btn seg" aria-pressed="true" title="Walk the lifecycle step by step">Forward lifecycle</button>
-          <button id="btn-mode-reverse" class="btn seg" aria-pressed="false" title="Trace the evidence behind the result (not a reversed animation)">Reverse evidence</button>
-        </div>
-        <div class="group" role="group" aria-label="Playback speed">
-          <button class="btn seg" data-speed="0.25" aria-pressed="false">0.25x</button><button class="btn seg" data-speed="0.5" aria-pressed="false">0.5x</button>
-          <button class="btn seg" data-speed="1" aria-pressed="true">1x</button><button class="btn seg" data-speed="2" aria-pressed="false">2x</button>
-        </div>
-        <label class="jump">Jump to <select id="sel-jump" aria-label="Jump to step"></select></label>
-      </div>
-      <div class="timeline"><input id="scrubber" type="range" min="0" max="1900" step="1" value="0" aria-label="Timeline scrubber" /><span id="pos-label" class="pos-label"></span></div>
     </footer>
   </div>
 </body>
