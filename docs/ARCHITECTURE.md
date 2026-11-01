@@ -74,3 +74,13 @@ No network calls beyond serving static files. Downloads are generated client-sid
 - **Teaching layer** (`src/ui/teach.js`, `details.js`, `details-dc.js`): Explain, Evidence, Troubleshoot and friendly artifact summaries are built from the canonical state, the evaluated evidence and the parsed fixtures.
 - **Icons** (`src/views/icons.js`): one custom flat family; see `assets/icons/SOURCES.md`.
 - **Film** (`film.html`, `src/film/`): the same app driven by `frameAt(time)`; captions are the app's own step info, so they cannot disagree with the state.
+
+
+## v0.4.0 additions
+- **Paths and conditions in the engine:** `pathOf(scenario, session)` turns a multi-path scenario (`paths`, `conditions`) into a cached, ordinary scenario view, so `worldAt`, `maxT`, `buildTrace` and the evaluators keep their signatures. `computeState` applies it, and TLS has no `paths`, so its behaviour is unchanged.
+- **Evidence per path:** `main.js` and `film.js` evaluate `evidence["<scenario>"]` (Path A) and `evidence["<scenario>:<path>"]` for each path. `dc-evaluate.js` reads `scenario.pathId`; fixtures are resolved through `scenario.resolveFixture(model, artifactId, faultId)`.
+- **Story view:** `src/views/story-layout.js` (pure disclosure, geometry, stores and connectors; shared by the renderer, unit tests and the visual review) and `src/views/story-scene.js` (SVG renderer, packet animation, focusable objects).
+- **Story UI:** `src/ui/story-app.js` (`StoryController`: header, path, condition and fault selectors, START FLOW, rail, playback, panel state, final card, keyboard). `src/ui/story-panel.js` holds the pure panel builders: plain language, identity fields, CSR, certificate and store inspectors, template cards, command tokens, raw view, evidence and troubleshooting. `App` delegates to the controller when `scenario.layoutMode === 'story-zones'`. The classic TLS workspace and the `Scene` are untouched.
+- **Markup:** `index.html` holds both workspaces (`.story-only` / `.classic-only`, toggled by `body[data-layout]`). `film.html` now imports `index.html` at startup instead of keeping a copy.
+- **Fixture model:** `parseCsr` decodes request attributes (1.3.6.1.4.1.311.13.2.1 template name/value pair, 1.3.6.1.4.1.311.21.20 client information). `parseCertificate` resolves the template name from the 21.7 OID (`TEMPLATE_NAMES`). `parseP7b` reads PKCS #7 bundles.
+- **Validation tooling:** `scripts/validation/visual-review.mjs` (`npm run review:visual`). Video names come from `package.json`, and partial renders write `-preview` files.

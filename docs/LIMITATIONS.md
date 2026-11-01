@@ -21,3 +21,15 @@
 - **Icons are custom** (no official Microsoft icons); they are not a Microsoft product representation.
 - **Auto-fit zoom and layout** are tuned for the two shipped scenarios; very long names are compressed with SVG text-length adjustment.
 - **Video** renders with headless Edge/Chromium; pixel output may differ slightly across machines.
+
+
+## v0.4.0 Domain Controller story
+- **Nothing is executed.** Every `certreq`, `certutil`, `Get-FileHash` and console path is shown for learning only ("Shown for learning; never executed by this simulator."). No real CA, Active Directory, store or DNS is contacted.
+- **Configuration-dependent behaviour** is marked "Depends on your configuration": RPC/DCOM port ranges and firewall rules, template permissions and their defaults, Enterprise (AD) and Group Policy distribution of CA certificates, event IDs and event details, autoenrollment service pickup timing, and whether relying parties enforce revocation.
+- **certreq behaviour is simplified.** The exact `certreq -accept` outcome depends on the response format (CER or PKCS #7), on what the stores already hold and on Windows configuration. The simulator never claims that `-accept` or importing a `.p7b` makes a Root trusted.
+- **Approvals, permissions, publication, request records, the change ticket and the PKI-TRANSFER01 transfer are simulated** and labelled "Simulated environment". The Root thumbprint check compares a real computed thumbprint with a simulated change record.
+- **DCOfflineKerberosAuth is a simulated, organization-specific template.** The ESC1 discussion is simplified: it names the risk and the four controls; it is not a complete AD CS hardening guide.
+- **DomainControllerAuthentication** appears only as a comparison card, measured against this lesson's strict-KDC expectation; it is not judged in general.
+- **Path B request file:** the wizard builds its request in memory. `dc01-mmc-request.der` exists only so it can be inspected.
+- **Fault certificates are shared by both paths** and carry the Path A subject and key (see SCENARIO_MODEL.md, v0.4.0 deviations).
+- **Fixture regeneration changes every thumbprint**, because keys are never persisted.

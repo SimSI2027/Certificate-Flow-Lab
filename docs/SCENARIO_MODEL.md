@@ -71,3 +71,65 @@ Film time is a second, pure mapping on top of the model: `frameAt(seconds)` retu
 
 ### Domain Controller scenario (`dc-manual-certificate-request`)
 18 stages in 10 milestone groups: Problem, Identity, Key, CSR, Submission, Policy, Issuance, Retrieval, Acceptance, Verification. Extra state fields: `dcCertState, identityState, templatePublished, permissionState, contextState, keyAssociation, purposeState, followupState`. Eleven faults halt at: choose-template, verify-permission, evaluate-policy (user context, pending), submit, key-match, inspect-purposes (EKU, SAN, expired) and verify-chain (AIA, CDP).
+
+
+## v0.4.0 Domain Controller story model
+
+### Files
+`src/scenarios/dc/shared.js` (zones, stores, artifact vocabulary, command tokens, conditions, faults, initial state, step builder) · `dc/path-csr.js` (Path A) · `dc/path-mmc.js` (Path B) · `dc-manual-certificate-request.js` (thin default export: id unchanged, title "Domain Controller Manual Enrollment", `layoutMode: 'story-zones'`, `paths: { csr, mmc }`, `defaultPath: 'csr'`, `conditions`, `defaultCondition: 'trust-missing'`, `tour`, `resolveFixture`, `evaluate`). The default export spreads Path A, so code that reads `scenario.stages` sees Path A.
+
+### Step schema
+`id, milestone, title, purpose, zone, adjacent[], actor ('OP'|'MGR'|'SYS'), artifact, command {text, tokens:[{t, meaning}], banner} | null, gui (console path) | null, connector ({from, to, channel, blocked?, blockedBy?} | {from, store, channel} | {from, to, association:true} | {from, to, channel, local:true} | null), conditional ('trust-missing'), result, notes[], show[], explain {what, who, moves, staysLocal, canGoWrong}, during, done`, plus flags `vault`, `stores`, `pub`, `rootHistory`. The engine fields `phase`, `narrative`, `focus` and `flows` are derived, so the existing engine logic is reused unchanged.
+
+### Paths
+- **Path A — Manual CSR transfer:** 10 milestones (Diagnose · Define request · Create key and CSR · Transfer CSR · Submit and approve · Issue and retrieve · Return package · Install CA certificates · Accept leaf · Verify and follow up) and 24 steps (`a-detect` … `a-followup`).
+- **Path B — Certificates MMC enrollment:** 6 milestones (Diagnose · Check prerequisites · Open Local Computer store · Enroll · Verify · Follow up) and 11 steps (`b-detect` … `b-followup`).
+
+### Engine additions (`src/engine/engine.js`)
+`pathOf(scenario, session)` returns a cached view with that path's stages, flows, faults, fault patches and trace. Under `trust-present` the conditional steps are marked `skipped` (result "Already present — skipped", no state change, no connector) and `a-trust-check` reports Enterprise (AD) certificates. `computeState(scenario, session)` applies `pathOf` itself and adds `pathId`, `conditionId` and `skipped` to the state. `nextStepT` and `prevStepT` jump over skipped steps. `buildTrace` labels a trace item `User-selected fault` when its `faults` list names the selected fault, and uses `scenario.verdictQuestion`. URL parameters: `?path=csr|mmc&condition=trust-missing|trust-present` (also `fault`, `t`, `dir`, `start=1`, `panel=open`). Scenarios without `paths` (TLS) are returned unchanged.
+
+### Conditions
+`trust-missing` (default; "Exceptional condition for this lesson"): Root and Issuing CA certificates are installed manually in `a-root` and `a-ica` before the leaf is accepted. Long term: repair AD publication, replication or Group Policy so they arrive in the Enterprise store. `trust-present`: both steps are skipped. Path B has no conditional steps; its CA certificates arrive from AD.
+
+### Faults (separate selector from the condition)
+| Fault | Paths | Manifests at | Stops? | Evidence kind |
+|---|---|---|---|---|
+| rpc-blocked | B | b-enroll | yes (offers a switch to Path A) | Simulated environment |
+| wrong-template-handoff | A | a-policy | yes | Simulated environment + Real fixture data |
+| no-enroll-permission | A, B | a-policy / b-permission | yes | Simulated environment |
+| template-not-published | A, B | a-policy / b-template | yes | Simulated environment |
+| pending-no-approver | A | a-approve | yes | Simulated environment |
+| user-context | A | a-accept (effects at a-inf, a-new) | yes | Real fixture data + Simulated environment |
+| accepted-on-wrong-machine | A | a-accept | yes | Derived conclusion + Real fixture data |
+| pending-request-lost | A | a-accept | yes | Simulated environment |
+| root-thumbprint-mismatch | A | a-return-move | yes | Real fixture data vs Simulated environment |
+| cdp-unreachable | A, B | a-chain / b-chain | no: continues, verdict withheld | Simulated environment |
+| wrong-eku | A, B | a-purposes / b-verify | yes | Real fixture data |
+| san-no-domain | A, B | a-purposes / b-verify | yes | Real fixture data |
+| key-mismatch | A | a-key | yes | Real fixture data |
+| expired | A, B | a-purposes / b-verify | yes | Real fixture data |
+
+Each fault has `symptom`, `evidence[] {text, kind}`, `owner`, `remediation`, `stops` and `longTerm`.
+
+**Retired:** `ca-unavailable` → `rpc-blocked` (the real failure is the blocked RPC/DCOM path, not a CA outage). `ica-cert-unavailable` → condition `trust-missing` (installing the Issuing CA certificate locally is part of the controlled workflow; AIA is not needed when the Intermediate store has it). `san-missing` is retained only as a fixture.
+
+### Reverse evidence
+Path A, in order: Suitable? · Purposes and names · Private-key association · Trusted chain · Revocation · Root authenticity · Approval and issuance · CSR proof of possession · Key generated on DC01 · Original failure. Path B replaces items 6–7 with "CA certificates from AD (Enterprise store)" and "Requester DC01$, subject built from AD", and item 10 with "Autoenrollment had not yet produced a certificate; enrollment triggered manually".
+
+## v0.4.0 deviations
+Where the release specification was impossible or ambiguous, the closest faithful alternative was implemented:
+1. **Fixture byte-stability.** The Issuing CA signing key is never persisted, so the new DC leaves required regenerating the whole hierarchy; Root, Issuing CA, TLS and CRL thumbprints changed. Every `fixtures:generate` run creates fresh keys and changes every thumbprint; that is a property of not persisting keys. The release ran it once and committed that output.
+2. **Shared fault certificates.** Fault certificate fixtures carry the Path A subject and key and are used by both paths. In Path B, the key-match check compares a fault certificate with the request it was issued for, and the evidence says so.
+3. **Extra browser-loadable copies.** The Path B CSR is also written as `dc01-mmc-request.req` (PEM), and the PKCS #7 bundle as `dc01-return.p7b.pem`, because the browser loads PEM text fixtures.
+4. **Manifest `path` value `tls`** marks the unchanged website fixtures (the specification listed csr, mmc, shared and fault).
+5. **Zone 6 layout.** The store cards occupy the spotlight position in zone 6. An artifact moving into zone 6 is spotlighted in its source zone. An artifact at rest in zone 6 is highlighted inside its store card. Zone 6's actor badge is drawn inside its station card, because there is no room between the station card and the store cards.
+6. **One active connector** applies to steps that move something. Steps where nothing moves (for example confirming the identity) have none.
+7. **Finished connectors** are drawn only in Show full topology. The focused view draws only the active route and the muted Root history link.
+8. **Connector labels** sit in the free end zone (or under the source spotlight) instead of on the lane, so text never covers a card.
+9. **Collapsed panel width.** The 48 px tab applies at every width below 1600 px, not only at 1366x768. At 1600 px and wider the collapsed panel is the 320 px summary.
+10. **START FLOW** begins playback at step 1. Next, Previous and the rail pause it.
+11. **The condition selector** shows "Not applicable" on Path B.
+12. **`cdp-unreachable`** is a continuing fault: the chain step records revocation as offline, the final verdict is withheld, and both are applied through `faultStagePatches`.
+13. **Skipped steps stay in the step list** so they can say "Already present — skipped". Navigation and playback jump over them.
+14. **The film includes a TLS segment.** The v0.3.0 film had none, so "keep the TLS segment" was read as "include one".
+15. **The `a-approve` route** is a short in-zone route from the certificate manager badge to the request record, labelled "CA approval (console)".

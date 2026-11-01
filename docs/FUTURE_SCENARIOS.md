@@ -38,3 +38,14 @@ The engine itself (`src/engine/engine.js`) contains no stage names and should no
 
 ## v0.3.0 note
 The scenario home shows only a quiet "Coming later" list (NDES / SCEP, CEP / CES, autoenrollment, AIA chain retrieval, CRL and OCSP validation); nothing future is rendered in the workspace. A new scenario needs a module with the shape in `SCENARIO_MODEL.md`, an entry in `src/scenarios/index.js`, and its entities in `src/entities/entities.js`. The Domain Controller follow-up step already points to `autoenrollment`.
+
+
+## v0.4.0: extension points preserved
+The DC story keeps every planned extension point open: **NDES, SCEP, CEP, CES, autoenrollment, AIA retrieval, CDP/CRL validation, OCSP, user and device certificates, smart-card certificates and cross-forest enrollment.** Concretely:
+- A new story scenario adds a `paths` map and `layoutMode: 'story-zones'`; `pathOf` and the StoryScene need no changes for new paths that use the same six zones.
+- Autoenrollment can reuse Path B (`b-followup` already points to `certutil -pulse` and Group Policy refresh) and the fault `rpc-blocked`.
+- AIA retrieval: the PUB strip already draws a separate AIA endpoint ("not needed: ICA cert is local"); an AIA scenario can activate it with a `HTTP (AIA)` connector, which is already in the channel vocabulary.
+- CDP/CRL and OCSP validation: `cdp-unreachable` shows the withheld-verdict pattern; OCSP would add an endpoint to the PUB strip and a check in `dc-evaluate.js`.
+- CEP/CES and NDES/SCEP: zone 3 is relabelled per path (`zones.mmc` shows the mechanism), so a web-enrollment path can relabel it as a CEP/CES or NDES front end.
+- Smart-card, user and device certificates: the Smart Card Logon EKU is already present, and store mapping (`STORE_MAP`) and the eight-question certificate card are data-driven.
+- Cross-forest enrollment: the Offline Trust and store-source tags (`Enterprise (AD)`, `Group Policy`, `Local (manual)`) carry the trust-distribution story.

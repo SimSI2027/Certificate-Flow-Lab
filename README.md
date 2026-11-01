@@ -12,25 +12,36 @@ The public demo is a synthetic simulation and is redeployed automatically by Git
 > - All certificate, CSR, CRL and request-policy fixtures were **generated for this project** by `scripts/generate-fixtures/generate.mjs`. They are real, parseable files that chain only to the synthetic SIMSI2027 root.
 > - **No private keys are distributed.** Keys exist only in memory while fixtures are generated.
 
-## v0.3.0: scenario-first interface
+## v0.4.0: Domain Controller Manual Enrollment, redesigned as a story
 
-Open the app and pick a scenario. Each runs in a calm, left-to-right **focused flow**: only the previous, current and next steps are drawn, one artifact moves at a time, and the offline Root CA lives in a separate **Offline trust** zone at the far right (shown only when the chain is being explained). **Show full topology** reveals everything, with inactive connections faded.
+Open the app and pick a scenario.
 
 | Scenario | Story |
 |----------|-------|
-| **Website TLS Certificate** | A visitor reports a browser warning. The application owner (not the visitor) requests a certificate; WEB01 keeps its private key, the Issuing CA signs, IIS binds it and CLIENT01 validates name, dates, EKU, signatures, root trust and revocation. |
-| **Domain Controller Manual Enrollment** | DC01 is not receiving its Domain Controller certificate automatically. An operator inspects DC01 and the template, writes a request policy (INF), generates the key on DC01 in machine context, creates and inspects the CSR, submits it with a `certreq`-style flow, accepts the issued certificate against the existing private key and verifies purposes, SAN, chain (AIA) and revocation (CDP). |
+| **Website TLS Certificate** (unchanged) | A visitor reports a browser warning. The application owner (not the visitor) requests a certificate; WEB01 keeps its private key, the Issuing CA signs, IIS binds it and CLIENT01 validates name, dates, EKU, signatures, root trust and revocation. Classic focused layout. |
+| **Domain Controller Manual Enrollment** | DC01 has no certificate with KDC Authentication because autoenrollment could not reach the Issuing CA. Choose a path. **Path A, Manual CSR transfer** (24 steps, 10 milestones): `certreq -new -machine` creates the key and the signed CSR on DC01; the CSR alone travels through PKI-TRANSFER01; PKIOperator submits it for the controlled template DCOfflineKerberosAuth; a certificate manager approves; ICA01 creates and signs a new certificate; the public return package comes back; the Root is verified by thumbprint; the Root and Issuing CA certificates are installed; and `certreq -accept` runs on the original DC01. **Path B, Certificates MMC enrollment** (11 steps, 6 milestones): DC01 can reach ICA01, so the Certificates (Local Computer) wizard enrolls as SIMSI2027\DC01$ for KerberosAuthentication. |
 
-Manual enrollment here is **educational**: even when it works it does not replace investigating why autoenrollment failed. The final step says so. The simulated commands (`certreq.exe -new`, `-submit`, `-accept`) are never executed against a real CA.
+The DC story is drawn as six fixed zones: DC01, request package, controlled transfer, Issuing CA, return package, and the DC01 certificate stores. An Offline Trust box and a PKIWEB01 strip complete the picture. The rule is **one active zone, one active artifact, one active route**. The private key stays in a DC01 key vault ("Certificate Enrollment Requests") until `certreq -accept` links it across a "same computer, never on the network" lane. The Root CA only ever appears as a muted "signed the Issuing CA certificate earlier (offline)" link.
 
-### The details drawer
+**Conditions** (Path A): *Trust certificates missing on DC01* (default, an exceptional condition for this lesson) or *Trust certificates present via AD (Enterprise store)*, which skips the two installation steps ("Already present — skipped").
+**Faults** (separate selector): RPC/DCOM blocked, wrong template for the handoff, no Enroll permission, template not published, pending with no approver, user context, accepted on the wrong machine, pending request lost, Root thumbprint mismatch, CDP unreachable (verdict withheld), KDC Authentication EKU missing, SAN without the domain name, key mismatch and expired. Each one shows its symptom, the evidence with its kind, the owner, the remediation, whether the flow stops, and the long-term fix.
+
+**Controls:** the header holds Home, the path switch (Manual CSR transfer | Certificates MMC enrollment), Condition, Fault, START FLOW (replaced by "Step n of N · title"), Forward flow | Reverse evidence, Show full topology and the guided tour (8 stops). The bottom bar holds named milestone chips, Previous, Play/Pause, Next, Restart and the speed. Keyboard: Space plays or pauses, ←/→ step, Escape closes the details panel.
+
+**Details panel** (collapsed by default): Plain language · Technical details (parser-backed CSR, certificate and store inspectors, with Subject, Operator and Requester as three separate fields) · Command explanation (every token explained; "Shown for learning; never executed by this simulator.") · Raw artifact on demand · Evidence · Troubleshoot (moves up and opens when a fault stops the flow).
+
+**What the screens look like (described in words).** Before START FLOW: six dashed placeholder zones and the Offline Trust box. While stepping: one zone outlined in blue with a dark actor badge ("Operator acts", "Cert manager acts", "System acts") and a single coloured artifact card, for example a blue CSR envelope reading "public key + names · signed by DC01 key". Finished zones keep small clickable chips of their earlier artifacts. At the accept step an amber dashed lane runs from the DC01 key vault to the Personal store. In the store cards the leaf shows "private key on DC01 ✓", while the Issuing CA and Root show "no private key here" and their source tags. A failure draws the route red, dashed and crossed. The last step shows a card: "Suitable now; root cause still open".
+
+Manual enrollment is an **exception, not a repair**: the last step lists the open items (the RPC/DCOM firewall rule, autoenrollment Group Policy and permissions, trust distribution, CDP/AIA reachability, replacing and revoking the manual certificate, unpublishing the temporary template).
+
+### The details drawer (TLS, classic layout)
 **Explain** (what, why, who, where, what moves next, what stays private, what can go wrong, in plain language) · **Technical details** · **Artifact** (the real parser-backed inspector with a friendly summary first, downloads and, locally, the Windows Certificate Viewer) · **Evidence** (each item labelled *Real fixture data*, *Simulated environment*, *Derived conclusion* or *User-selected fault*) · **Troubleshoot** (expected vs. current, causes, owner, checks, remediation; a collapsed *Developer state*). Pause at any step and click any object or artifact; nothing resets.
 
 ### Forward lifecycle and reverse evidence
 Forward walks the stages (named milestone rail, Previous / Next / Play / Pause, 0.25x to 2x). **Reverse evidence is not a reversed animation**: the finished world stays put while the trace answers *why is this trusted / suitable?* back to the request and requester, citing evidence for every step. In a failure it starts from *why is it not trusted?*.
 
 ### Failures
-TLS: wrong DNS name, expired, untrusted root, wrong EKU, missing issuing CA certificate, revoked, CDP unavailable, certificate installed without its private key. Domain Controller: template not published, no Enroll permission, request in user context, CA unavailable, pending approval, wrong EKU, missing SAN, certificate/private-key mismatch, issuing CA certificate unavailable, CDP unavailable, expired. Each halts at the correct step with evidence, the owning role and remediation.
+TLS: wrong DNS name, expired, untrusted root, wrong EKU, missing issuing CA certificate, revoked, CDP unavailable, certificate installed without its private key. Each halts at the correct step with evidence, the owning role and remediation. Domain Controller faults are listed above.
 
 ### Real fixtures
 `fixtures/` holds the synthetic Root CA, Issuing CA, website certificate, Domain Controller certificate, CSRs, CRL #27, chain files, the teaching INF and fault variants, described by `fixtures/manifests/manifest.json`. Every displayed certificate field is parsed from these files in the browser (see `docs/FIXTURES.md`).
@@ -60,7 +71,7 @@ npm install
 `Ctrl+C` stops both child processes and their trees. npm: `npm run dev`, `npm run build`, `npm test`, `npm run test:e2e`, `npm run fixtures:validate`, `npm run test:pages`, `npm run video`.
 
 ### Video
-`npm run video` renders `output/certificate-flow-lab-v0.3.0.mp4` (1920x1080, 60 fps, H.264, yuv420p, faststart, silent) and `output/certificate-flow-lab-v0.3.0-contact-sheet.jpg` by driving the canonical scenario state frame by frame (no screen recording). Output is git-ignored.
+`npm run video` renders `output/certificate-flow-lab-v<version>.mp4` (v0.4.0: `certificate-flow-lab-v0.4.0.mp4`; 1920x1080, 60 fps, H.264, yuv420p, faststart, silent) and the matching `-contact-sheet.jpg`. It drives the canonical scenario state frame by frame, with no screen recording: title, home, a TLS segment, the DC Path A story, reverse evidence, full topology and the outro. Output is git-ignored.
 
 ### Deployment
 Every push to `main` runs tests, fixture validation, the production build and a base-path smoke test, then deploys GitHub Pages. The footer on the home screen shows the version and commit; `version.json` on the site records the deployed commit.
@@ -71,10 +82,11 @@ npm test                    # unit + integration (Vitest)
 npm run test:e2e            # Playwright against installed Microsoft Edge
 npm run fixtures:validate   # validates the real certificate/CSR/CRL/chain fixtures
 npm run fixtures:generate   # regenerates fixtures (new keys, new thumbprints)
+npm run review:visual       # 40 screenshots (1920x1080, 1366x768) + layout checks into screenshots/visual-review/
 ```
 
 ## Limitations and roadmap
 See [docs/LIMITATIONS.md](docs/LIMITATIONS.md). Planned: NDES / SCEP device enrollment, CEP / CES enrollment, autoenrollment, AIA and CDP diagnostics, OCSP, smart-card, device and user certificates, client authentication and cross-forest enrollment ([docs/FUTURE_SCENARIOS.md](docs/FUTURE_SCENARIOS.md)). They appear only as a quiet "Coming later" list on the home screen.
 
 ## Documentation
-[UX layout](docs/UX_LAYOUT.md) · [Architecture](docs/ARCHITECTURE.md) · [Scenario model](docs/SCENARIO_MODEL.md) · [Fixtures](docs/FIXTURES.md) · [Limitations](docs/LIMITATIONS.md) · [Future scenarios](docs/FUTURE_SCENARIOS.md) · [Icon sources](assets/icons/SOURCES.md)
+[UX layout](docs/UX_LAYOUT.md) · [Visual review](docs/VISUAL_REVIEW.md) · [Architecture](docs/ARCHITECTURE.md) · [Scenario model](docs/SCENARIO_MODEL.md) · [Fixtures](docs/FIXTURES.md) · [Limitations](docs/LIMITATIONS.md) · [Future scenarios](docs/FUTURE_SCENARIOS.md) · [Icon sources](assets/icons/SOURCES.md)
