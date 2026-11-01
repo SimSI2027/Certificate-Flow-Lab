@@ -1,16 +1,12 @@
 // Domain Controller Manual Enrollment (v0.4.0): shared story data for Path A (manual CSR transfer) and Path B (Certificates MMC enrollment).
 // Educational simulation only: nothing here contacts a real CA, Active Directory or certificate store, and no command is ever executed.
 import { DC, URLS } from '../../artifacts/synthetic.js';
+import { CFG, cfg, NEVER_EXECUTED, KIND, ZONE_GEOMETRY, OFFLINE_TRUST, PUB, tokenize, makeCommand } from '../story-common.js';
 
-export const CFG = 'Depends on your configuration';
-// A configuration-dependent statement: a complete sentence, then the marker naming what varies.
-// cfg('A firewall blocks RPC/DCOM.', 'which ports are needed') -> 'A firewall blocks RPC/DCOM. Depends on your configuration: which ports are needed.'
-export const cfg = (sentence, aspect) => `${sentence.trim().replace(/([^.!?])$/, '$1.')} ${CFG}: ${aspect}.`;
-export const NEVER_EXECUTED = 'Shown for learning; never executed by this simulator.';
-export const KIND = { REAL: 'Real fixture data', SIM: 'Simulated environment', DERIVED: 'Derived conclusion', FAULT: 'User-selected fault' };
+// Shared story vocabulary (also used by the Website TLS lesson) lives in ../story-common.js; re-exported here for the DC modules.
+export { CFG, cfg, NEVER_EXECUTED, KIND, ZONE_GEOMETRY, OFFLINE_TRUST, PUB, tokenize };
 
 // ---------- Zones (story layout; coordinates in a 1600 x 720 viewBox) ----------
-export const ZONE_GEOMETRY = { y: 120, h: 480, w: 244, xs: [24, 284, 544, 804, 1064, 1324] };
 export const ZONES = [
   { id: 'Z1', n: 1, name: 'DC01 — diagnose and key ownership', title: '1 · DC01', lines: ['Diagnose and key ownership', 'DC01 (same computer)'], sameComputer: true },
   { id: 'Z2', n: 2, name: 'Request package — INF and CSR', title: '2 · Request package', lines: ['INF and CSR'],
@@ -22,8 +18,6 @@ export const ZONES = [
     mmc: { name: 'Automatic response', title: '5 · Automatic response', lines: ['Installed by the wizard'] } },
   { id: 'Z6', n: 6, name: 'DC01 certificate stores', title: '6 · DC01 stores', lines: ['Certificate stores', 'DC01 (same computer)'], sameComputer: true }
 ].map((z, i) => ({ ...z, x: ZONE_GEOMETRY.xs[i], y: ZONE_GEOMETRY.y, w: ZONE_GEOMETRY.w, h: ZONE_GEOMETRY.h }));
-export const OFFLINE_TRUST = { id: 'OT', name: 'Offline trust', title: 'Offline trust · SIMSI2027-ROOTCA', x: 1324, y: 16, w: 244, h: 88 };
-export const PUB = { id: 'PUB', name: 'PKIWEB01 (AIA, CDP)', title: 'PKIWEB01 · pki.simsi2027.test', x: 804, y: 640, w: 504, h: 64 };
 export const zonesFor = (pathId) => ZONES.map((z) => (pathId === 'mmc' && z.mmc ? { ...z, ...z.mmc, mmc: undefined } : { ...z, mmc: undefined }));
 
 // ---------- Stores on DC01 (Local Computer) ----------
@@ -115,13 +109,7 @@ const TOKENS = {
   'certlm.msc': 'Certificates console for the Local Computer store.',
   'mmc': 'Microsoft Management Console, to which the Certificates snap-in is added.'
 };
-export function tokenize(text) { return text.match(/"[^"]*"|\S+/g) ?? []; }
-export function command(text, extra = {}) {
-  const tokens = tokenize(text).map((t) => ({ t, meaning: extra[t] ?? TOKENS[t] ?? (/\.exe$/.test(t) ? TOKENS[t.replace(/\.exe$/, '')] : null) }));
-  const missing = tokens.filter((x) => !x.meaning).map((x) => x.t);
-  if (missing.length) throw new Error(`Command token(s) without meaning: ${missing.join(', ')} in "${text}"`);
-  return { text, tokens, banner: NEVER_EXECUTED };
-}
+export const command = makeCommand(TOKENS);
 
 // ---------- Conditions (Path A) ----------
 export const CONDITIONS = [

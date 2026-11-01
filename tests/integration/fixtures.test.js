@@ -83,7 +83,12 @@ describe('real certificate fixtures', () => {
     expect(leaf().aia[0].method).toMatch(/CA Issuers/);
     expect(leaf().aia[0].location).toContain('simsi2027.test');
   });
-  it('template extension identifies WebServer', () => { expect(leaf().template).toMatchObject({ name: 'WebServer' }); });
+  // v0.5.0: the superseded assertion expected the v1 name 'WebServer' with a v2 OID. The leaf now carries only the v2 template
+  // information extension (21.7) of the organization duplicate SIMSI2027WebServer, and no template-name extension (20.2).
+  it('template information identifies SIMSI2027WebServer (v2, no 1.3.6.1.4.1.311.20.2)', () => {
+    expect(leaf().template).toMatchObject({ name: 'SIMSI2027WebServer', oid: '1.3.6.1.4.1.311.21.8.2027.1.1', version: '100.4', resolvedFromOid: true });
+    expect(leaf().hasTemplateNameExtension).toBe(false);
+  });
   it('CRL is signed by the ICA, current, and lists only fault-revoked leaf + a synthetic serial', async () => {
     const crl = M.resolve('crl', null).parsed;
     expect(await crl.x509.verify({ publicKey: ica().x509 })).toBe(true);
