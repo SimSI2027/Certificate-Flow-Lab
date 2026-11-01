@@ -19,6 +19,7 @@ export default defineConfig(({ command }) => ({
   plugins: [versionFile()],
   server: { port: 5183, strictPort: true, host: '127.0.0.1' },
   preview: { port: 5185, strictPort: true, host: '127.0.0.1' },
-  build: { target: 'es2022', chunkSizeWarningLimit: 900 },
+  // Two public pages: the interactive app and the learning film (film.html stays a local-only export page).
+  build: { target: 'es2022', chunkSizeWarningLimit: 900, rollupOptions: { input: { main: 'index.html', 'learning-film': 'learning-film.html' } } },
   test: { include: ['tests/unit/**/*.test.js', 'tests/integration/**/*.test.js'], define: { __CFL_VERSION__: '"test"', __CFL_COMMIT__: '"test"' } }
 }));

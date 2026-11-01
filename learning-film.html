@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>From CSR to Trust · Certificate Flow Lab learning film</title>
+  <meta name="description" content="A code-rendered learning film: how a website certificate request moves from a browser error to a trusted HTTPS connection. Synthetic simulation." />
+  <meta name="cfl-project" content="certificate-flow-lab" />
+  <meta name="color-scheme" content="light" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231b2a41'/%3E%3Ccircle cx='16' cy='14' r='7' fill='%23d4a017'/%3E%3Cpath d='M12 20l-2 8 6-3 6 3-2-8z' fill='%23d4a017'/%3E%3C/svg%3E" />
+  <script type="module" src="/src/film-learning/main.js"></script>
+</head>
+<body class="lf-page">
+  <header class="lf-pagehead">
+    <a href="./">&larr; Back to Certificate Flow Lab</a>
+    <h1>Learning film: From CSR to Trust</h1>
+    <p>How a website certificate request moves from a browser error to a trusted HTTPS connection, in 18 shots. The film is rendered live in your browser from the project's real synthetic fixtures; every frame is a pure function of time. It has no sound: every point is in the on-screen captions.</p>
+  </header>
+  <main class="lf-pagemain">
+    <div class="lf-viewport" id="lf-viewport">
+      <div id="lf-frame" class="lf-frame" role="img" aria-label="Learning film frame. The current caption is announced below the player."></div>
+    </div>
+    <div class="lf-controls" role="group" aria-label="Film playback">
+      <button type="button" id="lf-play" class="lf-primary" aria-pressed="false">Play</button>
+      <button type="button" id="lf-prev">Previous shot</button>
+      <button type="button" id="lf-next">Next shot</button>
+      <input type="range" id="lf-seek" min="0" max="240" step="0.05" value="0" aria-label="Film position" />
+      <output id="lf-time" aria-live="off">0:00</output>
+      <label><input type="checkbox" id="lf-rm" /> Reduced motion</label>
+    </div>
+    <p id="lf-live" class="sr-only" aria-live="polite"></p>
+    <div class="lf-info">
+      <section aria-labelledby="lf-shots-h"><h2 id="lf-shots-h">Shots</h2><ol class="lf-shots" id="lf-shotlist"></ol></section>
+      <section aria-labelledby="lf-about-h"><h2 id="lf-about-h">About this film</h2>
+        <p>Keyboard: Space plays or pauses, the left and right arrow keys move between shots. With reduced motion, playback shows each caption's settled frame instead of continuous movement.</p>
+        <p>The MP4 version (1920&times;1080, 60 fps, silent) is generated locally with <code>npm run video:learning</code> and is not stored in the repository.</p>
+        <p>Synthetic simulation: SIMSI2027 names, addresses and events are invented. Nothing here connects to a real PKI, and no private keys are distributed.</p>
+      </section>
+    </div>
+  </main>
+</body>
+</html>
