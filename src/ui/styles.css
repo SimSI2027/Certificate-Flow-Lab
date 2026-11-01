@@ -282,6 +282,13 @@ body[data-layout='story'] .workspace { height: 100vh; min-height: 0; }
 .srail .act.current .act-label { color: var(--accent-ink); border-color: var(--accent-line); } .srail .act.done .act-label { color: var(--good); border-color: var(--good-line); }
 .srail .act-chips { display: grid; grid-template-columns: repeat(var(--cols, 3), max-content); gap: 2px 3px; }
 .srail .act .mchip { padding: 1px 7px; min-height: 24px; }
+/* Narrow screens: the acts stack, their labels sit in the flow and the chips wrap (no horizontal page scroll). */
+@media (max-width: 980px) {
+  .srail:has(> .act) { flex-wrap: wrap; gap: 8px; }
+  .srail .act { flex: 1 1 100%; } .srail .act + .act { border-left: 0; padding-left: 0; margin-left: 0; }
+  .srail .act-label, .srail .act + .act .act-label { position: static; align-self: flex-start; margin-bottom: 3px; }
+  .srail .act-chips { display: flex; flex-wrap: wrap; }
+}
 /* Glossary: the first use of a term is an inline button that opens a one-line definition. */
 .gloss { font: inherit; color: var(--accent-ink); background: none; border: 0; border-bottom: 1.5px dotted var(--accent-ink); padding: 0; cursor: pointer; }
 .gloss:hover { background: var(--accent-soft); border-bottom-style: solid; }
