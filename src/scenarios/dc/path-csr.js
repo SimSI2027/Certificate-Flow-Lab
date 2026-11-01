@@ -141,7 +141,7 @@ export const steps = [
     result: 'Suitable names and purposes; valid now; correct stores.', during: { purposeState: 'inspecting' }, done: { purposeState: 'suitable', validation: { name: 'pass', dates: 'pass', eku: 'pass' } },
     explain: X('EKU (Enhanced Key Usage) lists what the certificate may be used for; KU (Key Usage) limits what the key may do. A Domain Controller certificate in this lesson needs KDC Authentication and a SAN with both DC01.simsi2027.test and simsi2027.test.',
       'SIMSI2027\\PKIOperator.', 'Nothing moves.', 'Everything is on DC01.', 'Missing KDC Authentication, missing domain DNS name, expired certificate.') }),
-  step({ id: 'a-chain', milestone: M10, title: 'Chain and revocation', zone: 'Z6', adjacent: [], actor: 'SYS', artifact: 'chain', stores: true, pub: true, rootHistory: true, connector: { from: 'Z6', to: 'PUB:cdp', channel: 'HTTP (CDP)' },
+  step({ id: 'a-chain', milestone: M10, title: 'Chain and revocation', zone: 'Z6', adjacent: [], actor: 'SYS', artifact: 'chain', stores: true, pub: true, rootHistory: true, connector: { from: 'Z6', to: 'PUB:cdp', channel: 'HTTP (CDP)', blockedBy: ['cdp-unreachable'] },
     purpose: 'Build the chain from local stores and fetch the CRL through the CDP over HTTP.',
     command: command('certutil -verify -urlfetch dc01-issued.cer'), result: 'Chain leaf → Issuing CA → Root; CRL current; serial not listed.',
     during: { chainState: 'building', revocationState: 'checking' }, done: { chainState: 'trusted', revocationState: 'good', validation: { signatures: 'pass', root: 'pass' } },

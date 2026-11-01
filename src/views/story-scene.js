@@ -41,7 +41,7 @@ export class StoryScene {
   update(sc, state, opts = {}) {
     this.sc = sc;
     const m = storyModel(sc, state, opts);
-    const key = JSON.stringify([sc.pathId, sc.conditionId, state.stage, m.started, opts.full, opts.inspectCa, state.activeFault, state.halted, state.direction, state.leafState, state.keyAssociation, state.pendingRequest, state.trust, state.selectedArtifact, opts.selected, state.trustDecision]);
+    const key = JSON.stringify([sc.pathId, sc.conditionId, state.stage, m.started, opts.full, opts.inspectCa, state.activeFault, state.halted, state.direction, state.leafState, state.keyAssociation, state.pendingRequest, state.trust, state.selectedArtifact, opts.selected, state.trustDecision, state.requestRecord, state.requester, state.revocationState]);
     if (key !== this.key) { this.key = key; this.model = m; this.svg.innerHTML = this.draw(m, state, opts); this.svg.dataset.activeConnectors = String(m.connectors.filter((c) => ['active', 'blocked', 'association'].includes(c.kind)).length); }
     this.animate(state);
   }
@@ -117,9 +117,11 @@ export class StoryScene {
   spotHtml(sp, state, sel) {
     const a = ARTIFACTS[sp.artifact]; const r = sp.rect; const pathB = this.sc?.pathId === 'mmc';
     let tag = pathB && a.mmcTag ? a.mmcTag : a.tag;
-    if (sp.artifact === 'record') tag = `Request 1042 · ${state.requestRecord === 'pending' ? 'Pending' : ['approved', 'issued'].includes(state.requestRecord) ? (state.requestRecord === 'issued' ? 'Issued' : 'Approved') : state.requestRecord === 'denied' ? 'Denied' : 'Received'}`;
-    if (sp.artifact === 'csr' && pathB) tag = 'built in memory · signed by the new DC01 key';
-    const lines = wrap(tag, 26).slice(0, 3);
+    let lines;
+    if (sp.artifact === 'record') lines = [`Request 1042 · ${state.requestRecord === 'pending' ? 'Pending' : state.requestRecord === 'issued' ? 'Issued' : state.requestRecord === 'approved' ? 'Approved' : state.requestRecord === 'denied' ? 'Denied' : 'Received'}`, 'Requester:', state.requester ?? '—'];
+    if (sp.artifact === 'csr' && pathB) tag = sp.blocked ? 'not delivered: RPC/DCOM blocked' : 'built in memory · signed by the new DC01 key';
+    if (sp.artifact === 'remediation') tag = 'root cause still open · open items in Details';
+    lines ??= wrap(tag, 26).slice(0, 3);
     let body = `${icon(a.icon, r.x + 10, r.y + 10, 40)}${txt(r.x + 58, r.y + 34, a.label, 't16')}`;
     lines.forEach((l, i) => { body += txt(r.x + 12, r.y + 72 + i * 18, l); });
     if (a.stamp) body += `<g class="stamp"><rect x="${r.x + 12}" y="${r.y + 110}" width="120" height="22" rx="4"/>${txt(r.x + 20, r.y + 126, a.stamp, 't14b')}</g>`;

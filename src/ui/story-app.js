@@ -65,7 +65,13 @@ export class StoryController {
     this.render(true); $('#spanel .pclose')?.focus();
   }
   openPanel(trigger) { this.trigger = trigger ?? document.activeElement; this.panelOpen = true; this.render(true); $('#spanel .pclose')?.focus(); }
-  closePanel() { this.panelOpen = false; this.render(true); const t = this.trigger; this.trigger = null; if (t && document.contains(t)) t.focus(); else $('#spanel .popen')?.focus(); }
+  closePanel() {
+    this.panelOpen = false; this.render(true); const t = this.trigger; this.trigger = null;
+    // The scene may have been redrawn since the click: return focus to the same object by its selection identity.
+    const sel = t?.dataset?.sel ?? t?.closest?.('[data-sel]')?.dataset.sel;
+    const target = t && document.contains(t) ? t : sel ? document.querySelector(`[data-sel="${CSS.escape(sel)}"]`) : null;
+    (target ?? $('#spanel .popen'))?.focus();
+  }
 
   bind() {
     const on = (sel, ev, fn) => $(sel)?.addEventListener(ev, fn);
@@ -98,7 +104,7 @@ export class StoryController {
     if (t('.popen')) return this.openPanel(t('.popen'));
     if (t('.pclose')) return this.closePanel();
     const d = t('[data-sec-toggle]'); if (d) { const id = d.dataset.secToggle; this.open[id] = !this.isOpen(id); this.renderPanel(true); $(`[data-sec-toggle="${id}"]`)?.focus(); return; }
-    const o = t('[data-open]'); if (o) { const [type, id] = o.dataset.open.split(':'); return this.select({ type, id, trigger: o }); }
+    const o = t('[data-open]:not(#spanel)'); if (o) { const [type, id] = o.dataset.open.split(':'); return this.select({ type, id, trigger: o }); }
     const tk = t('[data-token]'); if (tk) { this.token = Number(tk.dataset.token); this.renderPanel(true); $(`[data-token="${this.token}"]`)?.focus(); return; }
     const r = t('[data-raw]'); if (r) { this.raw = r.dataset.raw; this.renderPanel(true); return; }
     const ev = t('[data-evidence]'); if (ev) { this.app.pause(); this.s.started = true; this.s.direction = 'reverse'; this.s.tReverse = Number(ev.dataset.evidence) + 1; this.open.evidence = true; this.render(true); return; }
@@ -118,8 +124,11 @@ export class StoryController {
   buildControls() {
     const base = this.app.base;
     $$('[data-path]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.path === this.sc.pathId)));
-    const cond = $('#s-condition'); cond.innerHTML = base.conditions.map((c) => `<option value="${c.id}" title="${esc(c.note ?? '')}">${esc(c.label)}${c.note ? ' (exceptional)' : ''}</option>`).join(''); cond.value = this.sc.conditionId;
-    cond.disabled = this.sc.pathId === 'mmc'; cond.title = cond.disabled ? 'Path B: CA certificates arrive from AD (Enterprise store)' : '';
+    const cond = $('#s-condition'); cond.disabled = this.sc.pathId === 'mmc';
+    // Path B has no conditional steps: its CA certificates arrive from AD (Enterprise store).
+    cond.innerHTML = cond.disabled ? '<option value="">Not applicable: CA certificates from AD (Enterprise store)</option>'
+      : base.conditions.map((c) => `<option value="${c.id}" title="${esc(c.note ?? '')}">${esc(c.label)}${c.note ? ' (exceptional)' : ''}</option>`).join('');
+    if (!cond.disabled) cond.value = this.sc.conditionId;
     const f = $('#s-fault'); f.innerHTML = this.sc.faults.map((x) => `<option value="${x.id}">${esc(x.id === 'healthy' ? 'None (healthy)' : x.label)}</option>`).join(''); f.value = this.s.faultId;
     $('#s-full').checked = this.app.full;
     $('#s-rail').innerHTML = this.sc.milestones.map((m, i) => `<button class="mchip" data-milestone="${esc(m)}" data-mi="${i}"><span class="mn">${i + 1}</span> ${esc(m)}<span class="dots" aria-hidden="true"></span></button>`).join('');
@@ -151,15 +160,17 @@ export class StoryController {
     const atEnd = started && !rev && this.s.t >= this.app.max - 1e-9 && this.s.t > 0;
     const fc = $('#final-card'); fc.hidden = !atEnd;
     if (atEnd) { const f = P.finalCardHtml(this.ctx(s)); const fault = FAULTS.find((x) => x.id === s.activeFault);
-      fc.className = `final-card fc-${f.kind}`; fc.innerHTML = `<h2>${esc(f.title)}</h2><p>${esc(f.text)}</p><div class="fc-actions"><button class="btn" id="fc-restart">Restart</button><button class="btn primary" id="fc-reverse">Reverse evidence</button>${s.halted && fault?.switchPath ? `<button class="btn" data-switch-path="${fault.switchPath}">Switch to Path A (approved exception)</button>` : ''}</div>`; }
-    Object.assign(document.body.dataset, { stage: st.id, direction: s.direction, fault: s.activeFault, t: this.s.t.toFixed(2), playing: String(!!this.s.playing), full: String(this.app.full), path: this.sc.pathId, condition: this.sc.conditionId, started: String(started), panel: this.panelOpen ? 'open' : 'closed', tour: this.app.tour.state });
+      const html = `<h2>${esc(f.title)}</h2><p>${esc(f.text)}</p><div class="fc-actions"><button class="btn" id="fc-restart">Restart</button><button class="btn primary" id="fc-reverse">Reverse evidence</button>${s.halted && fault?.switchPath ? `<button class="btn" data-switch-path="${fault.switchPath}">Switch to Path A (approved exception)</button>` : ''}</div>`;
+      // Rewrite only when the content changes, so the buttons stay attached between animation frames.
+      if (this.fcHtml !== html || !fc.firstChild) { this.fcHtml = html; fc.className = `final-card fc-${f.kind}`; fc.innerHTML = html; } }
+    Object.assign(document.body.dataset, { stage: st.id, direction: s.direction, fault: s.activeFault, t: this.s.t.toFixed(2), playing: String(!!this.s.playing), full: String(this.app.full), storyPath: this.sc.pathId, condition: this.sc.conditionId, started: String(started), panel: this.panelOpen ? 'open' : 'closed', tour: this.app.tour.state });
     this.renderPanel(force);
   }
   renderPanel(force) {
     const s = this.app.state(); const ctx = this.ctx(s);
     const key = JSON.stringify([s.stage, s.direction, s.evidenceIndex, s.activeFault, s.halted, this.sc.pathId, this.sc.conditionId, this.s.started, this.selection, this.panelOpen, this.open, this.token, this.raw, s.stageProgress >= 1, innerWidth >= WIDE]);
     if (!force && key === this.lastPanelKey) return; this.lastPanelKey = key;
-    const el = $('#spanel'); el.dataset.open = String(this.panelOpen);
+    const el = $('#spanel'); el.dataset.expanded = String(this.panelOpen);
     if (!this.panelOpen) {
       el.innerHTML = `<button class="ptab popen" aria-expanded="false" aria-controls="spanel" title="Open details">Details</button><div class="psum">${P.summaryHtml(ctx)}<button class="btn small popen" aria-expanded="false">Open details</button></div>`;
       return;

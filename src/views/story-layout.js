@@ -47,11 +47,15 @@ export function storyModel(sc, state, { started = true, full = false, inspectCa 
     return { ...z, mode, crumbs, station: mode === 'placeholder' || mode === 'finished' ? null : stationRect(z) };
   });
   const isShown = (id) => ['active', 'adjacent'].includes(zoneList.find((z) => z.id === id).mode);
-  const conn = step && !skipped ? step.connector : null;
+  let conn = step && !skipped ? step.connector : null;
+  // A fault that stops the flow on this route (for example RPC/DCOM blocked) draws it blocked and keeps the artifact at its source.
+  const blockedHere = !!(conn?.blockedBy?.includes(state.activeFault) && (state.halted || state.stageProgress >= 1));
+  if (blockedHere) conn = { ...conn, blocked: true };
   // Spotlight: the active artifact only. In Z6 the store cards occupy the zone, so a moving artifact is shown in its source zone.
   let spotlight = null;
   if (step && step.artifact && !skipped) {
-    if (step.zone !== 'Z6') spotlight = { zone: step.zone, artifact: step.artifact, rect: spotRect(zoneById(step.zone)) };
+    if (blockedHere && conn.from !== 'Z6' && zoneById(conn.from)) spotlight = { zone: conn.from, artifact: step.artifact, rect: spotRect(zoneById(conn.from)), source: true, blocked: true };
+    else if (step.zone !== 'Z6') spotlight = { zone: step.zone, artifact: step.artifact, rect: spotRect(zoneById(step.zone)) };
     else if (conn && !conn.association && conn.from && conn.from !== 'Z6' && zoneById(conn.from)) spotlight = { zone: conn.from, artifact: step.artifact, rect: spotRect(zoneById(conn.from)), source: true };
   }
   const badge = step ? { zone: step.zone, actor: step.actor, text: ACTOR_TEXT[step.actor], full: ACTOR_FULL[step.actor], rect: step.zone === 'Z6' ? null : badgeRect(zoneById(step.zone)), inStation: step.zone === 'Z6' } : null;
@@ -118,7 +122,7 @@ function connectorFor(c, step, ctx) {
   }
   if (c.to === 'PUB:cdp') {
     const pr = storeRect('personal'), e = PUB_ENDPOINTS.cdp;
-    return { id, kind: 'active', channel, label: channel, from: 'Z6', to: 'PUB:cdp', fromCard: 'store:personal', toCard: 'pub:cdp', points: [[pr.x, cy(pr)], [1316, cy(pr)], [1316, cy(e)], [right(e), cy(e)]], labelAt: { x: cx(e) + 4, y: 627, anchor: 'middle' }, carriesKey: false };
+    return { id, kind: c.blocked ? 'blocked' : 'active', channel, label: c.blocked ? `${channel} unreachable` : channel, cross: c.blocked ? [1316, (cy(pr) + cy(e)) / 2] : null, from: 'Z6', to: 'PUB:cdp', fromCard: 'store:personal', toCard: 'pub:cdp', points: [[pr.x, cy(pr)], [1316, cy(pr)], [1316, cy(e)], [right(e), cy(e)]], labelAt: { x: cx(e) + 4, y: 627, anchor: 'middle' }, carriesKey: false };
   }
   const fromId = c.from, toId = c.store ? 'Z6' : c.to;
   const a = endpointFor(fromId, ctx), b = endpointFor(toId, { ...ctx, store: c.store });

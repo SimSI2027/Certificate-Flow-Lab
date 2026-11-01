@@ -57,6 +57,15 @@ describe('StoryScene disclosure', () => {
     const v = E.pathOf(DCS, {}); const m = storyModel(v, stateAt(v, 1));
     const c = m.connectors[0]; expect(c.kind).toBe('blocked'); expect(c.label).toBe('RPC/DCOM blocked'); expect(c.cross).toBeTruthy();
   });
+  it('a fault that stops a route draws it blocked and keeps the artifact at its source (rpc-blocked at b-enroll)', () => {
+    const B = E.pathOf(DCS, { pathId: 'mmc' }); const i = B.stages.findIndex((s) => s.id === 'b-enroll');
+    const m = storyModel(B, E.worldAt(B, 'rpc-blocked', 99));
+    expect(m.connectors[0]).toMatchObject({ kind: 'blocked', label: 'RPC/DCOM blocked' }); expect(m.spotlight).toMatchObject({ zone: 'Z2', blocked: true });
+    expect(storyModel(B, stateAt(B, i)).connectors[0].kind).toBe('active');
+    const A = E.pathOf(DCS, {}); const j = A.stages.findIndex((s) => s.id === 'a-chain');
+    const c = storyModel(A, E.worldAt(A, 'cdp-unreachable', j + 1)).connectors.find((x) => x.kind !== 'history');
+    expect(c).toMatchObject({ kind: 'blocked', label: 'HTTP (CDP) unreachable' }); expect(c.cross).toBeTruthy();
+  });
   it('the DC01 internal association lane appears only for accept and key confirmation', () => {
     for (const [, sess] of views) { const v = E.pathOf(DCS, sess); v.stages.forEach((st, i) => { const has = storyModel(v, stateAt(v, i)).connectors.some((c) => c.kind === 'association'); expect(has, st.id).toBe(['a-accept', 'a-key'].includes(st.id)); }); }
     const v = E.pathOf(DCS, {}); const c = storyModel(v, stateAt(v, v.stages.findIndex((s) => s.id === 'a-accept'))).connectors[0];
