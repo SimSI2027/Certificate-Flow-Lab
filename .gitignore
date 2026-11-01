@@ -14,3 +14,6 @@ screenshots/
 .env*
 output/*
 !output/README.md
+# third-party agent skills installed locally (not project-owned)
+.claude/skills/web-design-guidelines/
+skills-lock.json

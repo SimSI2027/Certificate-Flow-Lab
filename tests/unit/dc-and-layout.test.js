@@ -9,7 +9,6 @@ import { ICONS, ICON_IDS } from '../../src/views/icons.js';
 import { loadModel, root } from '../helpers/fixtures.js';
 import { evaluateAll } from '../../src/artifacts/model.js';
 import { explainHtml, evidenceItems, evidenceHtml, troubleshootHtml, friendlyHtml } from '../../src/ui/teach.js';
-import { describeDcEntity } from '../../src/ui/details-dc.js';
 import { DC } from '../../src/artifacts/synthetic.js';
 
 // v0.4.0: the DC scenario is a two-path story (layoutMode 'story-zones'); its model tests live in dc-story.test.js and its layout
@@ -19,7 +18,7 @@ const classic = scenarios.filter((s) => !s.layoutMode);
 let M, EV;
 beforeAll(async () => { const l = await loadModel(); M = l.model; EV = await evaluateAll(M, DCS); });
 const ctx = (faultId = 'healthy', t = 99) => ({ scenario: DCS, state: E.computeState(DCS, { faultId, t }), model: M, evidence: EV, ev: EV[faultId] });
-void DC; void describeDcEntity;
+void DC;
 
 describe('scenario home', () => {
   it('defines two available scenarios with all card fields and five quiet future entries', () => {
@@ -131,15 +130,28 @@ describe('educational content', () => {
     const h = explainHtml(tm, { entity: 'web01' });
     for (const q of ['What is happening?', 'Why is this necessary?', 'Who performs this action?', 'Where does it happen?', 'What moves to the next step?', 'What remains private or local?', 'What could commonly go wrong?']) expect(h).toContain(q);
   });
-  it('evidence items are classified into the four allowed kinds for every DC step and fault', () => {
+  // v0.4.1 (audit E1): the classic teach.js panel is TLS-only; its DC branches were unreachable since v0.4.0 and were removed.
+  // The DC evidence kinds are now checked on the story panel (every step and fault of both paths); the DC CSR summary
+  // assertions live in tests/unit/story-panel.test.js ("CSR inspector: plain language first…").
+  it('evidence items are classified into the four allowed kinds: every DC step and fault (story panel) and every TLS step (classic panel)', async () => {
     const kinds = /^(Real fixture data|Simulated environment|Derived conclusion|User-selected fault)$/;
-    for (const f of DCS.faults.map((x) => x.id)) for (let t = 1; t <= DCS.stages.length; t += 1) for (const i of evidenceItems(ctx(f, t))) expect(i.kind, `${f}/${t}/${i.label}`).toMatch(kinds);
-    expect(evidenceHtml(ctx())).toContain('Real fixture data');
-    expect(troubleshootHtml(ctx('key-mismatch'))).toContain('Simulated remediation');
+    const { evidenceHtml: storyEvidence } = await import('../../src/ui/story-panel.js');
+    for (const pathId of ['csr', 'mmc']) {
+      const v = E.pathOf(scenarioById['dc-manual-certificate-request'], { pathId }); const ev = await evaluateAll(M, v);
+      for (const f of v.faults.map((x) => x.id)) for (let t = 1; t <= v.stages.length; t += 1) {
+        const c = { scenario: v, state: E.computeState(v, { faultId: f, t }), model: M, evidence: ev, ev: ev[f] };
+        for (const k of [...storyEvidence(c).matchAll(/class="pill pill-[a-z]+">([^<]+)</g)].map((m) => m[1]).filter((x) => !['pass', 'fail'].includes(x))) expect(k, `${pathId}/${f}/${t}`).toMatch(kinds);
+      }
+    }
+    const tev = await evaluateAll(M, TLS);
+    for (let t = 1; t <= TLS.stages.length; t += 1) for (const i of evidenceItems({ scenario: TLS, state: E.computeState(TLS, { t }), model: M, evidence: tev, ev: tev.healthy })) expect(i.kind).toMatch(kinds);
+    const tc = { scenario: TLS, state: E.computeState(TLS, { faultId: 'revoked', t: 99 }), model: M, evidence: tev, ev: tev.revoked };
+    expect(evidenceHtml(tc)).toContain('Real fixture data'); expect(troubleshootHtml(tc)).toContain('Simulated remediation');
   });
-  it('CSR friendly summary distinguishes public and private keys and the machine context', () => {
-    const h = friendlyHtml(ctx('healthy', 8), 'csr');
-    for (const w of ['Certificate Signing Request (CSR)', 'public key', 'does <strong>not</strong> contain the private key', 'private key remains on', 'Local Computer', 'DCOfflineKerberosAuth', 'PKIOperator', 'What happens next', 'Common failures']) expect(h, w).toContain(w);
+  it('TLS CSR friendly summary distinguishes public and private keys (classic panel)', async () => {
+    const tev = await evaluateAll(M, TLS);
+    const h = friendlyHtml({ scenario: TLS, state: E.computeState(TLS, { t: 6 }), model: M, evidence: tev, ev: tev.healthy }, 'csr');
+    for (const w of ['Certificate Signing Request (CSR)', 'public key', 'does <strong>not</strong> contain the private key', 'private key remains on', 'WEB01', 'WebServer', 'What happens next', 'Common failures']) expect(h, w).toContain(w);
   });
 });
 

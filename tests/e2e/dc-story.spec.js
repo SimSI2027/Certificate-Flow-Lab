@@ -148,6 +148,16 @@ test('keyboard: Space plays/pauses, arrows step, Enter selects a focused artifac
   await page.click('#s-rail .mchip[data-milestone="Accept leaf"]'); await expect(page.locator('#s-caption')).toContainText('Step 20 of 24');
 });
 
+test('audit W2: the URL reflects path, condition, fault and step, and a reload returns to the same step', async ({ page }) => {
+  await open(page, 'start=1'); await page.click('#s-play'); await page.click('#s-restart');
+  await page.selectOption('#s-condition', 'trust-present'); await next(page, 3);
+  await expect.poll(() => new URL(page.url()).searchParams.get('t')).toBe('3');
+  const q = new URL(page.url()).searchParams; expect([q.get('path'), q.get('condition'), q.get('fault')]).toEqual(['csr', 'trust-present', null]);
+  await page.reload(); await page.waitForFunction(() => window.__cfl);
+  await expect(page.locator('#s-caption')).toHaveText('Step 3 of 24 · Inspect trust stores');
+  await page.click('#s-home'); expect(new URL(page.url()).search).toBe('');
+});
+
 test('reduced motion disables the moving packet', async ({ browser }) => {
   const ctx = await browser.newContext({ reducedMotion: 'reduce' }); const page = await ctx.newPage();
   await page.goto(`/?scenario=${DCID}&t=6.5`); await page.waitForFunction(() => window.__cfl);

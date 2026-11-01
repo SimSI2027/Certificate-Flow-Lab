@@ -121,8 +121,21 @@ export class StoryController {
     return { scenario: this.sc, state: s, model: app.model, evidence: app.evidence, ev: app.evidence[s.activeFault] ?? app.evidence.healthy, started: !!this.s.started, selection: this.selection, sigs: app.sigs,
       chainOf: (c, id) => app.chainOf(c, id), downloads: (fx) => app.downloadLinks(fx), nativeBlock: (fx) => app.nativeBlock(fx.manifest, fx.parsed) };
   }
+  // The URL reflects the lesson position so a refresh or a shared link reopens it (audit W2). Never while the film is rendering.
+  syncUrl(s) {
+    if (this.app.params.has('film') || typeof history === 'undefined') return;
+    const q = new URLSearchParams(location.search);
+    q.set('scenario', this.app.base.id); q.set('path', this.sc.pathId);
+    if (this.sc.pathId === 'csr') q.set('condition', this.sc.conditionId); else q.delete('condition');
+    if (s.activeFault !== 'healthy') q.set('fault', s.activeFault); else q.delete('fault');
+    if (this.s.started && s.direction === 'forward') q.set('t', String(Math.floor(this.s.t + 1e-9))); else q.delete('t');
+    if (s.direction === 'reverse') q.set('dir', 'reverse'); else q.delete('dir');
+    q.delete('start');
+    const url = `${location.pathname}?${q.toString()}${location.hash}`;
+    if (url !== `${location.pathname}${location.search}${location.hash}`) history.replaceState(null, '', url);
+  }
   buildControls() {
-    const base = this.app.base;
+    const base = this.app.base; this.railKey = null;
     $$('[data-path]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.path === this.sc.pathId)));
     const cond = $('#s-condition'); cond.disabled = this.sc.pathId === 'mmc';
     // Path B has no conditional steps: its CA certificates arrive from AD (Enterprise store).
@@ -146,14 +159,15 @@ export class StoryController {
     $('#s-fwd').setAttribute('aria-pressed', String(!rev)); $('#s-rev').setAttribute('aria-pressed', String(rev));
     const play = $('#s-play'); play.setAttribute('aria-pressed', String(!!this.s.playing)); play.innerHTML = this.s.playing ? '&#10073;&#10073; Pause' : '&#9654; Play';
     $('#s-speed').value = String(this.s.playbackSpeed ?? 1);
-    // Rail: current milestone shows step dots; finished milestones are marked done.
-    $$('#s-rail .mchip').forEach((b) => {
+    // Rail: current milestone shows step dots; finished milestones are marked done. Rewritten only when its state changes (audit W3).
+    const railKey = `${this.sc.pathId}|${this.sc.conditionId}|${s.stage}|${s.stageProgress >= 1}|${rev}|${started}`;
+    if (railKey !== this.railKey) { this.railKey = railKey; this.syncUrl(s); $$('#s-rail .mchip').forEach((b) => {
       const m = b.dataset.milestone; const idxs = this.sc.stages.map((q, i) => (q.milestone === m ? i : -1)).filter((i) => i >= 0);
       const cur = started && !rev && idxs.includes(s.stage); const done = started && idxs.every((i) => i < s.stage || (i === s.stage && s.stageProgress >= 1));
       b.classList.toggle('current', cur); b.classList.toggle('done', done && !cur); b.setAttribute('aria-current', cur ? 'step' : 'false');
       b.setAttribute('aria-label', `Milestone ${Number(b.dataset.mi) + 1}: ${m}${cur ? ' (current)' : done ? ' (done)' : ''}. Jump to its first step`);
       b.querySelector('.dots').innerHTML = cur ? idxs.map((i) => `<i class="${i < s.stage || (i === s.stage && s.stageProgress >= 1) ? 'd' : ''} ${i === s.stage ? 'c' : ''} ${this.sc.stages[i].skipped ? 'sk' : ''}"></i>`).join('') : '';
-    });
+    }); }
     const banner = $('#fault-banner'); banner.hidden = !s.halted;
     if (s.halted) banner.textContent = `Simulated fault: ${E.getFault(this.sc, s.activeFault).label}. The flow stops at “${st.title}”.`;
     // Final step card

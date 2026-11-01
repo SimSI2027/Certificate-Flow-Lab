@@ -5,7 +5,6 @@ import { Scene } from '../views/scene.js';
 import { spriteHtml, legendHtml } from '../views/icons.js';
 import { entityById } from '../entities/entities.js';
 import { describeEntity, describeFlow, describeOtherArtifact, esc } from './details.js';
-import { describeDcEntity } from './details-dc.js';
 import { explainHtml, evidenceHtml, troubleshootHtml, friendlyHtml, fixtureFor } from './teach.js';
 import { tabsFor, tabId, renderTab } from '../inspectors/inspector.js';
 import { Tour, TOUR_RESUME_MS } from '../tour/tour.js';
@@ -90,6 +89,9 @@ export class App {
   showHome() {
     this.pause(); this.tour.stop(); if (this.sc) this.last = { id: this.sc.id, session: this.session }; this.screen = 'home'; this.renderHome();
     $('#home').hidden = false; $('#workspace').hidden = true; document.body.dataset.screen = 'home'; document.body.dataset.scenario = ''; document.body.dataset.layout = '';
+    // Home has no lesson position: drop the story parameters so a refresh shows the home screen.
+    if (this.storyMode && !this.params.has('film') && location.search) history.replaceState(null, '', `${location.pathname}${location.hash}`);
+    this.storyMode = false;
   }
 
   startScenario(id, { params, full } = {}) {
@@ -239,7 +241,7 @@ export class App {
     if (force || key !== this.lastKey) { this.lastKey = key; this.renderPanels(s, c); }
   }
 
-  technical(id, c) { return this.sc.id === 'dc-manual-certificate-request' ? describeDcEntity(id, c) : describeEntity(id, c); }
+  technical(id, c) { return describeEntity(id, c); } // classic layout (TLS); the DC story renders its own panel
 
   renderPanels(s, c) {
     $$('[data-tabbtn]').forEach((b) => { const on = b.dataset.tabbtn === this.tab; b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1; $(`#panel-${b.dataset.tabbtn}`).hidden = !on; });
@@ -280,7 +282,7 @@ export class App {
     const cur = tabs.find((t) => tabId(t) === this.inspTab) ?? tabs[0];
     const dl = [[m.filename, false], [m.pemFilename, true]].filter(([f], i, arr) => arr.findIndex(([g]) => g === f) === i)
       .map(([f, isPem]) => `<a class="btn small" data-download="${esc(base(f))}" href="${this.blobUrl(m, parsed, isPem)}" download="${esc(base(f))}">Download ${esc(base(f))}</a>`).join('');
-    const chainDl = (id === 'leaf' || id === 'dccert') ? (() => { const cf = this.model.resolve(id === 'leaf' ? 'chain' : 'dc-chain', null); return cf ? `<a class="btn small" data-download="${esc(base(cf.manifest.filename))}" href="${this.blobUrl(cf.manifest, cf.parsed, true)}" download="${esc(base(cf.manifest.filename))}">Download chain</a>` : ''; })() : '';
+    const chainDl = id === 'leaf' ? (() => { const cf = this.model.resolve('chain', null); return cf ? `<a class="btn small" data-download="${esc(base(cf.manifest.filename))}" href="${this.blobUrl(cf.manifest, cf.parsed, true)}" download="${esc(base(cf.manifest.filename))}">Download chain</a>` : ''; })() : '';
     const title = parsed.kind === 'chain' ? 'Certificate chain file' : parsed.kind === 'inf' ? 'Teaching request policy' : parsed.subject ?? parsed.issuer;
     el.innerHTML = `<h2>${esc(a.label)}</h2><p class="syn">Demonstration fixture, synthetic, parsed from <span class="mono">${esc(m.filename)}</span>.</p>${friendlyHtml(c, id)}<p class="insp-title">${esc(title)}</p>
       <div class="downloads">${dl}${chainDl}</div>${this.nativeBlock(m, parsed)}

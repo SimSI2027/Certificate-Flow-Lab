@@ -1,6 +1,6 @@
 // Shared entity catalogue (reusable across scenarios). All data is synthetic simulation data.
 // Placement (zone, x, y) is scenario-specific and lives in each scenario's `layout`.
-import { ENV, DC } from '../artifacts/synthetic.js';
+import { ENV } from '../artifacts/synthetic.js';
 
 export const entities = [
   { id: 'visitor', label: 'Visitor', sub: ENV.visitor.user, kind: 'person', icon: 'user', blurb: 'A normal user who opens the website and reports the browser warning. The visitor does not request or manage certificates.' },
@@ -18,11 +18,7 @@ export const entities = [
   { id: 'aia', label: 'AIA repository', sub: 'Issuer certificates', kind: 'repo', icon: 'aia', blurb: 'AIA (Authority Information Access) tells a client where to download the issuing CA certificate.' },
   { id: 'cdp', label: 'CDP / CRL repository', sub: 'Revocation lists', kind: 'repo', icon: 'cdp', blurb: 'CDP (CRL Distribution Point) tells a client where to download the CRL (Certificate Revocation List).' },
   { id: 'chain', label: 'Certificate chain', sub: 'Leaf, Issuing CA, Root', kind: 'chain', icon: 'cert', blurb: 'The path of certificates from the server certificate up to a trusted root.' },
-  { id: 'decision', label: 'Trust decision', sub: 'Final result', kind: 'decision', icon: 'shield', blurb: 'The outcome of validation: trusted or rejected.' },
-  // Domain Controller manual enrollment
-  { id: 'operator', label: 'PKI operator', sub: DC.operator, kind: 'person', icon: 'user', blurb: 'The administrator who runs the manual request. The operator starts the procedure; the certificate identity belongs to DC01, not to the operator.' },
-  { id: 'dc01', label: DC.host, sub: `${DC.ip} · Domain Controller`, kind: 'dc', icon: 'dc', blurb: 'The Domain Controller. It creates and keeps its own private key and receives a certificate for its own DNS name.' },
-  { id: 'certstore', label: 'Local Computer\\Personal', sub: 'DC01 certificate store', kind: 'store', icon: 'store', blurb: 'The machine certificate store on DC01 where a computer certificate and its private-key association live.' },
-  { id: 'result', label: 'Suitability result', sub: 'Simulated DC purpose', kind: 'decision', icon: 'shield', blurb: 'The conclusion of the simulation: whether the certificate is suitable for the simulated Domain Controller purpose.' }
+  { id: 'decision', label: 'Trust decision', sub: 'Final result', kind: 'decision', icon: 'shield', blurb: 'The outcome of validation: trusted or rejected.' }
+  // The Domain Controller scenario (v0.4) uses the story zones in src/scenarios/dc/shared.js, not this entity catalogue.
 ];
 export const entityById = Object.fromEntries(entities.map((e) => [e.id, e]));

@@ -108,7 +108,7 @@ details.card summary { cursor: pointer; font-weight: 600; } details.card[open] s
 .progress { height: 5px; background: #e6ebf3; border-radius: 4px; overflow: hidden; } .progress-bar { height: 100%; background: var(--request); }
 .rail { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 6px 0; }
 .grp { display: flex; flex-direction: column; gap: 2px; padding: 2px 6px 4px; border-radius: 8px; border: 1px solid transparent; } .grp.active { border-color: #b8cdf4; background: #f1f6ff; }
-.gl { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); } .grp.active .gl { color: var(--navy); font-weight: 700; }
+.gl { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); } .grp.active .gl { color: var(--navy); font-weight: 700; }
 .dots { display: flex; gap: 3px; }
 .tick { min-width: 26px; height: 26px; border: 1px solid var(--line); background: #eef1f6; border-radius: 6px; font-size: 11px; cursor: pointer; padding: 0 4px; color: var(--graphite); }
 .tick.done { background: var(--request); border-color: var(--request); color: #fff; } .tick.current { background: #cfe0ff; border-color: var(--request); font-weight: 700; } .tick.fail { background: var(--fail); border-color: var(--fail); color: #fff; }
