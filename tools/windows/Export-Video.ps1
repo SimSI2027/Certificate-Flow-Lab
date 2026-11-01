@@ -1,6 +1,7 @@
 <#
 .SYNOPSIS
-  Renders the deterministic v0.2.0 film (MP4 + contact sheet) into the git-ignored output folder.
+  Renders the deterministic film (MP4 + contact sheet) into the git-ignored output folder.
+  The file names carry the version from package.json (output\certificate-flow-lab-v<version>.mp4).
   Stays open at the end so results can be read when started from a shortcut.
 #>
 [CmdletBinding()]
@@ -24,8 +25,9 @@ try {
         & $nodePath @nodeArgs
         if ($LASTEXITCODE -ne 0) { throw "Video export failed (exit code $LASTEXITCODE)." }
     } finally { Pop-Location }
-    $mp4 = Join-Path $root 'output\certificate-flow-lab-v0.3.0.mp4'
-    $sheet = Join-Path $root 'output\certificate-flow-lab-v0.3.0-contact-sheet.jpg'
+    $version = (Get-Content -Raw -Path (Join-Path $root 'package.json') | ConvertFrom-Json).version
+    $mp4 = Join-Path $root ("output\certificate-flow-lab-v{0}.mp4" -f $version)
+    $sheet = Join-Path $root ("output\certificate-flow-lab-v{0}-contact-sheet.jpg" -f $version)
     foreach ($f in $mp4, $sheet) { $i = Get-Item $f; Write-Info ("{0}  ({1:N1} MB)" -f $i.FullName, ($i.Length / 1MB)) }
     & ffprobe -v error -show_entries stream=codec_name,width,height,r_frame_rate,pix_fmt -show_entries format=duration -of default=nw=1 $mp4
 } catch {

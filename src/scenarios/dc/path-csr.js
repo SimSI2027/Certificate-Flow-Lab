@@ -122,7 +122,7 @@ export const steps = [
     purpose: 'Add the Issuing CA certificate to Local Computer\\Intermediate Certification Authorities.',
     command: command('certutil -addstore -f CA simsi2027-ica01.cer'), result: 'Issuing CA present · source tag Local (manual).',
     done: { trust: { ica: 'present', icaSource: 'Local (manual)' } },
-    explain: X('The Issuing CA certificate lets DC01 build its chain locally without fetching it through AIA. It is installed before the leaf is accepted.', 'SIMSI2027\\PKIOperator.', 'A public CA certificate into the Intermediate store.', 'No private key: the Issuing CA key stays on ICA01.', 'Putting the Issuing CA in Trusted Root instead of Intermediate.') }),
+    explain: X('The Issuing CA certificate lets DC01 build its chain locally without fetching it through AIA (Authority Information Access: the URL in a certificate that says where to download its issuer certificate). It is installed before the leaf is accepted.', 'SIMSI2027\\PKIOperator.', 'A public CA certificate into the Intermediate store.', 'No private key: the Issuing CA key stays on ICA01.', 'Putting the Issuing CA in Trusted Root instead of Intermediate.') }),
   // ---- M9 Accept leaf ----
   step({ id: 'a-accept', milestone: M9, title: 'Accept on the original DC01', zone: 'Z6', adjacent: ['Z1'], actor: 'OP', artifact: 'accepted', vault: true, stores: true, connector: { from: 'Z1', to: 'Z6', association: true },
     purpose: 'certreq -accept matches the leaf to the pending request by public key, links the existing key, installs into Personal and removes the pending request.',

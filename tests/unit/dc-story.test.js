@@ -145,6 +145,20 @@ describe('golden PKI rules', () => {
   });
 });
 
+describe('plain-language content', () => {
+  it('defines CSR, SAN, EKU, KU, AIA, CDP, CRL, KDC and PKCS #7 on first use in each path', () => {
+    const terms = { CSR: /Certificate Signing Request/, SAN: /Subject Alternative Name/, EKU: /Enhanced Key Usage/, KU: /Key Usage/, AIA: /Authority Information Access/, CDP: /CRL Distribution Point/, CRL: /Certificate Revocation List/, KDC: /Key Distribution Center/, 'PKCS #7': /container/ };
+    for (const p of [A, B]) for (const [abbr, def] of Object.entries(terms)) {
+      const re = new RegExp(`\\b${abbr.replace('#', '\\#')}\\b`);
+      const first = p.stages.find((s) => re.test(s.explain.what)); if (!first) continue;
+      expect(first.explain.what, `${p.pathId}: ${abbr} first used in ${first.id}`).toMatch(def);
+    }
+  });
+  it('the DC tour has 8 stops in Path A order', () => {
+    expect(DCS.tour.map((t) => t.stage)).toEqual(['a-why', 'a-template', 'a-new', 'a-submit', 'a-sign', 'a-root', 'a-accept', 'a-followup']);
+  });
+});
+
 describe('commands', () => {
   it('every command explains every token and carries the never-executed banner', () => {
     const cmds = [...A.stages, ...B.stages].filter((s) => s.command).map((s) => s.command);

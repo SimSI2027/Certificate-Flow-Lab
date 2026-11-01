@@ -1,10 +1,11 @@
 // Deterministic video export: renders film time 0..DURATION through window.__film.setTime() and pipes frames to FFmpeg.
-// No screen recording. Output (git-ignored): output/certificate-flow-lab-v0.3.0.mp4 and output/certificate-flow-lab-v0.3.0-contact-sheet.jpg
+// No screen recording. Output (git-ignored): output/certificate-flow-lab-v<version>.mp4 and output/certificate-flow-lab-v<version>-contact-sheet.jpg,
+// where <version> comes from package.json.
 // Usage: node scripts/video/export-video.mjs [--fps 60] [--seconds N]   (--seconds renders only the first N seconds, for quick checks)
 import { createServer } from 'vite';
 import { chromium } from '@playwright/test';
 import { spawn, execFileSync } from 'node:child_process';
-import { mkdirSync, rmSync, statSync } from 'node:fs';
+import { mkdirSync, rmSync, statSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DURATION, FPS, contactBeats } from '../../src/film/schedule.js';
@@ -14,8 +15,12 @@ const arg = (n, d) => { const i = process.argv.indexOf(n); return i > 0 ? proces
 const fps = Number(arg('--fps', FPS));
 const seconds = Math.min(DURATION, Number(arg('--seconds', DURATION)));
 const out = join(root, 'output');
-const mp4 = join(out, 'certificate-flow-lab-v0.3.0.mp4');
-const sheet = join(out, 'certificate-flow-lab-v0.3.0-contact-sheet.jpg');
+const { version } = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+export const videoNames = (v) => ({ mp4: `certificate-flow-lab-v${v}.mp4`, sheet: `certificate-flow-lab-v${v}-contact-sheet.jpg` });
+// Partial renders (--seconds) never overwrite the full release film.
+const tag = seconds < DURATION ? `${version}-preview` : version;
+const mp4 = join(out, videoNames(tag).mp4);
+const sheet = join(out, videoNames(tag).sheet);
 mkdirSync(out, { recursive: true });
 
 const run = (bin, args) => execFileSync(bin, args, { stdio: ['ignore', 'pipe', 'pipe'] }).toString();
