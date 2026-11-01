@@ -71,10 +71,18 @@ export class App {
   ctx(s = this.state()) { return { scenario: this.sc, state: s, model: this.model, evidence: this.evidence, ev: this.evidence[s.activeFault] }; }
 
   // ---------- screens ----------
+  // Multi-path scenarios (the DC story) start from a path picker; the lesson condition is stated up front.
+  pathPicker(sc) {
+    const desc = { csr: 'DC01 cannot reach the CA. Carry the CSR through PKI-TRANSFER01 under change control.', mmc: 'DC01 can reach the CA. Enroll from Certificates (Local Computer) as DC01$.' };
+    const cond = sc.conditions?.find((c) => c.id === sc.defaultCondition);
+    return `<div class="paths" role="group" aria-label="Start ${esc(sc.title)}">${Object.values(sc.paths).map((p, i) => `<button class="pathpick" data-start="${sc.id}" data-start-path="${p.pathId}">
+      <span class="pl">${i === 0 ? 'A' : 'B'}</span><strong>Start Path ${i === 0 ? 'A' : 'B'}: ${esc(p.pathLabel)}</strong><span class="pd">${esc(desc[p.pathId] ?? '')} ${p.stages.length} steps.</span></button>`).join('')}
+      ${cond ? `<p class="cond">Path A starts with “${esc(cond.label)}”: ${esc(cond.note.toLowerCase())}. You can change it in the lesson.</p>` : ''}</div>`;
+  }
   renderHome() {
     const cards = this.scenarios.map((sc) => `<article class="scard" data-scenario="${sc.id}"><span class="avail">Available</span><h2>${esc(sc.title)}</h2><p class="sub">${esc(sc.subtitle)}</p>
       <dl class="kv small"><dt>Purpose</dt><dd>${esc(sc.home.purpose)}</dd><dt>Primary requester</dt><dd>${esc(sc.home.requester)}</dd><dt>Certificate destination</dt><dd>${esc(sc.home.destination)}</dd><dt>Enrollment method</dt><dd>${esc(sc.home.method)}</dd><dt>Steps</dt><dd>${sc.paths ? Object.values(sc.paths).map((p) => `${esc(p.pathLabel)}: ${p.stages.length} steps`).join(' · ') : `${sc.stages.length} steps`}</dd></dl>
-      <button class="btn primary big" data-start="${sc.id}">Start scenario</button></article>`).join('');
+      ${sc.paths ? this.pathPicker(sc) : `<button class="btn primary big" data-start="${sc.id}">Start scenario</button>`}</article>`).join('');
     $('#home').innerHTML = `<header class="htop"><h1>Certificate Flow Lab</h1><p class="subtitle">Interactive certificate issuance, deployment and trust visualization</p>
       <p class="synthetic-note" role="note">Synthetic simulation: SIMSI2027 names, addresses and events are invented; nothing here connects to a real PKI.</p></header>
       <section aria-label="Choose a scenario"><h2 class="sr-only">Scenarios</h2><div class="cards">${cards}</div></section>
@@ -174,7 +182,7 @@ export class App {
     $$('[data-tabbtn]').forEach((b) => b.addEventListener('click', () => { this.tab = b.dataset.tabbtn; this.render(true); }));
     $('#side').addEventListener('click', (e) => this.sideClick(e));
     $('#home').addEventListener('click', (e) => {
-      const st = e.target.closest('[data-start]'); if (st) { this.startScenario(st.dataset.start, { full: false }); return; }
+      const st = e.target.closest('[data-start]'); if (st) { this.startScenario(st.dataset.start, { full: false, params: st.dataset.startPath ? new URLSearchParams({ path: st.dataset.startPath }) : undefined }); return; }
       if (e.target.closest('#btn-continue') && this.last) {
         this.startScenario(this.last.id, { full: false }); Object.assign(this.session, this.last.session, { playing: false });
         if (this.storyMode) { this.storyCtl.applyPath(false); this.storyCtl.buildControls(); } else this.buildJump();

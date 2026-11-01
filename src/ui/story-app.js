@@ -13,7 +13,7 @@ const WIDE = 1600;
 
 export class StoryController {
   constructor(app) {
-    this.app = app; this.scene = new StoryScene($('#story-scene'), (sel) => this.select(sel));
+    this.app = app; this.scene = new StoryScene($('#story-scene'), (sel) => this.select(sel), { film: app.params.has('film') });
     this.panelOpen = false; this.open = { plain: true }; this.selection = null; this.trigger = null; this.token = null; this.raw = null; this.lastPanelKey = ''; this.inspectCa = false;
     this.bind();
   }
@@ -88,6 +88,10 @@ export class StoryController {
     on('#s-tour', 'click', () => { const t = this.app.tour; if (t.state === 'running' || t.state === 'paused') t.stop(); else { if (this.s.pathId !== 'csr') this.setPath('csr'); this.s.started = true; t.start(); } this.render(true); });
     $('#spanel').addEventListener('click', (e) => this.panelClick(e));
     $('#final-card').addEventListener('click', (e) => this.panelClick(e));
+    $('#final-card').addEventListener('toggle', (e) => { this.fcOpen = e.target.open; }, true);
+    // Command tokens explain themselves on hover and keyboard focus as well as on click (shown in place, no re-render).
+    const peek = (e) => { const tk = e.target.closest?.('[data-token]'); if (tk) this.showToken(Number(tk.dataset.token)); };
+    $('#spanel').addEventListener('focusin', peek); $('#spanel').addEventListener('mouseover', peek);
     $('#s-rail').addEventListener('click', (e) => { const b = e.target.closest('[data-milestone]'); if (b) this.jumpMilestone(b.dataset.milestone); });
     document.addEventListener('keydown', (e) => {
       if (this.app.screen !== 'workspace' || !this.app.storyMode) return;
@@ -105,13 +109,24 @@ export class StoryController {
     if (t('.pclose')) return this.closePanel();
     const d = t('[data-sec-toggle]'); if (d) { const id = d.dataset.secToggle; this.open[id] = !this.isOpen(id); this.renderPanel(true); $(`[data-sec-toggle="${id}"]`)?.focus(); return; }
     const o = t('[data-open]:not(#spanel)'); if (o) { const [type, id] = o.dataset.open.split(':'); return this.select({ type, id, trigger: o }); }
-    const tk = t('[data-token]'); if (tk) { this.token = Number(tk.dataset.token); this.renderPanel(true); $(`[data-token="${this.token}"]`)?.focus(); return; }
+    const tk = t('[data-token]'); if (tk) { this.showToken(Number(tk.dataset.token)); return; }
     const r = t('[data-raw]'); if (r) { this.raw = r.dataset.raw; this.renderPanel(true); return; }
     const ev = t('[data-evidence]'); if (ev) { this.app.pause(); this.s.started = true; this.s.direction = 'reverse'; this.s.tReverse = Number(ev.dataset.evidence) + 1; this.open.evidence = true; this.render(true); return; }
     const sp = t('[data-switch-path]'); if (sp) { this.setPath(sp.dataset.switchPath); this.s.started = true; this.render(true); return; }
     if (t('#fc-restart')) return this.restart();
     if (t('#fc-reverse')) return this.setDirection('reverse');
+    const cp = t('[data-copy]'); if (cp) { this.copy(cp); return; }
     const nat = t('[data-native]'); if (nat && !nat.disabled) this.app.native.open(nat.dataset.native).then(() => this.render(true));
+  }
+  showToken(i) {
+    const st = this.sc.stages[this.app.state().stage]; const tok = st.command?.tokens[i]; const out = $('#sec-command .token-meaning'); if (!tok || !out) return;
+    this.token = i; $$('#sec-command [data-token]').forEach((b) => { const on = Number(b.dataset.token) === i; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
+    out.innerHTML = `<strong>${esc(tok.t)}</strong>: ${esc(tok.meaning)}`;
+  }
+  // Copy only (commands, thumbprints, PEM): nothing is ever executed.
+  copy(btn) {
+    const text = btn.dataset.copy; const done = (ok) => { btn.dataset.copied = String(ok); btn.textContent = ok ? 'Copied' : 'Copy failed'; $('#copy-status').textContent = ok ? `${btn.dataset.what ?? 'Text'} copied to the clipboard.` : 'Copy failed: select the text and copy it manually.'; setTimeout(() => { btn.textContent = btn.dataset.label; delete btn.dataset.copied; }, 1600); };
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(() => done(true), () => done(false)); else done(false);
   }
   isOpen(id) { const ctx = this.ctx(); if (id === 'troubleshoot' && P.faultHere(ctx) && this.open.troubleshoot === undefined) return true; return id === 'plain' ? this.open.plain !== false : !!this.open[id]; }
 
@@ -150,7 +165,8 @@ export class StoryController {
     if (this.app.screen !== 'workspace') return;
     this.tick();
     const s = this.app.state(); const st = this.sc.stages[s.stage]; const started = !!this.s.started; const rev = s.direction === 'reverse';
-    this.scene.update(this.sc, s, { started, full: this.app.full, inspectCa: this.inspectCa, selected: this.selection?.type === 'artifact' ? this.selection.id : null });
+    const atEnd = started && !rev && this.s.t >= this.app.max - 1e-9 && this.s.t > 0;
+    this.scene.update(this.sc, s, { started, final: atEnd, full: this.app.full, inspectCa: this.inspectCa, selected: this.selection?.type === 'artifact' ? this.selection.id : null });
     $('#s-start').hidden = started; const cap = $('#s-caption'); cap.hidden = !started; cap.tabIndex = -1;
     if (started) {
       const trace = rev ? E.buildTrace(this.sc, s.activeFault) : null;
@@ -170,11 +186,11 @@ export class StoryController {
     }); }
     const banner = $('#fault-banner'); banner.hidden = !s.halted;
     if (s.halted) banner.textContent = `Simulated fault: ${E.getFault(this.sc, s.activeFault).label}. The flow stops at “${st.title}”.`;
-    // Final step card
-    const atEnd = started && !rev && this.s.t >= this.app.max - 1e-9 && this.s.t > 0;
+    // Final step card: the lesson's ending (result, what is still open, Restart and Reverse evidence).
     const fc = $('#final-card'); fc.hidden = !atEnd;
     if (atEnd) { const f = P.finalCardHtml(this.ctx(s)); const fault = FAULTS.find((x) => x.id === s.activeFault);
-      const html = `<h2>${esc(f.title)}</h2><p>${esc(f.text)}</p><div class="fc-actions"><button class="btn" id="fc-restart">Restart</button><button class="btn primary" id="fc-reverse">Reverse evidence</button>${s.halted && fault?.switchPath ? `<button class="btn" data-switch-path="${fault.switchPath}">Switch to Path A (approved exception)</button>` : ''}</div>`;
+      const open = f.openItems?.length ? `<details${this.fcOpen ? ' open' : ''}><summary>Open items (${f.openItems.length})</summary><ul>${f.openItems.map((i) => `<li>${esc(i)}</li>`).join('')}</ul></details>` : '';
+      const html = `<h2>${esc(f.title)}</h2><p>${esc(f.text)}</p><div class="fc-actions"><button class="btn" id="fc-restart">Restart</button><button class="btn primary" id="fc-reverse">Reverse evidence</button>${s.halted && fault?.switchPath ? `<button class="btn" data-switch-path="${fault.switchPath}">Switch to Path A (approved exception)</button>` : ''}</div>${open}`;
       // Rewrite only when the content changes, so the buttons stay attached between animation frames.
       if (this.fcHtml !== html || !fc.firstChild) { this.fcHtml = html; fc.className = `final-card fc-${f.kind}`; fc.innerHTML = html; } }
     Object.assign(document.body.dataset, { stage: st.id, direction: s.direction, fault: s.activeFault, t: this.s.t.toFixed(2), playing: String(!!this.s.playing), full: String(this.app.full), storyPath: this.sc.pathId, condition: this.sc.conditionId, started: String(started), panel: this.panelOpen ? 'open' : 'closed', tour: this.app.tour.state });

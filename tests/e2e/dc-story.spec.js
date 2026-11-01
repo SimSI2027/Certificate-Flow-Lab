@@ -52,6 +52,11 @@ test('Path A: step to the final card with one active zone, one active route and 
   await page.click('#fc-reverse'); expect((await st(page)).direction).toBe('reverse');
 });
 
+test('home path picker starts Path B directly', async ({ page }) => {
+  await go(page); await page.click(`[data-start="${DCID}"][data-start-path="mmc"]`);
+  await expect(page.locator('[data-path="mmc"]')).toHaveAttribute('aria-pressed', 'true'); await expect(page.locator('#s-rail .mchip')).toHaveCount(6);
+});
+
 test('Path B: step to the final card; requester DC01$, no accept step, no key vault', async ({ page }) => {
   await open(page, 'path=mmc&start=1');
   await next(page, 7); await expect(page.locator('#s-caption')).toContainText('Key, request and direct submission'); expect((await st(page)).requester).toBe('SIMSI2027\\DC01$');
@@ -156,6 +161,22 @@ test('audit W2: the URL reflects path, condition, fault and step, and a reload r
   await page.reload(); await page.waitForFunction(() => window.__cfl);
   await expect(page.locator('#s-caption')).toHaveText('Step 3 of 24 · Inspect trust stores');
   await page.click('#s-home'); expect(new URL(page.url()).search).toBe('');
+});
+
+test('v0.4.1 design: copy buttons copy (never execute), tokens explain on focus, final card lists open items, plate headline follows reverse evidence', async ({ browser }) => {
+  const ctx = await browser.newContext({ permissions: ['clipboard-read', 'clipboard-write'] }); const page = await ctx.newPage();
+  await page.goto(`/?scenario=${DCID}&t=11`); await page.waitForFunction(() => window.__cfl);
+  await page.click('#spanel .popen'); await page.click('[data-sec-toggle="command"]');
+  await page.locator('#sec-command [data-token="2"]').focus(); await expect(page.locator('#sec-command .token-meaning')).toContainText('-config');
+  await page.click('#sec-command [data-copy]'); await expect(page.locator('#sec-command [data-copy]')).toHaveText('Copied');
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('certreq -submit -config "ICA01.simsi2027.test\\SIMSI2027 Issuing CA 01" dc01-request.req');
+  await expect(page.locator('#copy-status')).toHaveText('Command copied to the clipboard.');
+  expect((await page.evaluate(() => window.__cfl.getState())).stage).toBe(10);
+  await page.goto(`/?scenario=${DCID}&t=24`); await page.waitForFunction(() => window.__cfl);
+  await page.click('#final-card summary'); await expect(page.locator('#final-card details li')).toHaveCount(7);
+  await expect(page.locator('#final-card details')).toContainText('Unpublish DCOfflineKerberosAuth');
+  await page.click('#fc-reverse'); await expect(page.locator('#story-scene .plate-head')).toContainText('Evidence 1 of 10');
+  await ctx.close();
 });
 
 test('reduced motion disables the moving packet', async ({ browser }) => {

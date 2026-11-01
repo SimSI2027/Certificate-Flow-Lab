@@ -3,7 +3,9 @@
 import { ZONES, OFFLINE_TRUST, PUB, STORES, ARTIFACTS, zonesFor, artifactLabel } from '../scenarios/dc/shared.js';
 
 export const VIEW = { w: 1600, h: 720 };
-export const LANE_Y = 360, ASSOC_Y = 624, HISTORY_Y = 60;
+export const LANE_Y = 360, ASSOC_Y = 624, HISTORY_Y = 112;
+// Plate headline band (top-left, above the zones, left of Offline Trust): "Step n of N · title" + one plain sentence.
+export const HEADLINE = { x: 32, y: 40, width: 1260, narrowWidth: 860 };
 export const CRUMB_ROWS = [252, 288, 380, 416];
 const zoneById = (id) => ZONES.find((z) => z.id === id);
 export const stationRect = (z) => ({ x: z.x + 12, y: 136, w: 220, h: 64 });
@@ -166,10 +168,12 @@ function connectorFor(c, step, ctx) {
   const cross = c.blocked ? (() => { const seg = longestHorizontal(dedupe(pts)); return [(seg[0][0] + seg[1][0]) / 2, seg[0][1]]; })() : null;
   return { id, kind: c.blocked ? 'blocked' : 'active', channel, label, from: fromId, to: c.store ? `store:${c.store}` : toId, fromCard: a.card, toCard: b.card, points: dedupe(pts), labelAt, cross, carriesKey: false };
 }
+// Muted history link: from the bottom of Offline Trust, along the thin band just above the zones, down into Z4's station.
+// It stays below the plate headline (top band) and never touches an active route.
 function historyLink() {
-  const s = stationRect(zoneById('Z4'));
+  const s = stationRect(zoneById('Z4')); const sx = OT_RECT.x + 36;
   return { id: 'c-root-history', kind: 'history', channel: 'history', label: HISTORY_LABEL, from: 'OT', to: 'Z4', fromCard: 'ot', toCard: 'station:Z4',
-    points: [[OT_RECT.x, HISTORY_Y], [cx(s), HISTORY_Y], [cx(s), s.y]], labelAt: { x: (OT_RECT.x + cx(s)) / 2, y: HISTORY_Y - 12, anchor: 'middle' } };
+    points: [[sx, bottom(OT_RECT)], [sx, HISTORY_Y], [cx(s), HISTORY_Y], [cx(s), s.y]], labelAt: { x: OT_RECT.x - 14, y: HISTORY_Y - 14, anchor: 'end' } };
 }
 function longestHorizontal(pts) {
   let best = [pts[0], pts[1]], len = -1;

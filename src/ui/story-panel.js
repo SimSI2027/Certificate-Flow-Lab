@@ -10,13 +10,19 @@ import { colonHex } from '../artifacts/model.js';
 export const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const kv = (rows) => `<dl class="kv">${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v?.html ?? esc(v ?? '—')}</dd>`).join('')}</dl>`;
 const H = (html) => ({ html });
-const mono = (s) => H(`<span class="mono">${esc(s)}</span>`);
+const mono = (s) => H(`<span class="mono" translate="no">${esc(s)}</span>`);
+// Copy button (copy only; never execution). data-label restores the text after the confirmation.
+export const copyBtn = (text, what) => `<button type="button" class="copy" data-copy="${esc(text)}" data-what="${esc(what)}" data-label="Copy ${esc(what.toLowerCase())}">Copy ${esc(what.toLowerCase())}</button>`;
+const monoCopy = (s, what) => H(`<span class="copyrow"><span class="mono" translate="no">${esc(s)}</span>${copyBtn(s, what)}</span>`);
 const pill = (text, kind) => `<span class="pill pill-${kind}">${esc(text)}</span>`;
 const KIND_PILL = { [KIND.REAL]: 'ok', [KIND.SIM]: 'idle', [KIND.DERIVED]: 'policy', [KIND.FAULT]: 'fail' };
 export const kindBadge = (k) => String(k).split(' + ').map((x) => pill(x, KIND_PILL[x] ?? 'idle')).join(' ');
 const SIMV = '<span class="pill pill-idle">Simulated environment</span>';
 
-export const SECTION_IDS = ['plain', 'technical', 'command', 'raw', 'evidence', 'troubleshoot'];
+// Path B follow-up (autoenrollment is the permanent mechanism).
+const MMC_FOLLOWUP = ['Run certutil -pulse or refresh Group Policy, and confirm autoenrollment renews the certificate. Depends on your configuration: when the autoenrollment task picks it up.',
+  'Find out why autoenrollment had not produced a certificate before the manual enrollment.', 'Keep KerberosAuthentication published, with Read and Enroll for the Domain Controller groups.'];
+export const SECTION_IDS =['plain', 'technical', 'command', 'raw', 'evidence', 'troubleshoot'];
 export const SECTION_TITLES = { plain: 'Plain language', technical: 'Technical details', command: 'Command explanation', raw: 'Raw artifact', evidence: 'Evidence', troubleshoot: 'Troubleshoot' };
 // Section order: Troubleshoot moves to position 2 when a fault halts the flow (or a continuing fault manifests at this step).
 export function sectionOrder(ctx) { return faultHere(ctx) ? ['plain', 'troubleshoot', 'technical', 'command', 'raw', 'evidence'] : SECTION_IDS; }
@@ -165,7 +171,7 @@ export function certInspector(ctx, c, id) {
     ['EKU', c.eku.length ? H(c.eku.map((e) => `${esc(e.name)} <span class="mono small">${esc(e.oid)}</span>`).join('<br>')) : 'not restricted'], ['Key Usage', `${c.keyUsage.join(', ')}${c.keyUsageCritical ? ' (critical)' : ''}`],
     ['Basic Constraints', c.basicConstraints ? `CA:${String(c.basicConstraints.ca).toUpperCase()}${c.basicConstraints.pathLength !== null ? `, pathlen ${c.basicConstraints.pathLength}` : ''}${c.basicConstraints.critical ? ' (critical)' : ''}` : '—'],
     ['Template information (1.3.6.1.4.1.311.21.7)', tpl], ['Validity', H(`${esc(c.notBefore)} → ${esc(c.notAfter)} ${pill(valid ? 'valid at the simulation clock' : 'outside validity at the simulation clock', valid ? 'ok' : 'fail')}`)],
-    ['Serial number', mono(c.serialNumber)], ['Thumbprint (SHA-1, as Windows shows it)', mono(colonHex(c.thumbprints.sha1))], ['SHA-256', mono(colonHex(c.thumbprints.sha256))],
+    ['Serial number', mono(c.serialNumber)], ['Thumbprint (SHA-1, as Windows shows it)', monoCopy(colonHex(c.thumbprints.sha1), 'SHA-1 thumbprint')], ['SHA-256', monoCopy(colonHex(c.thumbprints.sha256), 'SHA-256 thumbprint')],
     ['AIA (issuer certificate location)', c.aia.length ? mono(c.aia[0].location) : 'none'], ['CDP (CRL location)', c.cdp.length ? mono(c.cdp[0]) : 'none'],
     ['Certification path', H(path.length ? `<ol class="tight">${path.map((l) => `<li>${esc(l.name)} ${pill(l.ok ? l.text : 'signature does not verify', l.ok ? 'ok' : 'fail')}</li>`).join('')}</ol>` : esc(sig ?? '—'))],
     ['Expected store', isLeaf ? 'Local Computer\\Personal' : id === 'ica' ? 'Local Computer\\Intermediate Certification Authorities' : 'Local Computer\\Trusted Root Certification Authorities'],
@@ -219,9 +225,9 @@ export function commandHtml(ctx, activeToken = null) {
   if (!st.command && !st.gui) return '<p class="muted">No command in this step.</p>';
   let h = '';
   if (st.command) {
-    h += `<p class="banner" role="note">${esc(NEVER_EXECUTED)}</p><pre class="cmd"><code>${esc(st.command.text)}</code></pre>
-      <div class="tokens" role="list" aria-label="Command tokens">${st.command.tokens.map((t, i) => `<button class="token ${activeToken === i ? 'on' : ''}" role="listitem" data-token="${i}" aria-pressed="${activeToken === i}">${esc(t.t)}</button>`).join('')}</div>
-      <p class="token-meaning" aria-live="polite">${activeToken !== null && st.command.tokens[activeToken] ? `<strong>${esc(st.command.tokens[activeToken].t)}</strong>: ${esc(st.command.tokens[activeToken].meaning)}` : 'Select a token to see what it means.'}</p>
+    h += `<p class="banner" role="note">${esc(NEVER_EXECUTED)}</p><pre class="cmd" translate="no"><code>${esc(st.command.text)}</code></pre><p class="copyrow">${copyBtn(st.command.text, 'Command')}</p>
+      <div class="tokens" role="group" aria-label="Command tokens: hover, focus or select one to see what it means">${st.command.tokens.map((t, i) => `<button type="button" class="token ${activeToken === i ? 'on' : ''}" translate="no" data-token="${i}" aria-pressed="${activeToken === i}" title="${esc(t.meaning)}">${esc(t.t)}</button>`).join('')}</div>
+      <p class="token-meaning" aria-live="polite">${activeToken !== null && st.command.tokens[activeToken] ? `<strong>${esc(st.command.tokens[activeToken].t)}</strong>: ${esc(st.command.tokens[activeToken].meaning)}` : 'Hover over, focus or select a token to see what it means.'}</p>
       <dl class="kv small">${st.command.tokens.map((t) => `<dt class="mono">${esc(t.t)}</dt><dd>${esc(t.meaning)}</dd>`).join('')}</dl>`;
   }
   if (st.gui) h += `${st.command ? '' : `<p class="banner" role="note">${esc(NEVER_EXECUTED)}</p>`}<h4>Console path</h4><p>${esc(st.gui)}</p>`;
@@ -235,7 +241,9 @@ export function rawHtml(ctx, mode) {
   if (!fx) return '<p class="muted">Select a CSR, certificate, CRL or package to view its raw form.</p>';
   const p = fx.parsed;
   const btns = `<p><button class="btn small" data-raw="pem" aria-pressed="${mode === 'pem'}">Show PEM</button> <button class="btn small" data-raw="asn1" aria-pressed="${mode === 'asn1'}" ${p.asn1 ? '' : 'disabled'}>Show ASN.1</button></p>`;
-  const body = mode === 'pem' ? `<pre class="pem" tabindex="0">${esc(p.pem ?? p.text ?? '')}</pre>` : mode === 'asn1' && p.asn1 ? `<pre class="pem" tabindex="0">${esc(p.asn1)}</pre>` : '<p class="muted">Shown on demand.</p>';
+  const pemText = p.pem ?? p.text ?? '';
+  const body = mode === 'pem' ? `<p class="copyrow">${copyBtn(pemText, 'PEM')}</p><pre class="pem" tabindex="0" translate="no" aria-label="PEM text">${esc(pemText)}</pre>`
+    : mode === 'asn1' && p.asn1 ? `<pre class="pem" tabindex="0" translate="no" aria-label="ASN.1 summary">${esc(p.asn1)}</pre>` : '<p class="muted">Shown on demand.</p>';
   return `<p class="muted">${esc(artifactLabel(id, ctx.scenario.pathId))} ·<span class="mono">${esc(fx.manifest.filename)}</span></p>${btns}${body}`;
 }
 
@@ -263,8 +271,9 @@ export function troubleshootHtml(ctx) {
 // ---------- Final step card ----------
 export function finalCardHtml(ctx) {
   const s = ctx.state; const sc = ctx.scenario;
-  if (s.halted) { const f = getFault(sc, s.activeFault); return { title: `Stopped: ${f.label}`, text: f.symptom, kind: 'fail' }; }
-  if (s.trustDecision === 'withheld') return { title: 'Not confirmed suitable — revocation status unknown', text: 'The chain builds, but the CRL could not be fetched from the CDP. Fix CDP reachability, then verify again.', kind: 'warn' };
-  return { title: 'Suitable now; root cause still open', text: sc.pathId === 'mmc' ? 'DC01 has a suitable certificate. Confirm that autoenrollment renews it.' : 'DC01 has a suitable certificate. Fix RPC/DCOM, autoenrollment and trust distribution; this manual certificate will not renew itself.', kind: 'ok' };
+  if (s.halted) { const f = getFault(sc, s.activeFault); return { title: `Stopped: ${f.label}`, text: f.symptom, kind: 'fail', openItems: [`Fix: ${f.remediation}`, ...(f.longTerm && f.longTerm !== '—' ? [`Long term: ${f.longTerm}`] : [])] }; }
+  const items = sc.pathId === 'mmc' ? MMC_FOLLOWUP : FOLLOWUP_ITEMS;
+  if (s.trustDecision === 'withheld') return { title: 'Not confirmed suitable — revocation status unknown', text: 'The chain builds, but the CRL could not be fetched from the CDP. Fix CDP reachability, then verify again.', kind: 'warn', openItems: items };
+  return { title: 'Suitable now; root cause still open', text: sc.pathId === 'mmc' ? 'DC01 has a suitable certificate. Confirm that autoenrollment renews it.' : 'DC01 has a suitable certificate. Fix RPC/DCOM, autoenrollment and trust distribution; this manual certificate will not renew itself.', kind: 'ok', openItems: items };
 }
 void ENV; void CFG;

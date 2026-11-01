@@ -23,7 +23,11 @@ test('scenario home appears first, offers two scenarios, a quiet future list and
   await expect(page.locator('.scard').first()).toContainText('Website TLS Certificate');
   await expect(page.locator('.scard').nth(1)).toContainText('Domain Controller Manual Enrollment');
   for (const w of ['Purpose', 'Primary requester', 'Certificate destination', 'Enrollment method', 'Steps']) await expect(page.locator('.scard').first()).toContainText(w);
-  await expect(page.locator('[data-start]')).toHaveCount(2);
+  // v0.4.1: the DC card starts from a path picker (Path A and Path B), so there are three start controls; TLS keeps one.
+  await expect(page.locator('[data-start]')).toHaveCount(3);
+  await expect(page.locator(`[data-start="${TLS}"]`)).toHaveCount(1);
+  expect(await page.locator(`[data-start="${DCID}"]`).evaluateAll((els) => els.map((e) => e.dataset.startPath))).toEqual(['csr', 'mmc']);
+  await expect(page.locator(`.scard[data-scenario="${DCID}"] .cond`)).toContainText('Exceptional condition for this lesson'.toLowerCase());
   await expect(page.locator('.later li')).toHaveCount(5);
   await expect(page.locator('.later')).toContainText('NDES / SCEP Device Enrollment');
   await expect(page.locator('body')).not.toHaveAttribute('data-tour', 'running');
