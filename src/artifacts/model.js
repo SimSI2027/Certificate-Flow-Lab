@@ -3,7 +3,7 @@
 import 'reflect-metadata';
 import * as x509 from '@peculiar/x509';
 import * as asn1js from 'asn1js';
-import { ENV, URLS, OIDS, TEMPLATE_NAMES } from './synthetic.js';
+import { URLS, OIDS, TEMPLATE_NAMES } from './synthetic.js';
 
 x509.cryptoProvider.set(globalThis.crypto);
 
@@ -197,65 +197,11 @@ export async function buildFixtureModel(files, manifest) {
   return { manifest, byFilename, roles, resolve, now: new Date(manifest.simulationNow) };
 }
 
-// ---- Validation evidence derived from the real fixtures ----
-const stamp = (m) => m.now.toISOString().replace('.000Z', 'Z');
-export async function evaluate(model, faultId, scenario) {
-  const fault = scenario.faults.find((f) => f.id === faultId);
-  const leaf = model.resolve('leaf', faultId).parsed, ica = model.resolve('ica', faultId).parsed, root = model.resolve('root', faultId).parsed;
-  const crl = model.resolve('crl', faultId).parsed;
-  const now = model.now, host = ENV.web.site, at = stamp(model);
-  const trustStore = faultId === 'untrusted-root' ? [] : [root.thumbprints.sha256];
-  const aiaOk = faultId !== 'missing-ica';
-  const cdpOk = faultId !== 'cdp-unavailable';
-  const checks = [];
-  const add = (id, stageId, label, ok, detail, extra = {}) => checks.push({ id, stage: stageId, label, status: ok ? 'pass' : 'fail', detail, timestamp: at, ...extra });
-
-  // install: private key match (WEB01 holds the key for the CSR public key)
-  const csr = model.resolve('csr', faultId).parsed;
-  const keyHeld = faultId !== 'no-private-key';
-  add('key', 'install', 'Private key matches certificate', keyHeld,
-    keyHeld ? `WEB01 key store holds a key whose public half has SHA-256 ${csr.publicKey.spkiSha256.slice(0, 16)}…, matching the certificate public key.`
-      : `Certificate public key SHA-256 ${leaf.publicKey.spkiSha256.slice(0, 16)}… has no matching private key object in the WEB01 key store.`);
-  add('aia', 'chain-build', 'Issuing CA certificate obtainable (AIA)', aiaOk,
-    aiaOk ? `GET ${leaf.aia[0]?.location} → 200 OK, ${ica.subject} (SHA-1 ${ica.thumbprints.sha1.slice(0, 12)}…)` : `GET ${leaf.aia[0]?.location} → 404 Not Found (file not published on ${ENV.pubServer}); WEB01 did not send the issuing CA certificate.`,
-    { url: leaf.aia[0]?.location, http: aiaOk ? 200 : 404 });
-  add('name', 'validate', 'DNS name matches SAN', leaf.san.some((n) => n.type === 'DNS' && n.value.toLowerCase() === host),
-    `Requested name ${host}; certificate SAN: ${leaf.san.map((n) => `${n.type}=${n.value}`).join(', ') || 'none'}.`);
-  const ok = (c) => new Date(c.notBefore) <= now && now <= new Date(c.notAfter);
-  add('dates', 'validate', 'Validity dates', [leaf, ica, root].every(ok),
-    `Evaluation time ${at}; leaf valid ${leaf.notBefore} → ${leaf.notAfter}.`);
-  add('eku', 'validate', 'Server Authentication EKU', leaf.eku.some((e) => e.oid === SERVER_AUTH),
-    `Certificate EKU: ${leaf.eku.map((e) => e.name).join(', ') || 'none'}; required: Server Authentication (${SERVER_AUTH}).`);
-  const sigLeaf = await leaf.x509.verify({ publicKey: ica.x509, signatureOnly: true });
-  const sigIca = await ica.x509.verify({ publicKey: root.x509, signatureOnly: true });
-  const sigRoot = await root.x509.verify({ publicKey: root.x509, signatureOnly: true });
-  add('signatures', 'validate', 'Signatures along the chain', sigLeaf && sigIca && sigRoot,
-    `Leaf signed by ${ica.subject}: ${sigLeaf}; ICA signed by ${root.subject}: ${sigIca}; root self-signature: ${sigRoot}.`);
-  const trusted = trustStore.includes(root.thumbprints.sha256);
-  add('root', 'root-trust', 'Root in trust store', trusted,
-    trusted ? `${root.subject} (SHA-256 ${root.thumbprints.sha256.slice(0, 16)}…) found in CLIENT01 Trusted Root store.` : `CLIENT01 Trusted Root store does not contain ${root.subject} (SHA-256 ${root.thumbprints.sha256.slice(0, 16)}…).`);
-  const crlSig = await crl.x509.verify({ publicKey: ica.x509 });
-  const crlFresh = new Date(crl.thisUpdate) <= now && now <= new Date(crl.nextUpdate);
-  const revokedEntry = crl.entries.find((e) => e.serialNumber === leaf.serialNumber);
-  add('cdp', 'revocation', 'CRL obtainable (CDP)', cdpOk,
-    cdpOk ? `GET ${leaf.cdp[0]} → 200 OK, CRL #${crl.crlNumber}, ${crl.entries.length} entries, signature valid: ${crlSig}, fresh: ${crlFresh}.` : `GET ${leaf.cdp[0]} → connection timed out (${ENV.pubServer} CDP unavailable). Revocation status unknown; the client fails closed.`,
-    { url: leaf.cdp[0], http: cdpOk ? 200 : 0 });
-  add('revocation', 'revocation', 'Certificate not revoked', cdpOk && !revokedEntry,
-    !cdpOk ? 'Not evaluated: no CRL could be retrieved.' : revokedEntry ? `Serial ${leaf.serialNumber} is listed in CRL #${crl.crlNumber}: revoked ${revokedEntry.revocationDate}, reason ${revokedEntry.reason}.` : `Serial ${leaf.serialNumber} is not listed in CRL #${crl.crlNumber}.`);
-
-  const KINDS = { key: 'Simulated environment', aia: 'Simulated environment', cdp: 'Simulated environment', root: 'Simulated environment', name: 'Real fixture data', dates: 'Real fixture data', eku: 'Real fixture data', signatures: 'Real fixture data', revocation: 'Real fixture data' };
-  for (const c of checks) { c.basis = KINDS[c.id]; c.kind = c.status === 'fail' && faultId !== 'healthy' ? 'User-selected fault' : KINDS[c.id]; }
-  const order = scenario.stages.map((s) => s.id);
-  const sorted = [...checks].sort((a, b) => order.indexOf(a.stage) - order.indexOf(b.stage));
-  const first = sorted.find((c) => c.status === 'fail') ?? null;
-  return { faultId, label: fault.label, checks: sorted, firstFailure: first, failStage: first?.stage ?? null, timestamp: at,
-    aia: { raw: leaf.aia.map((a) => a.location), resolved: leaf.aia[0]?.location, expected: ica.subject, result: aiaOk ? 'Retrieved (HTTP 200)' : 'Failed (HTTP 404)', ok: aiaOk, timestamp: at },
-    cdp: { raw: leaf.cdp, resolved: leaf.cdp[0], expected: `CRL issued by ${crl.issuer}`, result: cdpOk ? 'Retrieved (HTTP 200)' : 'Failed (timeout)', ok: cdpOk, timestamp: at } };
-}
-
+// ---- Validation evidence: every scenario supplies its own parser-backed evaluate(model, faultId, scenario) ----
 export async function evaluateAll(model, scenario) {
   const out = {};
-  const fn = scenario.evaluate ?? evaluate;
+  const fn = scenario.evaluate;
+  if (typeof fn !== 'function') throw new Error(`Scenario ${scenario.id} has no evaluate()`);
   for (const f of scenario.faults) out[f.id] = await fn(model, f.id, scenario);
   return out;
 }

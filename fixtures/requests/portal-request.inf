@@ -1,0 +1,23 @@
+; Certificate Flow Lab - SYNTHETIC teaching request policy for the simulation. Not a production recommendation.
+; The exact template, provider and settings that work in a real AD CS environment depend on its configuration.
+[Version]
+Signature = "$Windows NT$"
+
+[NewRequest]
+Subject = "CN=portal.simsi2027.test, O=SIMSI2027 Synthetic Demo"
+KeyLength = 2048                 ; RSA 2048 meets the template minimum in this simulation
+KeySpec = 1                      ; AT_KEYEXCHANGE (the SChannel provider uses the key for key exchange and signing)
+KeyUsage = 0xA0                  ; digitalSignature (0x80) + keyEncipherment (0x20)
+Exportable = FALSE               ; the private key must not leave WEB01 (web farms sometimes need TRUE; depends on your configuration)
+MachineKeySet = TRUE              ; TRUE = Local Computer key store (machine context), which IIS uses
+ProviderName = "Microsoft RSA SChannel Cryptographic Provider"
+ProviderType = 12
+RequestType = PKCS10
+HashAlgorithm = SHA256
+
+[RequestAttributes]
+CertificateTemplate = SIMSI2027WebServer   ; template name, not display name (simulated organization-specific template)
+
+[Extensions]
+2.5.29.17 = "{text}"
+_continue_ = "dns=portal.simsi2027.test"

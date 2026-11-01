@@ -7,7 +7,7 @@ import { createHash } from 'node:crypto';
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ENV, URLS, TEMPLATE, OIDS, DC } from '../../src/artifacts/synthetic.js';
+import { ENV, URLS, OIDS, DC, TLS } from '../../src/artifacts/synthetic.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const out = (...p) => join(root, 'fixtures', ...p);
@@ -18,16 +18,25 @@ const D = (s) => new Date(s);
 const DEMO = 'Demonstration fixture';
 const EKU = x509.ExtendedKeyUsage;
 
-const bmp = (s) => new asn1js.BmpString({ value: s }).toBER();
-const templateNameExt = (tpl) => new x509.Extension(OIDS.templateName, false, bmp(tpl.name));
+// Certificate template information (1.3.6.1.4.1.311.21.7): SEQUENCE { OID, INTEGER major, INTEGER minor }. Version 2 templates use only
+// this extension; the BMPString template-name extension (1.3.6.1.4.1.311.20.2) belongs to version 1 templates and is never written here.
 const templateInfoExt = (tpl) => new x509.Extension(OIDS.templateInfo, false, new asn1js.Sequence({ value: [
   new asn1js.ObjectIdentifier({ value: tpl.oid }), new asn1js.Integer({ value: tpl.major }), new asn1js.Integer({ value: tpl.minor })] }).toBER());
 const crlNumberExt = (n) => new x509.Extension(OIDS.crlNumber, false, new asn1js.Integer({ value: n }).toBER());
 const ku = (f) => new x509.KeyUsagesExtension(f, true);
+const KU_SERVER = () => ku(x509.KeyUsageFlags.digitalSignature | x509.KeyUsageFlags.keyEncipherment);
+const dnsNames = (list) => list.map((value) => ({ type: 'dns', value }));
+// enrollmentNameValuePair (1.3.6.1.4.1.311.13.2.1): SEQUENCE { BMPString name, BMPString value }
+const nameValueAttr = (name, value) => new x509.Attribute(OIDS.enrollmentNameValuePair, [new asn1js.Sequence({ value: [new asn1js.BmpString({ value: name }), new asn1js.BmpString({ value })] }).toBER()]);
+// ClientInformation (1.3.6.1.4.1.311.21.20): SEQUENCE { INTEGER clientId, UTF8String machine, UTF8String user, UTF8String process }
+const clientInfoAttr = (machine, user, processName) => new x509.Attribute(OIDS.clientInformation, [new asn1js.Sequence({ value: [new asn1js.Integer({ value: 9 }),
+  new asn1js.Utf8String({ value: machine }), new asn1js.Utf8String({ value: user }), new asn1js.Utf8String({ value: processName })] }).toBER()]);
 
 const pem = (obj) => obj.toString('pem') + '\n';
 const der = (obj) => Buffer.from(obj.rawData);
 const sha = (a, buf) => createHash(a).update(buf).digest('hex').toUpperCase();
+const textDigest = (s) => ({ sha1: sha('sha1', Buffer.from(s)), sha256: sha('sha256', Buffer.from(s)) });
+const iso = (d) => d.toISOString().replace('.000Z', 'Z');
 
 const files = [];
 function write(dir, name, text, bin) {
@@ -36,8 +45,8 @@ function write(dir, name, text, bin) {
 }
 for (const d of ['certificates', 'requests', 'crl', 'manifests']) rmSync(out(d), { recursive: true, force: true });
 
-// ---- Hierarchy ----
-const rootKeys = await gen(), icaKeys = await gen(), webKeys = await gen();
+// ---- Hierarchy (pre-existing public chain: the leaf requests never create these) ----
+const rootKeys = await gen(), icaKeys = await gen();
 const rootCert = await x509.X509CertificateGenerator.createSelfSigned({
   serialNumber: '2027000000000000000000000000AA01', name: 'CN=SIMSI2027 Root CA, O=SIMSI2027 Synthetic Demo, DC=simsi2027, DC=test',
   notBefore: D('2026-01-01T00:00:00Z'), notAfter: D('2046-01-01T00:00:00Z'), signingAlgorithm: alg, keys: rootKeys,
@@ -45,7 +54,7 @@ const rootCert = await x509.X509CertificateGenerator.createSelfSigned({
     await x509.SubjectKeyIdentifierExtension.create(rootKeys.publicKey)]
 });
 const icaCert = await x509.X509CertificateGenerator.create({
-  serialNumber: '2027000000000000000000000000BB02', subject: 'CN=SIMSI2027 Issuing CA 01, O=SIMSI2027 Synthetic Demo, DC=simsi2027, DC=test',
+  serialNumber: '2027000000000000000000000000BB02', subject: `CN=${TLS.caName}, O=SIMSI2027 Synthetic Demo, DC=simsi2027, DC=test`,
   issuer: rootCert.subject, notBefore: D('2026-01-02T00:00:00Z'), notAfter: D('2036-01-02T00:00:00Z'),
   signingKey: rootKeys.privateKey, publicKey: icaKeys.publicKey, signingAlgorithm: alg,
   extensions: [new x509.BasicConstraintsExtension(true, 0, true), ku(x509.KeyUsageFlags.keyCertSign | x509.KeyUsageFlags.cRLSign),
@@ -53,34 +62,44 @@ const icaCert = await x509.X509CertificateGenerator.create({
     new x509.AuthorityInfoAccessExtension({ caIssuers: [URLS.rootAia] }), new x509.CRLDistributionPointsExtension([URLS.rootCdp])]
 });
 
-// ---- CSRs (WEB01 key; private key stays in memory only) ----
-const csr = (name) => x509.Pkcs10CertificateRequestGenerator.create({
+// ======================= Website TLS lesson (tls-manual-enrollment, v0.5.0) =======================
+// WEB01 runs certreq -new -machine: one key pair (memory only here) and a CSR signed with it. Template SIMSI2027WebServer (v2) sets the EKU,
+// so the CSR requests only the SAN and Key Usage. The CA creates a NEW certificate with the CSR public key and signs it with its own key.
+const SITE = TLS.web.site, WRONG_NAME = `www.${TLS.web.site}`;
+const WS_TPL = TLS.template, WK_TPL = TLS.wrongEkuTemplate;
+const webKeys = await gen(), tempKeys = await gen(); // memory only; never written
+const tlsCsr = (name) => x509.Pkcs10CertificateRequestGenerator.create({
   name: `CN=${name}, O=SIMSI2027 Synthetic Demo`, keys: webKeys, signingAlgorithm: alg,
-  extensions: [new x509.SubjectAlternativeNameExtension([{ type: 'dns', value: name }]), templateNameExt(TEMPLATE),
-    new x509.ExtendedKeyUsageExtension([EKU.serverAuth]), ku(x509.KeyUsageFlags.digitalSignature | x509.KeyUsageFlags.keyEncipherment)]
+  extensions: [new x509.SubjectAlternativeNameExtension(dnsNames([name])), KU_SERVER()],
+  attributes: [nameValueAttr('CertificateTemplate', WS_TPL.name), clientInfoAttr(TLS.web.fqdn, TLS.owner, 'certreq.exe')]
 });
-const csrOk = await csr(ENV.web.site);
-const csrWrongDns = await csr('web01.simsi2027.test');
+const csrOk = await tlsCsr(SITE);
+const csrWrongDns = await tlsCsr(WRONG_NAME);
 
-// ---- Leaf variants ----
-const leaf = async ({ serial, san, eku = [EKU.serverAuth], nb = '2026-10-30T00:00:00Z', na = '2027-10-30T00:00:00Z', tpl = TEMPLATE }) =>
+const leaf = async ({ serial, name = SITE, eku = [EKU.serverAuth], nb = '2026-10-30T00:00:00Z', na = '2027-10-30T00:00:00Z', tpl = WS_TPL }) =>
   x509.X509CertificateGenerator.create({
-    serialNumber: serial, subject: `CN=${san}, O=SIMSI2027 Synthetic Demo`, issuer: icaCert.subject,
+    serialNumber: serial, subject: `CN=${name}, O=SIMSI2027 Synthetic Demo`, issuer: icaCert.subject,
     notBefore: D(nb), notAfter: D(na), signingKey: icaKeys.privateKey, publicKey: webKeys.publicKey, signingAlgorithm: alg,
-    extensions: [new x509.BasicConstraintsExtension(false, undefined, true), ku(x509.KeyUsageFlags.digitalSignature | x509.KeyUsageFlags.keyEncipherment),
-      new x509.ExtendedKeyUsageExtension(eku), new x509.SubjectAlternativeNameExtension([{ type: 'dns', value: san }]),
+    extensions: [new x509.BasicConstraintsExtension(false, undefined, true), KU_SERVER(),
+      new x509.ExtendedKeyUsageExtension(eku), new x509.SubjectAlternativeNameExtension(dnsNames([name])),
       await x509.SubjectKeyIdentifierExtension.create(webKeys.publicKey), await x509.AuthorityKeyIdentifierExtension.create(icaCert, false),
       new x509.AuthorityInfoAccessExtension({ caIssuers: [URLS.icaAia] }), new x509.CRLDistributionPointsExtension([URLS.icaCdp]),
-      templateNameExt(tpl), templateInfoExt(tpl)]
+      templateInfoExt(tpl)]
   });
-const leafOk = await leaf({ serial: '2027000000000000000000000000CC10', san: ENV.web.site });
-const leafWrongDns = await leaf({ serial: '2027000000000000000000000000CC11', san: 'web01.simsi2027.test' });
-const leafExpired = await leaf({ serial: '2027000000000000000000000000CC12', san: ENV.web.site, nb: '2026-02-01T00:00:00Z', na: '2026-09-30T00:00:00Z' });
-const leafWrongEku = await leaf({ serial: '2027000000000000000000000000CC13', san: ENV.web.site, eku: [EKU.clientAuth],
-  tpl: { name: 'WorkstationAuth', oid: '1.3.6.1.4.1.311.21.8.2027.1.7', major: 100, minor: 2 } });
-const leafRevoked = await leaf({ serial: '2027000000000000000000000000CC14', san: ENV.web.site });
+const leafOk = await leaf({ serial: '2027000000000000000000000000CC10' });
+const leafWrongDns = await leaf({ serial: '2027000000000000000000000000CC11', name: WRONG_NAME });
+const leafExpired = await leaf({ serial: '2027000000000000000000000000CC12', nb: '2026-02-01T00:00:00Z', na: '2026-09-30T00:00:00Z' });
+const leafWrongEku = await leaf({ serial: '2027000000000000000000000000CC13', eku: [EKU.clientAuth], tpl: WK_TPL });
+const leafRevoked = await leaf({ serial: '2027000000000000000000000000CC14' });
+// The temporary self-signed certificate that IIS presented before the lesson (the cause of the browser warning). Its own key is discarded.
+const tempCert = await x509.X509CertificateGenerator.createSelfSigned({
+  serialNumber: '2027000000000000000000000000EE01', name: `CN=${SITE}`, notBefore: D('2026-10-01T00:00:00Z'), notAfter: D('2027-10-01T00:00:00Z'),
+  signingAlgorithm: alg, keys: tempKeys,
+  extensions: [KU_SERVER(), new x509.ExtendedKeyUsageExtension([EKU.clientAuth, EKU.serverAuth]), new x509.SubjectAlternativeNameExtension(dnsNames([SITE])),
+    await x509.SubjectKeyIdentifierExtension.create(tempKeys.publicKey)]
+});
 
-// ---- CRL ----
+// ---- CRL (published by the Issuing CA at the CDP) ----
 const crl = await x509.X509CrlGenerator.create({
   issuer: icaCert.subject, thisUpdate: D('2026-10-31T00:00:00Z'), nextUpdate: D('2026-11-07T00:00:00Z'),
   entries: [
@@ -99,47 +118,87 @@ function addCert(name, cert, meta) {
   files.push({ filename: `certificates/${name}.cer`, pemFilename: `certificates/${name}.pem`, artifactType: 'certificate', ...meta,
     subject: cert.subject, issuer: cert.issuer, serialNumber: cert.serialNumber.toUpperCase(),
     thumbprints: { sha1: sha('sha1', der(cert)), sha256: sha('sha256', der(cert)) },
-    validity: { notBefore: cert.notBefore.toISOString().replace('.000Z', 'Z'), notAfter: cert.notAfter.toISOString().replace('.000Z', 'Z') },
+    validity: { notBefore: iso(cert.notBefore), notAfter: iso(cert.notAfter) },
     san: sans(cert),
     eku: cert.getExtension(x509.ExtendedKeyUsageExtension)?.usages ?? [],
     aia: (cert.getExtension(x509.AuthorityInfoAccessExtension)?.caIssuers ?? []).map((n) => n.value),
     cdp: (cert.getExtension(x509.CRLDistributionPointsExtension)?.distributionPoints ?? []).flatMap((d) => (d.distributionPoint?.fullName ?? []).map((n) => n.uniformResourceIdentifier)),
     demonstrationFixture: true, notice: DEMO });
 }
-const rid = String(ENV.requestId);
-addCert('simsi2027-rootca', rootCert, { relatedRequest: null, stage: 'root-trust', role: 'root', fault: null });
-addCert('simsi2027-ica01', icaCert, { relatedRequest: null, stage: 'chain-build', role: 'ica', fault: null });
-addCert('portal.simsi2027.test', leafOk, { relatedRequest: rid, stage: 'return', role: 'leaf', fault: null });
-addCert('fault-wrong-dns', leafWrongDns, { relatedRequest: rid, stage: 'return', role: 'leaf', fault: 'wrong-dns' });
-addCert('fault-expired', leafExpired, { relatedRequest: rid, stage: 'return', role: 'leaf', fault: 'expired' });
-addCert('fault-wrong-eku', leafWrongEku, { relatedRequest: rid, stage: 'return', role: 'leaf', fault: 'wrong-eku' });
-addCert('fault-revoked', leafRevoked, { relatedRequest: rid, stage: 'return', role: 'leaf', fault: 'revoked' });
+const tlsRid = String(TLS.requestId), dcRid = String(DC.requestId);
+addCert('simsi2027-rootca', rootCert, { relatedRequest: null, stage: 't-signatures', role: 'root', fault: null });
+addCert('simsi2027-ica01', icaCert, { relatedRequest: null, stage: 't-cert-msg', role: 'ica', fault: null });
+addCert('portal.simsi2027.test', leafOk, { relatedRequest: tlsRid, stage: 't-sign', role: 'leaf', fault: null });
+addCert('fault-wrong-dns', leafWrongDns, { relatedRequest: tlsRid, stage: 't-checks', role: 'leaf', fault: 'wrong-dns' });
+addCert('fault-expired', leafExpired, { relatedRequest: tlsRid, stage: 't-checks', role: 'leaf', fault: 'expired' });
+addCert('fault-wrong-eku', leafWrongEku, { relatedRequest: tlsRid, stage: 't-checks', role: 'leaf', fault: 'wrong-eku' });
+addCert('fault-revoked', leafRevoked, { relatedRequest: tlsRid, stage: 't-revocation', role: 'leaf', fault: 'revoked' });
+addCert('fault-portal-selfsigned', tempCert, { relatedRequest: null, stage: 't-warning', role: 'selfsigned', fault: null,
+  notice: `${DEMO} (the temporary self-signed certificate behind the initial warning; public only)` });
 
 function addCsr(name, c, fault) {
   write('requests', `${name}.csr`, pem(c));
   write('requests', `${name}.der`, null, der(c));
   files.push({ filename: `requests/${name}.der`, pemFilename: `requests/${name}.csr`, artifactType: 'csr', subject: c.subject, issuer: null,
     serialNumber: null, thumbprints: { sha1: sha('sha1', der(c)), sha256: sha('sha256', der(c)) }, validity: null,
-    san: new x509.SubjectAlternativeNameExtension(c.extensions.find((e) => e.type === '2.5.29.17').rawData).names.items.map((n) => `DNS=${n.value}`), eku: ['1.3.6.1.5.5.7.3.1'], aia: [], cdp: [],
-    relatedRequest: rid, stage: 'csr', role: 'csr', fault, demonstrationFixture: true, notice: DEMO });
+    san: new x509.SubjectAlternativeNameExtension(c.extensions.find((e) => e.type === '2.5.29.17').rawData).names.items.map((n) => `DNS=${n.value}`), eku: [], aia: [], cdp: [],
+    relatedRequest: tlsRid, stage: 't-new', role: 'csr', fault, demonstrationFixture: true, notice: DEMO });
 }
 addCsr('portal.simsi2027.test', csrOk, null);
 addCsr('fault-wrong-dns', csrWrongDns, 'wrong-dns');
+
+const portalInf = (machine) => `; Certificate Flow Lab - SYNTHETIC teaching request policy for the simulation. Not a production recommendation.
+; The exact template, provider and settings that work in a real AD CS environment depend on its configuration.
+[Version]
+Signature = "$Windows NT$"
+
+[NewRequest]
+Subject = "CN=${SITE}, O=SIMSI2027 Synthetic Demo"
+KeyLength = 2048                 ; RSA 2048 meets the template minimum in this simulation
+KeySpec = 1                      ; AT_KEYEXCHANGE (the SChannel provider uses the key for key exchange and signing)
+KeyUsage = 0xA0                  ; digitalSignature (0x80) + keyEncipherment (0x20)
+Exportable = FALSE               ; the private key must not leave WEB01 (web farms sometimes need TRUE; depends on your configuration)
+MachineKeySet = ${machine ? 'TRUE ' : 'FALSE'}             ; ${machine ? 'TRUE = Local Computer key store (machine context), which IIS uses' : 'FALSE = current user key store (WRONG for an IIS certificate)'}
+ProviderName = "Microsoft RSA SChannel Cryptographic Provider"
+ProviderType = 12
+RequestType = PKCS10
+HashAlgorithm = SHA256
+
+[RequestAttributes]
+CertificateTemplate = ${WS_TPL.name}   ; template name, not display name (simulated organization-specific template)
+
+[Extensions]
+2.5.29.17 = "{text}"
+_continue_ = "dns=${SITE}"
+`;
+function addInf(name, text, { role, fault, subject, sanList, stage, relatedRequest, path }) {
+  write('requests', name, text);
+  files.push({ filename: `requests/${name}`, pemFilename: `requests/${name}`, artifactType: 'inf', subject, issuer: null, serialNumber: null, thumbprints: textDigest(text),
+    validity: null, san: sanList.map((n) => `DNS=${n}`), eku: [], aia: [], cdp: [], relatedRequest, stage, role, path, fault, demonstrationFixture: true, notice: `${DEMO} (teaching request policy, not a recommendation)` });
+}
+addInf('portal-request.inf', portalInf(true), { role: 'inf', fault: null, subject: `CN=${SITE}, O=SIMSI2027 Synthetic Demo`, sanList: [SITE], stage: 't-inf', relatedRequest: tlsRid, path: 'tls' });
+addInf('fault-portal-user-context.inf', portalInf(false), { role: 'inf', fault: 'user-context', subject: `CN=${SITE}, O=SIMSI2027 Synthetic Demo`, sanList: [SITE], stage: 't-inf', relatedRequest: tlsRid, path: 'tls' });
 
 write('crl', 'SIMSI2027-ICA01.crl', null, der(crl));
 write('crl', 'SIMSI2027-ICA01.crl.pem', pem(crl));
 files.push({ filename: 'crl/SIMSI2027-ICA01.crl', pemFilename: 'crl/SIMSI2027-ICA01.crl.pem', artifactType: 'crl', subject: null, issuer: crl.issuer,
   serialNumber: null, thumbprints: { sha1: sha('sha1', der(crl)), sha256: sha('sha256', der(crl)) },
-  validity: { notBefore: crl.thisUpdate.toISOString().replace('.000Z', 'Z'), notAfter: crl.nextUpdate.toISOString().replace('.000Z', 'Z') }, san: [], eku: [], aia: [], cdp: [URLS.icaCdp],
-  relatedRequest: null, stage: 'revocation', role: 'crl', fault: null, demonstrationFixture: true, notice: DEMO });
+  validity: { notBefore: iso(crl.thisUpdate), notAfter: iso(crl.nextUpdate) }, san: [], eku: [], aia: [], cdp: [URLS.icaCdp],
+  relatedRequest: null, stage: 't-revocation', role: 'crl', fault: null, demonstrationFixture: true, notice: DEMO });
 
+// Chain CLIENT01 builds (leaf, Issuing CA, Root) and the certificate list WEB01 sends in the handshake (leaf, Issuing CA; the Root is not sent).
 const chainPem = pem(leafOk) + pem(icaCert) + pem(rootCert);
 write('certificates', 'portal.simsi2027.test-chain.pem', chainPem);
 files.push({ filename: 'certificates/portal.simsi2027.test-chain.pem', pemFilename: 'certificates/portal.simsi2027.test-chain.pem', artifactType: 'chain',
-  subject: leafOk.subject, issuer: rootCert.subject, serialNumber: null,
-  thumbprints: { sha1: sha('sha1', Buffer.from(chainPem)), sha256: sha('sha256', Buffer.from(chainPem)) },
-  validity: null, san: sans(leafOk), eku: ['serverAuth'], aia: [], cdp: [], relatedRequest: rid, stage: 'chain-build', role: 'chain', fault: null,
-  demonstrationFixture: true, notice: `${DEMO} (leaf, issuing CA, root; concatenated PEM)` });
+  subject: leafOk.subject, issuer: rootCert.subject, serialNumber: null, thumbprints: textDigest(chainPem),
+  validity: null, san: sans(leafOk), eku: [], aia: [], cdp: [], relatedRequest: tlsRid, stage: 't-chain', role: 'chain', fault: null,
+  demonstrationFixture: true, notice: `${DEMO} (chain built on CLIENT01: leaf, issuing CA, root; concatenated PEM)` });
+const handshakePem = pem(leafOk) + pem(icaCert);
+write('certificates', 'portal-handshake-chain.pem', handshakePem);
+files.push({ filename: 'certificates/portal-handshake-chain.pem', pemFilename: 'certificates/portal-handshake-chain.pem', artifactType: 'chain',
+  subject: leafOk.subject, issuer: icaCert.subject, serialNumber: null, thumbprints: textDigest(handshakePem),
+  validity: null, san: sans(leafOk), eku: [], aia: [], cdp: [], relatedRequest: tlsRid, stage: 't-cert-msg', role: 'handshake', fault: null,
+  demonstrationFixture: true, notice: `${DEMO} (TLS Certificate message from WEB01: leaf and issuing CA; the root is not sent)` });
 
 // ======================= Domain Controller manual-enrollment fixtures (scenario dc-manual-certificate-request) =======================
 // Path A (manual CSR transfer): template DCOfflineKerberosAuth, subject supplied in the request, submitted by SIMSI2027\PKIOperator.
@@ -150,13 +209,7 @@ const DC_TPL = { name: DC.template, oid: DC.templateOid, major: 100, minor: 5 };
 const DC_OFF_TPL = { name: DC.offlineTemplate, oid: DC.offlineTemplateOid, major: 100, minor: 1 };
 const KDC_AUTH = OIDS.kdcAuth, SMARTCARD_LOGON = OIDS.smartCardLogon;
 const dcKeys = await gen(), mmcKeys = await gen(), otherKeys = await gen(), impostorKeys = await gen(); // memory only; never written
-const dnsNames = (list) => list.map((value) => ({ type: 'dns', value }));
-const DC_KU = () => ku(x509.KeyUsageFlags.digitalSignature | x509.KeyUsageFlags.keyEncipherment);
-// enrollmentNameValuePair (1.3.6.1.4.1.311.13.2.1): SEQUENCE { BMPString name, BMPString value }
-const nameValueAttr = (name, value) => new x509.Attribute(OIDS.enrollmentNameValuePair, [new asn1js.Sequence({ value: [new asn1js.BmpString({ value: name }), new asn1js.BmpString({ value })] }).toBER()]);
-// ClientInformation (1.3.6.1.4.1.311.21.20): SEQUENCE { INTEGER clientId, UTF8String machine, UTF8String user, UTF8String process }
-const clientInfoAttr = (machine, user, processName) => new x509.Attribute(OIDS.clientInformation, [new asn1js.Sequence({ value: [new asn1js.Integer({ value: 9 }),
-  new asn1js.Utf8String({ value: machine }), new asn1js.Utf8String({ value: user }), new asn1js.Utf8String({ value: processName })] }).toBER()]);
+const DC_KU = KU_SERVER;
 const dcCsr = await x509.Pkcs10CertificateRequestGenerator.create({
   name: `CN=${DC_NAME}`, keys: dcKeys, signingAlgorithm: alg,
   extensions: [new x509.SubjectAlternativeNameExtension(dnsNames(DC_SANS)), DC_KU()],
@@ -167,23 +220,23 @@ const mmcCsr = await x509.Pkcs10CertificateRequestGenerator.create({
   name: '', keys: mmcKeys, signingAlgorithm: alg, extensions: [DC_KU()],
   attributes: [nameValueAttr('CertificateTemplate', DC_TPL.name), clientInfoAttr(DC_NAME, DC.machineAccount, 'mmc.exe')]
 });
-const dcLeaf = async ({ serial, subject = `CN=${DC_NAME}`, sans = DC_SANS, sanCritical = false, eku = [EKU.clientAuth, EKU.serverAuth, SMARTCARD_LOGON, KDC_AUTH], nb = '2026-10-30T00:00:00Z', na = '2027-10-30T00:00:00Z', keys = dcKeys, tpl = DC_OFF_TPL }) =>
+const dcLeaf = async ({ serial, subject = `CN=${DC_NAME}`, sanList = DC_SANS, sanCritical = false, eku = [EKU.clientAuth, EKU.serverAuth, SMARTCARD_LOGON, KDC_AUTH], nb = '2026-10-30T00:00:00Z', na = '2027-10-30T00:00:00Z', keys = dcKeys, tpl = DC_OFF_TPL }) =>
   x509.X509CertificateGenerator.create({
     serialNumber: serial, subject, issuer: icaCert.subject, notBefore: D(nb), notAfter: D(na),
     signingKey: icaKeys.privateKey, publicKey: keys.publicKey, signingAlgorithm: alg,
     extensions: [new x509.BasicConstraintsExtension(false, undefined, true), DC_KU(),
-      new x509.ExtendedKeyUsageExtension(eku), new x509.SubjectAlternativeNameExtension(dnsNames(sans), sanCritical),
+      new x509.ExtendedKeyUsageExtension(eku), new x509.SubjectAlternativeNameExtension(dnsNames(sanList), sanCritical),
       await x509.SubjectKeyIdentifierExtension.create(keys.publicKey), await x509.AuthorityKeyIdentifierExtension.create(icaCert, false),
       new x509.AuthorityInfoAccessExtension({ caIssuers: [URLS.icaAia] }), new x509.CRLDistributionPointsExtension([URLS.icaCdp]),
       templateInfoExt(tpl)]
   });
 const dcCert = await dcLeaf({ serial: '2027000000000000000000000000DC01' });
 const dcWrongEku = await dcLeaf({ serial: '2027000000000000000000000000DC02', eku: [EKU.clientAuth] });
-const dcSanMissing = await dcLeaf({ serial: '2027000000000000000000000000DC03', sans: ['simsi2027.test'] });
+const dcSanMissing = await dcLeaf({ serial: '2027000000000000000000000000DC03', sanList: ['simsi2027.test'] });
 const dcKeyMismatch = await dcLeaf({ serial: '2027000000000000000000000000DC04', keys: otherKeys });
 const dcExpired = await dcLeaf({ serial: '2027000000000000000000000000DC05', nb: '2026-02-01T00:00:00Z', na: '2026-09-30T00:00:00Z' });
 const dcEnrolled = await dcLeaf({ serial: '2027000000000000000000000000DC06', subject: '', sanCritical: true, keys: mmcKeys, tpl: DC_TPL });
-const dcSanNoDomain = await dcLeaf({ serial: '2027000000000000000000000000DC07', sans: [DC_NAME] });
+const dcSanNoDomain = await dcLeaf({ serial: '2027000000000000000000000000DC07', sanList: [DC_NAME] });
 const rootImpostor = await x509.X509CertificateGenerator.createSelfSigned({
   serialNumber: '2027000000000000000000000000AA99', name: rootCert.subject, notBefore: D('2026-01-01T00:00:00Z'), notAfter: D('2046-01-01T00:00:00Z'), signingAlgorithm: alg, keys: impostorKeys,
   extensions: [new x509.BasicConstraintsExtension(true, 1, true), ku(x509.KeyUsageFlags.keyCertSign | x509.KeyUsageFlags.cRLSign), await x509.SubjectKeyIdentifierExtension.create(impostorKeys.publicKey)]
@@ -214,27 +267,21 @@ CertificateTemplate = ${DC_OFF_TPL.name}   ; template name, not display name (si
 2.5.29.17 = "{text}"
 _continue_ = "${DC_SANS.map((n) => `dns=${n}`).join('&')}"
 `;
-const textDigest = (s) => ({ sha1: sha('sha1', Buffer.from(s)), sha256: sha('sha256', Buffer.from(s)) });
-function addInf(name, text, fault) {
-  write('requests', name, text);
-  files.push({ filename: `requests/${name}`, pemFilename: `requests/${name}`, artifactType: 'inf', subject: `CN=${DC_NAME}`, issuer: null, serialNumber: null, thumbprints: textDigest(text),
-    validity: null, san: DC_SANS.map((n) => `DNS=${n}`), eku: [], aia: [], cdp: [], relatedRequest: rid, stage: 'a-inf', role: 'dc-inf', path: fault ? 'fault' : 'csr', fault, demonstrationFixture: true, notice: `${DEMO} (teaching request policy, not a recommendation)` });
-}
-addInf('dc01-request.inf', infText(true), null);
-addInf('fault-user-context.inf', infText(false), 'user-context');
+addInf('dc01-request.inf', infText(true), { role: 'dc-inf', fault: null, subject: `CN=${DC_NAME}`, sanList: DC_SANS, stage: 'a-inf', relatedRequest: dcRid, path: 'csr' });
+addInf('fault-user-context.inf', infText(false), { role: 'dc-inf', fault: 'user-context', subject: `CN=${DC_NAME}`, sanList: DC_SANS, stage: 'a-inf', relatedRequest: dcRid, path: 'fault' });
 
 function addDcCsr(name, c, { role, path, stage, notice = DEMO }) {
   write('requests', `${name}.req`, pem(c)); write('requests', `${name}.der`, null, der(c));
   const sanExt = c.extensions.find((e) => e.type === '2.5.29.17');
   files.push({ filename: `requests/${name}.der`, pemFilename: `requests/${name}.req`, artifactType: 'csr', subject: c.subject, issuer: null, serialNumber: null,
     thumbprints: { sha1: sha('sha1', der(c)), sha256: sha('sha256', der(c)) }, validity: null,
-    san: sanExt ? new x509.SubjectAlternativeNameExtension(sanExt.rawData).names.items.map((n) => `DNS=${n.value}`) : [], eku: [], aia: [], cdp: [], relatedRequest: rid, stage, role, path, fault: null, demonstrationFixture: true, notice });
+    san: sanExt ? new x509.SubjectAlternativeNameExtension(sanExt.rawData).names.items.map((n) => `DNS=${n.value}`) : [], eku: [], aia: [], cdp: [], relatedRequest: dcRid, stage, role, path, fault: null, demonstrationFixture: true, notice });
 }
 addDcCsr('dc01-request', dcCsr, { role: 'dc-csr', path: 'csr', stage: 'a-new' });
 addDcCsr('dc01-mmc-request', mmcCsr, { role: 'dc-mmc-csr', path: 'mmc', stage: 'b-enroll',
   notice: `${DEMO} (built in memory by the enrollment wizard; not saved as a file in real enrollment)` });
 
-const dcCertMeta = (stage, role, path, fault) => ({ relatedRequest: rid, stage, role, path, fault });
+const dcCertMeta = (stage, role, path, fault) => ({ relatedRequest: dcRid, stage, role, path, fault });
 addCert('dc01-issued', dcCert, dcCertMeta('a-sign', 'dc-cert', 'csr', null));
 addCert('dc01-enrolled', dcEnrolled, dcCertMeta('b-issue', 'dc-enrolled', 'mmc', null));
 addCert('fault-dc-wrong-eku', dcWrongEku, dcCertMeta('a-purposes', 'dc-cert', 'fault', 'wrong-eku'));
@@ -246,7 +293,7 @@ addCert('fault-rootca-impostor', rootImpostor, { relatedRequest: null, stage: 'a
 const dcChainPem = pem(dcCert) + pem(icaCert) + pem(rootCert);
 write('certificates', 'dc01-chain.pem', dcChainPem);
 files.push({ filename: 'certificates/dc01-chain.pem', pemFilename: 'certificates/dc01-chain.pem', artifactType: 'chain', subject: dcCert.subject, issuer: rootCert.subject, serialNumber: null,
-  thumbprints: textDigest(dcChainPem), validity: null, san: sans(dcCert), eku: [], aia: [], cdp: [], relatedRequest: rid, stage: 'a-chain', role: 'dc-chain', path: 'csr', fault: null,
+  thumbprints: textDigest(dcChainPem), validity: null, san: sans(dcCert), eku: [], aia: [], cdp: [], relatedRequest: dcRid, stage: 'a-chain', role: 'dc-chain', path: 'csr', fault: null,
   demonstrationFixture: true, notice: `${DEMO} (leaf, issuing CA, root; concatenated PEM)` });
 
 // PKCS #7 certificates-only return package (leaf + Issuing CA + Root). Public certificates only; no signature, no private key.
@@ -255,7 +302,7 @@ const p7Der = Buffer.from(p7.export('raw'));
 write('certificates', 'dc01-return.p7b', null, p7Der);
 write('certificates', 'dc01-return.p7b.pem', p7.export('pem') + '\n');
 files.push({ filename: 'certificates/dc01-return.p7b', pemFilename: 'certificates/dc01-return.p7b.pem', artifactType: 'p7b', subject: null, issuer: null, serialNumber: null,
-  thumbprints: { sha1: sha('sha1', p7Der), sha256: sha('sha256', p7Der) }, validity: null, san: [], eku: [], aia: [], cdp: [], relatedRequest: rid, stage: 'a-retrieve', role: 'dc-p7b', path: 'csr', fault: null,
+  thumbprints: { sha1: sha('sha1', p7Der), sha256: sha('sha256', p7Der) }, validity: null, san: [], eku: [], aia: [], cdp: [], relatedRequest: dcRid, stage: 'a-retrieve', role: 'dc-p7b', path: 'csr', fault: null,
   demonstrationFixture: true, notice: `${DEMO} (PKCS #7 certificates-only: leaf, Issuing CA, Root)` });
 
 // SPKI SHA-256 and path for every manifest entry.
