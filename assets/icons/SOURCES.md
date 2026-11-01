@@ -1,7 +1,7 @@
 # Icon sources
 
 ## Summary
-**No official Microsoft icons are used (v0.3.0 and v0.4.0).** Every icon in the application is a custom flat vector drawn for this project (`src/views/icons.js`, listed in `assets/icons/manifest.json`). They are **not** official Microsoft icons and are never presented as such.
+**No official Microsoft icons are used (v0.3.0, v0.4.0 and v0.5.0).** Every icon in the application is a custom flat vector drawn for this project (`src/views/icons.js`, listed in `assets/icons/manifest.json`). They are **not** official Microsoft icons and are never presented as such.
 
 ## Why no official icons
 The project needs icons for on-premises PKI concepts: Enterprise Issuing CA, offline Root CA, certificate template, CSR, certificate store, CRL/AIA/CDP repositories, Domain Controller and IIS binding. Microsoft's published architecture icon sets (for example the Azure architecture icons) cover cloud services and a small number of Microsoft 365 products; they do not provide accurate icons for these AD CS concepts, and an Azure service icon must not stand in for a different on-premises product. When no accurate official icon exists the policy is to draw a neutral custom icon rather than misuse an official one. No external SVGs were downloaded, and nothing is fetched at runtime.

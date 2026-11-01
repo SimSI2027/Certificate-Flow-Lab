@@ -49,3 +49,12 @@ The DC story keeps every planned extension point open: **NDES, SCEP, CEP, CES, a
 - CEP/CES and NDES/SCEP: zone 3 is relabelled per path (`zones.mmc` shows the mechanism), so a web-enrollment path can relabel it as a CEP/CES or NDES front end.
 - Smart-card, user and device certificates: the Smart Card Logon EKU is already present, and store mapping (`STORE_MAP`) and the eight-question certificate card are data-driven.
 - Cross-forest enrollment: the Offline Trust and store-source tags (`Enterprise (AD)`, `Group Policy`, `Local (manual)`) carry the trust-distribution story.
+
+
+## v0.5.0: what the Website TLS story prepares
+The classic extension points above (entities, `LAYOUT`, `details.js`, the tabbed inspector) were removed in v0.5.0. A new lesson now adds a scenario module with a `story` descriptor (see `src/scenarios/tls-manual-enrollment.js`) and a panel module with the builders in `src/ui/tls-panel.js`.
+- **OCSP validation:** `t-revocation` already separates "obtain status" from "check status". An OCSP lesson would add an OCSP endpoint to the PUB strip, an `HTTP (OCSP)` channel, a responder-signed response artifact with an inspector, and stapling inside the Certificate message (Z5).
+- **AIA chain retrieval:** the `missing-ica` fault already draws the AIA route and states the variant ("with the AIA URL reachable, CLIENT01 recovers by downloading the Issuing CA certificate"). A full lesson would make that variant a path: the intermediate is fetched, cached and validated.
+- **Autoenrollment for web servers:** replace Act 1's manual steps (t-inf … t-accept) with a template that allows autoenrollment for the WEB01 computer account. Act 2 is reused unchanged.
+- **Certificate renewal:** `t-followup` names the renewal date (2027-10-30). A renewal lesson would request a new certificate with a new key (or the same key, depending on your configuration), rebind IIS without downtime, and remove the old certificate.
+- **Client authentication / mTLS:** the handshake zone can carry a CertificateRequest and a client Certificate/CertificateVerify, reusing the CertificateVerify explanation.

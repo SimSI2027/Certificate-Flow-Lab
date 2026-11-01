@@ -1,4 +1,4 @@
-# UX layout specification (v0.3.0)
+# UX layout specification (v0.3.0; story layout v0.4.0; Website TLS story v0.5.0)
 
 Result of one internal Generator / Adversary / Normalizer design review of the v0.2.0 screen.
 
@@ -48,7 +48,7 @@ Every node, chip and rail milestone is a focusable control with an accessible na
 
 
 ## v0.4.0 Domain Controller story layout (`layoutMode: 'story-zones'`)
-The DC scenario uses `StoryScene` (src/views/story-scene.js), whose geometry and disclosure come from the pure module `src/views/story-layout.js`. TLS keeps the classic focused layout above.
+The DC scenario uses `StoryScene` (src/views/story-scene.js), whose geometry and disclosure come from the pure module `src/views/story-layout.js`. TLS kept the classic focused layout above until v0.5.0 (see the v0.5.0 section).
 
 **Rule: ONE ACTIVE ZONE • ONE ACTIVE ARTIFACT • ONE ACTIVE ROUTE.**
 
@@ -112,3 +112,33 @@ Geometry and disclosure above are unchanged. The design pass (frontend-design, c
 - The panel keeps a 70–75 character measure. It has copy buttons for commands, thumbprints and PEM (copy only, with live status), and command tokens explain themselves on hover, focus or click.
 - The final card sits in the plate's top band: result, "Open items" (7 on Path A, 3 on Path B, or fix and long term after a fault), Restart and Reverse evidence.
 - Home: the DC card starts Path A or Path B from a path picker and states the lesson condition. The TLS card content is unchanged.
+
+
+## v0.5.0 Website TLS story layout
+The classic focused layout described at the top of this document was **removed in v0.5.0**: no dashed lanes, five tabs, scrubber, jump select, legend bar, Labels or Reset camera. Every lesson now uses the story layout and the "technical plate" above. The TLS lesson keeps the zone geometry, tokens, typography, light and dark themes, and motion of the DC story. Its scenario carries a `story` descriptor that `story-layout.js` and `story-scene.js` read; the DC lesson uses the built-in `DC_STORY` and draws exactly as before.
+
+**Rule: ONE ACTIVE ZONE • ONE ACTIVE ARTIFACT • ONE ACTIVE ROUTE.**
+
+### Zones and cards (viewBox 0 0 1600 720)
+- Z1 "CLIENT01 — the visitor" · Z2 "WEB01 — key and request" · Z3 "Issuing CA — SIMSI2027 Issuing CA 01" · Z4 "WEB01 — install and IIS binding" · Z5 "On the wire — TLS handshake" · Z6 "CLIENT01 — validation and trust store". Z1 and Z6 read "CLIENT01 (same computer)"; Z2 and Z4 read "WEB01 (same computer)".
+- **Key vault** (Certificate Enrollment Requests on WEB01): Z2, x 300, y 470, 212 × 104, from `t-new` until `t-accept` (Deviation 3 in AUDIT_v0.5.md).
+- **WEB01 stores** in Z4: Personal y 212, Intermediate y 316, Trusted Root y 420 (212 × 96 each, compact anatomy), and the **IIS site card** at y 524 (212 × 68): "IIS https · 443 · SNI", the host name, and the bound certificate (temporary self-signed → new certificate ✓, or the fault state).
+- **CLIENT01 Trusted Root card** in Z6: x 1340, y 470, 212 × 104. It shows the Root with "anchor · no private key" and its source, or "No SIMSI2027 Root CA" in `untrusted-root`.
+- **PUB strip** (PKIWEB01, AIA and CDP as separate endpoints) only in milestones 8–9. **Offline Trust** stays muted. The dotted "signed the Issuing CA certificate earlier (offline)" link runs to the Z3 station in milestone 8 or while a CA certificate is inspected, and is hidden while the final card occupies the top band.
+- The **actor badge** sits on the acting zone (`actorZone`). Example: at `t-submit` the CA receives the request in Z3 while "Morgan acts" sits on Z2. In Z4 the badge is drawn inside the station card.
+
+### Routes
+Exactly one active orthogonal route per step that moves something, labelled with its channel from a fixed set: "DNS, then TCP 443", "support ticket", "local file", "RPC/DCOM", "IIS binding (local)", "HTTPS 443 / TLS", "HTTP (AIA)", "HTTP (CDP)", and the WEB01 internal association.
+- **Wire lane:** CLIENT01 (Z1) ↔ On the wire (Z5) routes run under the zones at y 612 and enter through the gaps between zones (x 276 and 1056). They are indigo (`--a-hs`), the one signal colour of Act 2, so they never cross the WEB01 store cards.
+- **Accept:** the WEB01 association lane runs from the Z2 vault along y 624 to the Personal card: "certreq -accept links this certificate to the existing key — same computer (WEB01), never on the network". A failed accept is drawn blocked with the reason.
+- **Binding:** a short local route inside Z4 from Personal down the zone's inner margin to the IIS card.
+- **Revocation and AIA:** from the Z6 spotlight through the Z5/Z6 gap to the CDP endpoint, or (fault `missing-ica`) along y 620 to the AIA endpoint, drawn blocked: "HTTP (AIA) unreachable".
+- The private key is never on a route and never in Z5. At `t-proof` the Personal entry reads "signs here, in place".
+
+### Header, rail and panel
+- The header hides the path switch and the condition (single-path lesson). The title and the scene's accessible name come from the lesson.
+- **Acts:** the bottom rail groups the milestones into Act 1 "Get the certificate" (1–6) and Act 2 "Use the certificate" (7–10). Each act's label is a small tab on the bar's top hairline. Each act lays out its chips as a two-row grid, so the rail keeps one height. The current act's label uses the accent; a finished act's label turns green.
+- **Collapsed panel:** What happens · Why it is needed · Who acts · What moves (or "Nothing leaves this computer") · Open details.
+- **Expanded panel:** 1 Plain language (What is happening / Why / Who / Where / What moves / What stays private / What is checked / What could go wrong) · 2 Technical details (identity: Visitor, Subject, Operator, Requester; template cards; handshake inspector) · 3 Command or GUI path (token row; IIS Manager path segments explained the same way) · 4 Raw artifact · 5 Evidence · 6 Troubleshoot (moves to position 2 and opens when a fault halts).
+- **Glossary chips:** the first use of TLS, SNI, CSR, SAN, EKU, KU, AIA, CDP, CRL, CertificateVerify or trust anchor in a section is a focusable button. It opens a one-line definition under the sentence.
+- **Final card:** "Trusted connection: portal.simsi2027.test is who it says it is", with a Follow-up list (renew before 2027-10-30, runbook, remove the temporary certificate, close the ticket), Restart and Reverse evidence.

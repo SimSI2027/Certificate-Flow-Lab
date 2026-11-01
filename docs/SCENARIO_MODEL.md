@@ -146,3 +146,40 @@ Where the release specification was impossible or ambiguous, the closest faithfu
 - **Condition long-term fix:** `trust-missing.longTerm` is shown at the trust check and the installation steps.
 - **Path B wording:** the leaf is "Installed leaf" (there is no accept step), and its certificate card says "Installed automatically by the enrollment wizard on DC01".
 - **Removed:** the unreachable classic-DC code (`src/ui/details-dc.js`, `DC_EXPLAIN`, `isDc` branches, DC entities).
+
+
+## v0.5.0 Website TLS story model
+### Files
+`src/scenarios/story-common.js` (configuration marker, never-executed banner, evidence kinds, zone geometry, command builder; `dc/shared.js` re-exports it) · `tls/shared.js` (zones, stores, template cards, artifact vocabulary, glossary, command tokens, IIS GUI path, actors, initial state, 12 faults, step builder) · `tls/steps.js` (acts, 10 milestones, 26 steps, follow-up, reverse evidence, tour) · `tls/evaluate.js` (parser-backed evidence) · `tls-manual-enrollment.js` (thin default export: id unchanged, `layoutMode: 'story-zones'`, `pathId: 'main'` without a `paths` map, `story` descriptor, `resolveFixture`, `evaluate`).
+
+### Acts, milestones and steps
+Act 1 "Get the certificate": **See the problem** (t-visit, t-warning, t-report) · **Plan the certificate** (t-owner, t-requirements, t-inf) · **Create key and CSR** (t-new, t-inspect-csr) · **Submit and issue** (t-submit, t-policy, t-sign, t-return) · **Install** (t-accept, t-stores) · **Bind in IIS** (t-bind, t-ready).
+Act 2 "Use the certificate": **Connect (TLS handshake)** (t-retry, t-hello, t-cert-msg, t-proof) · **Build the chain** (t-chain, t-signatures) · **Check the certificate** (t-checks, t-revocation) · **Trusted connection** (t-trusted, t-followup).
+
+### Step schema (additions to the v0.4.0 schema)
+`act`, `actorZone` (the badge zone), `explain {what, why, who, where, moves, staysPrivate, checked, canGoWrong}`, `technical[]`, `gui {text, tokens}` (IIS Manager path, every segment explained), `storeTargets[]`, `keyUse`, and `connector.wire` / `connector.bind`. Actors: VIS (Jordan), OWN (Morgan), CA, CLI (CLIENT01), WEB (WEB01).
+
+### State (additions)
+`dnsState, iisBindingState, serverReady, handshake, handshakeChain, proofState, clientTrust {root, source}`. WEB01's `trust` starts as present from Enterprise (AD).
+
+### Faults (each: symptom, evidence with kind, owner, remediation, stops, long term)
+| Fault | Halts at | Evidence kind | Effects on earlier steps |
+|---|---|---|---|
+| no-enroll-permission | t-policy | Simulated environment | — |
+| template-not-published | t-policy | Simulated environment | — |
+| user-context | t-accept | Real fixture data (fault INF) + Simulated | t-inf, t-new: key and request in Morgan's user store |
+| no-private-key | t-bind | Derived conclusion + Real | t-accept: imported, not accepted (unlinked); request still pending |
+| wrong-binding | t-cert-msg | Real (self-signed fixture) + Simulated | t-bind: binding still self-signed |
+| missing-ica | t-chain | Simulated environment | WEB01 Intermediate empty; t-cert-msg sends only the leaf; blocked AIA route |
+| untrusted-root | t-chain | Simulated environment | CLIENT01 Trusted Root empty |
+| wrong-dns / expired / wrong-eku | t-checks | Real fixture data | — |
+| revoked | t-revocation | Real fixture data | — |
+| cdp-unavailable | t-revocation | Simulated environment (hard-fail in this client) | — |
+
+`faults[].connector` adds a fault-specific route to a step. `faults[].notes` explain on a step how the fault changed it ("In the selected fault: …").
+
+### Reverse evidence (11 items)
+Why trusted? (Derived) · Right name, dates, purpose? (Real) · Not revoked? (Real) · Chain reaches a trusted Root on CLIENT01? (Real + Simulated) · Server proved key possession? (Derived + Real) · Correct certificate bound with SNI? (Simulated) · Leaf linked to WEB01's key? (Real + Simulated) · Who issued it, for whom, under which template? (Real + Simulated) · CSR proof of possession? (Real) · Key generated on WEB01 in machine context? (Real + Simulated) · Why the work started (Simulated). A fault run starts with "Why is the connection NOT trusted?".
+
+### Retired
+The classic 19-stage model (`visit` … `trust`), `tls-presentation.js`, `explain.js`, the classic `evaluate()` in `model.js`, and the `ENV.template` / `TEMPLATE` ("WebServer" with a v2 OID) constants.

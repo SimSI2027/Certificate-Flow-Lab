@@ -40,3 +40,14 @@
 - **Copy buttons use the browser clipboard API.** Where clipboard access is blocked, the button says "Copy failed" and the text can be selected by hand. Nothing is ever executed.
 - **The artifact travel animation is decorative.** It plays once per step (750 ms) and never changes state; reduced-motion users see instant state changes.
 - **Regenerating fixtures rotates every key.** Signing keys are never persisted, so `npm run fixtures:generate` changes every thumbprint. The release keeps the committed v0.4.0 fixture set; regeneration was verified in a scratch run and then reverted.
+
+
+## v0.5.0 Website TLS story
+- **TLS 1.3 is simplified.** The lesson shows ClientHello (with SNI and a key share), ServerHello, the Certificate message, CertificateVerify and Finished. EncryptedExtensions, HelloRetryRequest, session resumption, 0-RTT, ALPN, certificate compression and the key schedule are not modelled. The chosen version (TLS 1.3), cipher suite (TLS_AES_256_GCM_SHA384) and group (x25519) are simulated values. TLS 1.2 differences are described in Technical details only.
+- **Ordering.** For clarity the chain, name, date, purpose and revocation checks are shown after CertificateVerify. A real client performs them while it processes the server's messages, before it sends its own Finished (the Technical details say so).
+- **Browser revocation behaviour differs.** Browsers and client policies treat revocation differently; some do not perform online CRL checks for most certificates. The simulated client follows the Windows chain engine with revocation checking on and fails closed when the CDP is unreachable. This is marked "Depends on your configuration".
+- **OCSP is not modelled** (future extension). Certificate Transparency, HSTS, pinning and client certificates are out of scope.
+- **Browser wording is generic.** The warning page wording differs by browser.
+- **IIS and HTTP.sys are simulated.** The binding, the key use by HTTP.sys and `netsh http show sslcert` are described, never executed. Web-farm key sharing (exportable keys, centralized certificates) is mentioned only as configuration-dependent.
+- **Template and permissions are simulated.** SIMSI2027WebServer, its Enroll group and "no approval" are lesson values. The built-in WebServer description (version 1; Domain Admins and Enterprise Admins Enroll by default) is general background marked "Depends on your configuration".
+- **Dark mode now covers every screen**; the classic TLS workspace that stayed light no longer exists.

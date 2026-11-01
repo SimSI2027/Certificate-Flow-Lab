@@ -109,3 +109,38 @@ Both CSR signatures verify and contain no private-key material; leaf SPKI equals
 
 ## v0.4.1
 No fixture changed. The committed v0.4.0 set is kept. `npm run fixtures:generate` was run in a scratch check: it completed and its output passed `fixtures:validate`. Because keys are never persisted, every thumbprint rotated, so the committed set was restored with `git checkout -- fixtures`. Thumbprints in the v0.4.0 table above remain current.
+
+
+## v0.5.0 Website TLS fixtures
+The TLS lesson's fixtures were regenerated to the v0.5.0 rules (CLAUDE.md "Website TLS truth rules"). Because the Issuing CA key is never persisted, the whole hierarchy was regenerated, so every thumbprint changed. Subjects, serials, SANs, validity and the DC INFs are unchanged (see docs/AUDIT_v0.5.md, Deviations).
+
+| path | notes |
+|------|-------|
+| `requests/portal-request.inf` | **new.** Teaching request policy: Subject `CN=portal.simsi2027.test, O=SIMSI2027 Synthetic Demo`, KeyLength 2048, KeySpec 1, KeyUsage 0xA0, Exportable FALSE, MachineKeySet TRUE, Microsoft RSA SChannel Cryptographic Provider (type 12), PKCS10, SHA256, `CertificateTemplate = SIMSI2027WebServer`, SAN `dns=portal.simsi2027.test` |
+| `requests/fault-portal-user-context.inf` | **new.** The same policy with `MachineKeySet = FALSE` (fault `user-context`) |
+| `requests/portal.simsi2027.test.{csr,der}` | Template as name-value attribute 1.3.6.1.4.1.311.13.2.1 (`SIMSI2027WebServer`), client information 1.3.6.1.4.1.311.21.20 (`WEB01.simsi2027.test`, `SIMSI2027\Morgan`, `certreq.exe`), requested extensions SAN + Key Usage only. **Removed:** the template-name extension 1.3.6.1.4.1.311.20.2 and the requested EKU (the template sets the EKU). |
+| `certificates/portal.simsi2027.test.{cer,pem}` | SAN dNSName portal.simsi2027.test, EKU Server Authentication, KU digitalSignature + keyEncipherment (critical), template information 1.3.6.1.4.1.311.21.7 (`1.3.6.1.4.1.311.21.8.2027.1.1` v100.4, resolved to SIMSI2027WebServer). **Removed:** 1.3.6.1.4.1.311.20.2. Public key = CSR public key. Serial …CC10, valid 2026-10-30 to 2027-10-30. |
+| `certificates/portal-handshake-chain.pem` | **new.** The certificate list WEB01 sends in the TLS Certificate message: leaf + Issuing CA (the Root is not sent) |
+| `certificates/portal.simsi2027.test-chain.pem` | The chain CLIENT01 builds: leaf, Issuing CA, Root |
+| `certificates/fault-wrong-dns.*`, `requests/fault-wrong-dns.*` | SAN `www.portal.simsi2027.test` (was `web01.simsi2027.test`) |
+| `certificates/fault-wrong-eku.*` | Client Authentication only, from the v2 template `SIMSI2027WorkstationAuth` ("SIMSI2027 Workstation Authentication", `…2027.1.7` v100.2) |
+| `certificates/fault-expired.*`, `certificates/fault-revoked.*` | Unchanged rules (notAfter 2026-09-30; serial …CC14 listed in CRL #27) |
+| `certificates/fault-portal-selfsigned.{cer,pem}` | **new.** The temporary self-signed certificate behind the initial warning (`CN=portal.simsi2027.test`, issuer = subject, its own key; public only) |
+
+TLS manifest entries use request ID **1043** (the DC lesson keeps 1042), and their `stage` values are TLS step ids (`t-new`, `t-sign`, `t-cert-msg`, …).
+
+### Thumbprints (v0.5.0 set, SHA-1 / SHA-256, first 16 hex digits)
+| file | SHA-1 | SHA-256 |
+|---|---|---|
+| simsi2027-rootca.cer | 36FBC98923B18F53… | F31CC2E374424C46… |
+| simsi2027-ica01.cer | 36324774114D0FAA… | D273D0D146253D29… |
+| portal.simsi2027.test.cer | 26E39AC8572A507C… | 74A00A6C6FBE9E17… |
+| fault-portal-selfsigned.cer | 27359EA894D62F92… | 2D28D6736A72ACB8… |
+| portal.simsi2027.test.der (CSR) | 435E87103CA27324… | AFAABF8A0C93D9E2… |
+| SIMSI2027-ICA01.crl | 7F81DBF6FE48FD0E… | 086D3A7C0FB45ADC… |
+
+### Validation (151 checks)
+`npm run fixtures:validate` now also checks: caConfig derived from the shared CA constants and equal to the Issuing CA CN; every portal CSR, INF and leaf field above; leaf SPKI = CSR SPKI; leaf signed by the Issuing CA and not the Root; the handshake chain is exactly leaf + Issuing CA; the CRL lists exactly the revoked fault leaf and the synthetic serial; every fault leaf is signed by the Issuing CA for the WEB01 key; the self-signed certificate; no 1.3.6.1.4.1.311.20.2 on any v2-template certificate; every TLS fault's first evidence failure at its declared step; and no private-key material anywhere in the tree (also `.inf` and `.req`).
+
+### Native viewer allowlist
+`fault-portal-selfsigned.cer` was added (16 CER files). PEM chains, CSRs, CRLs and INFs are never offered to the native viewer.

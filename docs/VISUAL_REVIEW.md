@@ -73,3 +73,33 @@ The screenshots were then reviewed by eye in three passes: Generator (what works
 | The card footer placed the return package and the Root/Issuing CA copies "on PKI-TRANSFER01" after they had reached DC01 | Step-aware wording ("on DC01, in the return package", "from the return package on DC01"); unit test |
 
 **Final result:** 136/136 screens pass in light and dark; axe reports 0 violations; the token contrast test passes for both themes. Accepted, non-material: the 1600x720 plate keeps its aspect ratio, which leaves space above and below at 1920x1080; the TLS classic workspace stays light in dark mode by design.
+
+
+## v0.5.0 Website TLS story
+`review:visual` now captures 63 screens at 1920x1080 and 1366x768 in light and dark: **252 screenshots**. That is the DC set plus, for TLS, before START FLOW, the completed last step of all 10 milestones, four faults (no-enroll-permission, wrong-binding, missing-ica, wrong-dns), 14 inspector views (INF, CSR, request record, leaf, WEB01 stores, Issuing CA, IIS binding, handshake, CLIENT01 Trusted Root, Root, CRL, temporary certificate, private key, an open glossary chip), reverse evidence and full topology. The old classic-layout shots (L1, L2) were retired with the classic workspace. The active-route check now counts fault-specific routes (the blocked AIA download in missing-ica) and applies the same rule in reverse evidence.
+
+Every screenshot was looked at, then reviewed in three roles. The **Generator** asked whether the picture shows the step. The **Adversary** asked whether a learner would understand *why* the step happens, and what is cluttered, sparse, misleading or low-contrast. The **Normalizer** decided what to change and what to accept.
+
+### Iteration 1 — first TLS screens
+| Finding (Adversary) | Decision (Normalizer) |
+|---|---|
+| A CLIENT01 ↔ "On the wire" route on the middle lane would cross the WEB01 store cards while zone 4 is shown during the handshake | New "wire" lane under the zones, entering through the gaps between zones. Indigo, so Act 2's messages read as network traffic. |
+| "Temporary certificate" ran into the card edge; the vault line "stays on WEB01 · non-exportable" touched its edge; "signs the handshake here" overflowed the store entry | "Temporary cert" with the tag "self-signed by WEB01 · the browser warns"; "never leaves WEB01"; "signs here, in place" |
+| With step dots on the current milestone, Act 2 wrapped onto a new row and the plate jumped between steps | Each act lays out its chips as a two-row grid; the rail height never changes |
+
+### Iteration 2 — automatic checks at 1366x768
+| Finding | Fix |
+|---|---|
+| The separate act-label row made the bar taller; the TLS plate dropped to scale 0.769 (text 10.8 px) and 0.755 in fault states (banner shown) | The act label is a small tab on the bar's top hairline (still a label above the rail, no row of its own). Act chips use 1 px vertical padding with a 24 px minimum height. Scale 0.805, or 0.794 with the fault banner. |
+| Open glossary definitions were inline and overlapped the wrapped sentence | The definition follows the text as its own line |
+| The "Simulated environment" pill overlapped wrapped text in the binding, record and key cards | The pill gets its own line |
+| At the missing-ica halt the final card covered the Root history label | The muted history link is not drawn while the final card occupies the top band |
+| Reverse evidence at "Why is the connection trusted?" draws the static route of `t-trusted`, but the check expected none | The check applies the same rule in both directions |
+
+### Iteration 3 — accuracy and clarity by eye
+| Finding | Fix |
+|---|---|
+| The CLIENT01 badge said "checks" while CLIENT01 was *sending* ClientHello | "CLIENT01 acts" |
+| A learner might read the accept lane under the Issuing CA zone as "through the CA" | The lane label says "same computer (WEB01), never on the network"; both WEB01 zones are labelled "WEB01 (same computer)" |
+
+**Final result:** 252/252 screens pass in light and dark; axe reports zero serious or critical violations on 17 screens × 2 themes. Accepted, non-material: the plate keeps its 1600x720 aspect ratio (space above and below at 1920x1080); the expanded drawer below 1600 px covers zones 5–6 until it is closed; Z3 breadcrumbs keep the DC row gap between the third and fourth chip.

@@ -14,6 +14,22 @@ The public demo is a synthetic simulation and is redeployed automatically by Git
 
 ## Release notes
 
+**v0.5.0: the Website TLS Certificate lesson, redesigned as a story**
+- **One story system.** The TLS lesson now uses the same story zones as the Domain Controller lesson: one active zone, one active artifact and one active route, the calm technical plate in light and dark, a collapsed details panel and plain language first. The classic TLS workspace (dashed lanes, five tabs, scrubber, jump menu, legend, Labels and Reset camera) and its renderer were removed.
+- **Two acts, 10 milestones, 26 steps.** Act 1 "Get the certificate" (see the problem → plan → key and CSR → submit and issue → install → bind in IIS). Act 2 "Use the certificate" (TLS handshake → build the chain → check the certificate → trusted connection).
+- **Accuracy.** Corrections to the old TLS model:
+  - The CA receives request 1043 before its policy module evaluates it.
+  - `certreq -new -machine` creates the key and the CSR together.
+  - The template is the v2 duplicate SIMSI2027WebServer (no v1 name extension), and the built-in WebServer is explained.
+  - WEB01 sends the leaf and the Issuing CA certificate; AIA is used only when the intermediate is missing.
+  - CertificateVerify proves possession of the key.
+  - Session keys, not the certificate, encrypt the traffic.
+  - Revocation behaviour is marked configuration-dependent, and renewal before 2027-10-30 is the follow-up.
+  Details are in [docs/AUDIT_v0.5.md](docs/AUDIT_v0.5.md).
+- **Faults.** Twelve faults: the eight existing ones on their new steps, plus no Enroll permission, template not published, request in user context and the HTTPS binding still on the temporary certificate. Each has its symptom, evidence with its kind, owner, remediation and long-term fix.
+- **Learning aids.** Glossary chips for TLS, SNI, CSR, SAN, EKU, KU, AIA, CDP, CRL, CertificateVerify and trust anchor. Parser-backed CSR, certificate, store (WEB01 and CLIENT01) and handshake inspectors. IIS Manager GUI paths explained segment by segment. Reverse evidence in 11 items.
+- **Fixtures** were regenerated to the new rules (all thumbprints changed; see [docs/FIXTURES.md](docs/FIXTURES.md)).
+
 **v0.4.1: audited and modernized Domain Controller story**
 - **PKI accuracy.** A failed `certreq -accept` no longer looks like a success. With user context, the wrong machine, a lost pending request or a mismatched certificate, the scene shows exactly where DC01's key and pending request are, draws the DC01 link as blocked and gives the reason. Path B says the wizard installs the certificate (there is no accept step). Configuration-dependent statements read as full sentences ending "Depends on your configuration: …". The full audit is in [docs/AUDIT_v0.4.md](docs/AUDIT_v0.4.md).
 - **Accessibility.** axe reports zero violations on the home screen and the DC workspace, in light and dark. Every focusable object's accessible name starts with its visible text. There is one main landmark per screen and a skip link.
@@ -21,6 +37,12 @@ The public demo is a synthetic simulation and is redeployed automatically by Git
 - **Usability.** The URL keeps your place, so a refresh or a shared link reopens the same step. The full topology view is uncluttered.
 
 **v0.4.0:** the Domain Controller story redesign (two paths, conditions, 14 faults, story layout).
+
+### What the Website TLS lesson teaches
+- Who is who: **Jordan** (visitor on CLIENT01) only reports the warning; **Morgan** (application owner) runs every command on WEB01 and is the **requester** the CA records; the certificate **subject** is the site name portal.simsi2027.test.
+- How WEB01 gets a certificate: `certreq -new -machine` creates the key and a CSR signed with it; the CSR goes to SIMSI2027 Issuing CA 01 over RPC/DCOM; the CA receives it, checks it against SIMSI2027WebServer and creates and signs a **new** certificate with the CSR's public key; `certreq -accept -machine` links it to the key on WEB01; IIS binds it (https · 443 · host name · Require SNI).
+- How CLIENT01 comes to trust the site: ClientHello with SNI → the Certificate message (leaf + Issuing CA, never the Root) → CertificateVerify (WEB01 proves it holds the key, which never travels) → chain to the Root already in CLIENT01's store → name, dates, purpose and revocation → Finished. Session keys encrypt the traffic.
+- The certificate is not autoenrolled: renew before 2027-10-30.
 
 ### What the Domain Controller lesson teaches
 - How a Domain Controller gets a KDC-capable certificate when autoenrollment cannot reach the CA, and why that manual route is an exception, not a repair.
@@ -34,7 +56,7 @@ The public demo is a synthetic simulation and is redeployed automatically by Git
 npm install
 npm run dev                         # http://127.0.0.1:5183/  (or .\tools\windows\Launch-Demo.ps1 with the native viewer companion)
 ```
-Open **Domain Controller Manual Enrollment**, pick **Path A** or **Path B**, and press **START FLOW**. Space plays or pauses, ←/→ step, and Escape closes the details panel. Deep links work, for example `?scenario=dc-manual-certificate-request&path=csr&t=8`.
+Open **Website TLS Certificate** (or **Domain Controller Manual Enrollment** and pick **Path A** or **Path B**) and press **START FLOW**. Space plays or pauses, ←/→ step, the milestone chips jump, and Escape closes the details panel. Deep links work, for example `?scenario=tls-manual-enrollment&t=19` or `?scenario=dc-manual-certificate-request&path=csr&t=8`.
 
 ### Project skills
 - `.claude/skills/pki-accuracy-review/` (project-owned, committed): the PKI truth review that runs before every release.
@@ -47,7 +69,7 @@ Open the app and pick a scenario.
 
 | Scenario | Story |
 |----------|-------|
-| **Website TLS Certificate** (unchanged) | A visitor reports a browser warning. The application owner (not the visitor) requests a certificate; WEB01 keeps its private key, the Issuing CA signs, IIS binds it and CLIENT01 validates name, dates, EKU, signatures, root trust and revocation. Classic focused layout. |
+| **Website TLS Certificate** (v0.5.0 story) | Jordan sees a certificate warning (a temporary self-signed certificate) and reports it. Morgan, the application owner, creates the key and CSR on WEB01, submits to the Issuing CA, accepts the new certificate and binds it in IIS; then CLIENT01 follows the TLS handshake, builds the chain to its trusted Root and checks name, dates, purpose and revocation. Two acts, 10 milestones, 26 steps, 12 faults. Zones: CLIENT01 · WEB01 key and request · Issuing CA · WEB01 install and IIS · On the wire · CLIENT01 validation and trust store. |
 | **Domain Controller Manual Enrollment** | DC01 has no certificate with KDC Authentication because autoenrollment could not reach the Issuing CA. Choose a path. **Path A, Manual CSR transfer** (24 steps, 10 milestones): `certreq -new -machine` creates the key and the signed CSR on DC01; the CSR alone travels through PKI-TRANSFER01; PKIOperator submits it for the controlled template DCOfflineKerberosAuth; a certificate manager approves; ICA01 creates and signs a new certificate; the public return package comes back; the Root is verified by thumbprint; the Root and Issuing CA certificates are installed; and `certreq -accept` runs on the original DC01. **Path B, Certificates MMC enrollment** (11 steps, 6 milestones): DC01 can reach ICA01, so the Certificates (Local Computer) wizard enrolls as SIMSI2027\DC01$ for KerberosAuthentication. |
 
 The DC story is drawn as six fixed zones: DC01, request package, controlled transfer, Issuing CA, return package, and the DC01 certificate stores. An Offline Trust box and a PKIWEB01 strip complete the picture. The rule is **one active zone, one active artifact, one active route**. The private key stays in a DC01 key vault ("Certificate Enrollment Requests") until `certreq -accept` links it across a "same computer, never on the network" lane. The Root CA only ever appears as a muted "signed the Issuing CA certificate earlier (offline)" link.
@@ -63,14 +85,16 @@ The DC story is drawn as six fixed zones: DC01, request package, controlled tran
 
 Manual enrollment is an **exception, not a repair**: the last step lists the open items (the RPC/DCOM firewall rule, autoenrollment Group Policy and permissions, trust distribution, CDP/AIA reachability, replacing and revoking the manual certificate, unpublishing the temporary template).
 
-### The details drawer (TLS, classic layout)
-**Explain** (what, why, who, where, what moves next, what stays private, what can go wrong, in plain language) · **Technical details** · **Artifact** (the real parser-backed inspector with a friendly summary first, downloads and, locally, the Windows Certificate Viewer) · **Evidence** (each item labelled *Real fixture data*, *Simulated environment*, *Derived conclusion* or *User-selected fault*) · **Troubleshoot** (expected vs. current, causes, owner, checks, remediation; a collapsed *Developer state*). Pause at any step and click any object or artifact; nothing resets.
+### The Website TLS lesson on screen (v0.5.0)
+**Header:** Home · title · START FLOW (replaced by "Step n of 26 · title") · Forward flow | Reverse evidence · Fault · Show full topology · Guided tour (10 stops). **Bottom bar:** the milestone chips grouped under "Act 1: Get the certificate" and "Act 2: Use the certificate", then Previous · Play/Pause · Next · Restart · Speed.
+**Details panel** (collapsed by default: what happens, why it is needed, who acts, what moves): 1 Plain language (eight questions, with glossary chips) · 2 Technical details (Visitor, Subject, Operator and Requester as separate fields; CSR, certificate, WEB01 and CLIENT01 store and handshake inspectors) · 3 Command or GUI path (every token or IIS Manager segment explained; "Shown for learning; never executed by this simulator."; copy only) · 4 Raw artifact · 5 Evidence · 6 Troubleshoot (moves up when a fault stops the flow). Pause at any step and click any object; nothing resets.
+**What you see:** the key vault on WEB01 from `certreq -new` to `-accept`; the WEB01 stores and the IIS site card in zone 4; the TLS messages in indigo on the wire lane under the zones; CLIENT01's Trusted Root store in zone 6; the PKIWEB01 strip (AIA and CDP, separate) only while the chain and revocation are checked.
 
 ### Forward lifecycle and reverse evidence
-Forward walks the stages (named milestone rail, Previous / Next / Play / Pause, 0.25x to 2x). **Reverse evidence is not a reversed animation**: the finished world stays put while the trace answers *why is this trusted / suitable?* back to the request and requester, citing evidence for every step. In a failure it starts from *why is it not trusted?*.
+Forward walks the steps (named milestone rail, Previous / Next / Play / Pause, 0.5x to 2x). **Reverse evidence is not a reversed animation**: the finished world stays put while the trace answers *why is this trusted / suitable?* back to the request and requester, citing evidence for every step. In a failure it starts from *why is it not trusted?*.
 
 ### Failures
-TLS: wrong DNS name, expired, untrusted root, wrong EKU, missing issuing CA certificate, revoked, CDP unavailable, certificate installed without its private key. Each halts at the correct step with evidence, the owning role and remediation. Domain Controller faults are listed above.
+TLS (in lesson order): no Enroll permission, template not published, request in user context, certificate installed without its private key, HTTPS binding still on the temporary certificate, Issuing CA certificate missing (with an unreachable AIA), Root not trusted on CLIENT01, wrong name, expired, wrong purpose (Client Authentication only), revoked, CRL not reachable. Each halts at its step with evidence, the owning role and remediation. Domain Controller faults are listed above.
 
 ### Real fixtures
 `fixtures/` holds the synthetic Root CA, Issuing CA, website certificate, Domain Controller certificate, CSRs, CRL #27, chain files, the teaching INF and fault variants, described by `fixtures/manifests/manifest.json`. Every displayed certificate field is parsed from these files in the browser (see `docs/FIXTURES.md`).
@@ -100,7 +124,7 @@ npm install
 `Ctrl+C` stops both child processes and their trees. npm: `npm run dev`, `npm run build`, `npm test`, `npm run test:e2e`, `npm run fixtures:validate`, `npm run test:pages`, `npm run video`.
 
 ### Video
-`npm run video` renders `output/certificate-flow-lab-v<version>.mp4` (v0.4.0: `certificate-flow-lab-v0.4.0.mp4`; 1920x1080, 60 fps, H.264, yuv420p, faststart, silent) and the matching `-contact-sheet.jpg`. It drives the canonical scenario state frame by frame, with no screen recording: title, home, a TLS segment, the DC Path A story, reverse evidence, full topology and the outro. Output is git-ignored.
+`npm run video` renders `output/certificate-flow-lab-v<version>.mp4` (v0.5.0: `certificate-flow-lab-v0.5.0.mp4`; 1920x1080, 60 fps, H.264, yuv420p, faststart, silent) and the matching `-contact-sheet.jpg`. It drives the canonical scenario state frame by frame, with no screen recording: title, home, the TLS story (26 steps, both acts), the DC Path A story, reverse evidence, full topology and the outro. Output is git-ignored.
 
 ### Deployment
 Every push to `main` runs tests, fixture validation, the production build and a base-path smoke test, then deploys GitHub Pages. The footer on the home screen shows the version and commit; `version.json` on the site records the deployed commit.
@@ -111,7 +135,7 @@ npm test                    # unit + integration (Vitest)
 npm run test:e2e            # Playwright against installed Microsoft Edge
 npm run fixtures:validate   # validates the real certificate/CSR/CRL/chain fixtures
 npm run fixtures:generate   # regenerates fixtures (new keys, new thumbprints)
-npm run review:visual       # 136 screenshots (1920x1080, 1366x768, light + dark) + layout checks into screenshots/visual-review/
+npm run review:visual       # 252 screenshots (1920x1080, 1366x768, light + dark) + layout checks into screenshots/visual-review/
                             # npm run test:e2e also runs the axe accessibility gate (tests/e2e/a11y.spec.js)
 ```
 
@@ -119,4 +143,4 @@ npm run review:visual       # 136 screenshots (1920x1080, 1366x768, light + dark
 See [docs/LIMITATIONS.md](docs/LIMITATIONS.md). Planned: NDES / SCEP device enrollment, CEP / CES enrollment, autoenrollment, AIA and CDP diagnostics, OCSP, smart-card, device and user certificates, client authentication and cross-forest enrollment ([docs/FUTURE_SCENARIOS.md](docs/FUTURE_SCENARIOS.md)). They appear only as a quiet "Coming later" list on the home screen.
 
 ## Documentation
-[UX layout](docs/UX_LAYOUT.md) · [Visual review](docs/VISUAL_REVIEW.md) · [v0.4 audit](docs/AUDIT_v0.4.md) · [Architecture](docs/ARCHITECTURE.md) · [Scenario model](docs/SCENARIO_MODEL.md) · [Fixtures](docs/FIXTURES.md) · [Limitations](docs/LIMITATIONS.md) · [Future scenarios](docs/FUTURE_SCENARIOS.md) · [Icon sources](assets/icons/SOURCES.md)
+[UX layout](docs/UX_LAYOUT.md) · [Visual review](docs/VISUAL_REVIEW.md) · [v0.5 audit](docs/AUDIT_v0.5.md) · [v0.4 audit](docs/AUDIT_v0.4.md) · [Architecture](docs/ARCHITECTURE.md) · [Scenario model](docs/SCENARIO_MODEL.md) · [Fixtures](docs/FIXTURES.md) · [Limitations](docs/LIMITATIONS.md) · [Future scenarios](docs/FUTURE_SCENARIOS.md) · [Icon sources](assets/icons/SOURCES.md)

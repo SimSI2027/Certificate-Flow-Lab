@@ -92,3 +92,12 @@ No network calls beyond serving static files. Downloads are generated client-sid
 - **story-app.js:** URL sync (`history.replaceState`), the rail rewritten only when its state changes, copy buttons (copy only), token explanations on focus/hover, final-card open items.
 - **Skip link and landmarks:** `index.html` has one visible `<main>` per screen (home, story, classic) and a skip link that follows it.
 - **Quality gates:** `tests/e2e/a11y.spec.js` (axe), `tests/unit/theme-contrast.test.js` (token contrast), and `scripts/validation/visual-review.mjs`. The visual review covers 34 screens × 2 sizes × light/dark, checks the exact active-connector rule, and checks that no HTML overlay covers SVG text.
+
+
+## v0.5.0: one story system, classic Scene removed
+- **Removed:** `src/views/scene.js` (the classic Scene renderer), `src/views/status.js`, `src/entities/entities.js`, `src/ui/details.js`, `src/ui/teach.js`, `src/inspectors/inspector.js`, `src/scenarios/tls-presentation.js`, `src/scenarios/explain.js`, `scripts/validation/screenshots.mjs`, the classic markup in `index.html` and the classic CSS. Nothing used them once the TLS lesson moved to the story layout. The layers list above is historical for `entities/`, `inspectors/` and the classic `views/` modules.
+- **Story descriptor:** a scenario may export `story` (zones, artifact vocabulary, labels, actor texts, store zone and stores, vault zone, CA zone, IIS and client-root cards, association labels, `whereText`). `storyOf(sc)` returns it or the built-in `DC_STORY`, so `story-layout.js` and `story-scene.js` serve both lessons with the DC output unchanged.
+- **Panels per lesson:** `StoryController.P` picks `story-panel.js` (DC) or `tls-panel.js` (TLS); both expose the same builders (summary, plain, technical, command, raw, evidence, troubleshoot, final card, section order).
+- **Evidence:** every scenario supplies `evaluate()`; `evaluateAll` no longer has a built-in default.
+- **App:** `App` always runs the story controller. The guided tour drives the story session.
+- **Film:** both film segments run the story layout (`src/film/schedule.js`: TLS 26 steps, then DC Path A).
