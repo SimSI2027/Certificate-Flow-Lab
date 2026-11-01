@@ -61,7 +61,7 @@ export class StoryScene {
     const ot = m.ot.rect;
     out += `<g class="ot ${m.ot.emphasis ? 'emph' : 'muted'}" data-sel="entity:rootca" tabindex="0" role="button" aria-label="Offline trust: SIMSI2027 Root CA, offline. Not contacted for this request.">
       <rect x="${ot.x}" y="${ot.y}" width="${ot.w}" height="${ot.h}" rx="10"/>${icon('a-cert-anchor', ot.x + 10, ot.y + 22, 40)}
-      ${txt(ot.x + 58, ot.y + 26, 'Offline trust', 't16')}${txt(ot.x + 58, ot.y + 48, 'SIMSI2027-ROOTCA (offline)')}${txt(ot.x + 58, ot.y + 70, 'Not contacted for this request')}</g>`;
+      ${txt(ot.x + 58, ot.y + 26, 'Offline trust', 't16')}${txt(ot.x + 58, ot.y + 48, 'SIMSI2027-ROOTCA')}${txt(ot.x + 58, ot.y + 70, 'offline · not contacted')}</g>`;
     // Zones
     for (const z of m.zones) out += this.zoneHtml(z, m, sel);
     // PUB strip (verify milestones only): AIA and CDP are two separate labelled endpoints.
@@ -93,7 +93,7 @@ export class StoryScene {
 
   zoneHtml(z, m, sel) {
     const label = `Zone ${z.n}: ${z.name}${z.sameComputer ? ' (DC01, same computer)' : ''}. ${z.mode}`;
-    let h = `<g class="zone z-${z.mode}" data-zone="${z.id}" data-mode="${z.mode}"><rect class="zrect" x="${z.x}" y="${z.y}" width="${z.w}" height="${z.h}" rx="12"/>`;
+    let h = `<g class="szone z-${z.mode}" data-zone="${z.id}" data-mode="${z.mode}"><rect class="zrect" x="${z.x}" y="${z.y}" width="${z.w}" height="${z.h}" rx="12"/>`;
     if (z.station) {
       const r = z.station; const badgeIn = m.badge?.inStation && m.badge.zone === z.id;
       h += `<g class="station" data-sel="zone:${z.id}" tabindex="0" role="button" aria-label="${esc(label)}"><rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" rx="8"/>${txt(r.x + 12, r.y + 24, z.title, 't16')}`;
@@ -101,7 +101,7 @@ export class StoryScene {
       else z.lines.forEach((l, i) => { h += txt(r.x + 12, r.y + 42 + i * 17, l); });
       h += '</g>';
     } else {
-      h += `<g class="ph" data-sel="zone:${z.id}" tabindex="0" role="button" aria-label="${esc(label)}">${txt(z.x + 16, 162, z.title, 't16 ph-t')}${txt(z.x + 16, 184, z.lines[0], 't14 ph-t')}</g>`;
+      h += `<g class="ph" data-sel="zone:${z.id}" tabindex="0" role="button" aria-label="${esc(label)}">${txt(z.x + 16, 162, z.title, 't16 ph-t')}${z.lines.map((l, i) => txt(z.x + 16, 184 + i * 17, l, 't14 ph-t')).join('')}</g>`;
     }
     for (const c of z.crumbs) {
       const r = c.rect; const a = ARTIFACTS[c.artifact];
@@ -136,7 +136,7 @@ export class StoryScene {
       const a = ARTIFACTS[e.artifact];
       h += `<g class="entry ${e.active ? 'active' : ''} ${sel === e.artifact ? 'selected' : ''}" data-sel="artifact:${e.artifact}" data-artifact="${e.artifact}" data-key="${e.key}" tabindex="0" role="button" aria-label="${esc(`${a.label} in ${s.full}: ${e.label}. ${e.keyText}${e.source ? `. Source: ${e.source}` : ''}. Open details`)}">
         <rect x="${r.x + 8}" y="${r.y + 36}" width="${r.w - 16}" height="${r.h - 44}" rx="6"/>${icon(a.icon, r.x + 12, r.y + 42, 28)}${txt(r.x + 46, r.y + 58, e.label, 't14b')}
-        ${txt(r.x + 46, r.y + 78, e.key ? 'private key on DC01 ✓' : e.keyText.split(' · ')[0])}${txt(r.x + 46, r.y + 96, e.source ? `source: ${e.source.replace(' (manual, emergency)', ' (emergency)')}` : e.key ? 'linked by certreq -accept' : '', 't14')}</g>`;
+        ${txt(r.x + 46, r.y + 78, e.key ? 'private key on DC01 ✓' : e.keyText.split(' · ')[0])}${txt(r.x + 46, r.y + 96, e.source ? `source: ${e.source.replace(' (manual, emergency)', ' (emergency)')}` : e.key ? (this.sc?.pathId === 'mmc' ? 'installed by the wizard' : 'linked by -accept') : '', 't14')}</g>`;
     }
     return `${h}</g>`;
   }

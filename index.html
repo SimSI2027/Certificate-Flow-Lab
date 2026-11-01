@@ -12,7 +12,27 @@
   <section id="home" class="home" aria-label="Scenario home"></section>
 
   <div id="workspace" class="workspace" hidden>
-    <header class="wtop">
+    <header class="stop story-only" aria-label="Story controls">
+      <div class="srow">
+        <button id="s-home" class="btn small">&larr; Home</button>
+        <h1 id="s-title" class="stitle">Domain Controller Manual Enrollment</h1>
+        <div class="seg" role="group" aria-label="Path">
+          <button class="btn seg" data-path="csr" aria-pressed="true">Manual CSR transfer</button><button class="btn seg" data-path="mmc" aria-pressed="false">Certificates MMC enrollment</button>
+        </div>
+        <label class="sl">Condition <select id="s-condition" aria-label="Condition"></select></label>
+      </div>
+      <div class="srow">
+        <button id="s-start" class="btn primary start">START FLOW</button>
+        <p id="s-caption" class="caption" aria-live="polite" hidden></p>
+        <div class="seg" role="group" aria-label="Direction">
+          <button id="s-fwd" class="btn seg" aria-pressed="true">Forward flow</button><button id="s-rev" class="btn seg" aria-pressed="false">Reverse evidence</button>
+        </div>
+        <label class="sl">Fault <select id="s-fault" aria-label="Fault"></select></label>
+        <label class="chk"><input type="checkbox" id="s-full" /> Show full topology</label>
+        <button id="s-tour" class="btn small" aria-pressed="false">Guided tour</button>
+      </div>
+    </header>
+    <header class="wtop classic-only">
       <button id="btn-back" class="btn small">&larr; Scenarios</button>
       <div class="wtitle"><h1 id="ws-title"></h1><p id="ws-sub" class="subtitle"></p></div>
       <div class="wtools">
@@ -25,7 +45,15 @@
     </header>
     <div id="fault-banner" class="fault-banner" role="alert" hidden></div>
 
-    <main class="layout">
+    <main class="slayout story-only">
+      <section class="sstage" aria-label="Domain Controller story">
+        <div class="tour-bar s-tour-bar" hidden role="status" aria-live="polite"><strong class="s-tour-step"></strong><span class="s-tour-text"></span><button class="btn small s-tour-resume" hidden>Resume now</button></div>
+        <svg id="story-scene" class="story-scene" role="group" aria-label="Domain Controller enrollment story: six zones"></svg>
+        <div id="final-card" class="final-card" role="region" aria-label="Result" hidden></div>
+      </section>
+      <aside id="spanel" class="spanel" aria-label="Details" data-open="false"></aside>
+    </main>
+    <main class="layout classic-only">
       <section class="stage-wrap" aria-label="Certificate flow">
         <div id="tour-bar" class="tour-bar" hidden role="status" aria-live="polite">
           <strong id="tour-step"></strong><span id="tour-text"></span><button id="btn-tour-resume" class="btn small" hidden>Resume now</button>
@@ -52,7 +80,17 @@
       </aside>
     </main>
 
-    <footer class="controls" aria-label="Stage rail and playback controls">
+    <footer class="sbar story-only" aria-label="Milestones and playback">
+      <nav id="s-rail" class="srail" aria-label="Milestones"></nav>
+      <div class="sctl" role="group" aria-label="Playback">
+        <button id="s-prev" class="btn">&#9664; Previous</button>
+        <button id="s-play" class="btn primary" aria-pressed="false">&#9654; Play</button>
+        <button id="s-next" class="btn">Next &#9654;</button>
+        <button id="s-restart" class="btn">Restart</button>
+        <label class="sl">Speed <select id="s-speed" aria-label="Speed"><option value="0.5">0.5x</option><option value="1" selected>1x</option><option value="2">2x</option></select></label>
+      </div>
+    </footer>
+    <footer class="controls classic-only" aria-label="Stage rail and playback controls">
       <div class="stepinfo">
         <div class="stepmeta"><span id="step-count" class="step-count"></span><strong id="step-title"></strong></div>
         <p id="step-purpose" class="step-purpose"></p>

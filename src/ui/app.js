@@ -12,6 +12,7 @@ import { Tour, TOUR_RESUME_MS } from '../tour/tour.js';
 import { Native } from './native.js';
 import { nativeIdForFilename } from '../artifacts/native-ids.js';
 import { COMING_LATER } from '../scenarios/index.js';
+import { StoryController } from './story-app.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -27,6 +28,8 @@ export class App {
     this.scene = new Scene($('#scene'), (sel) => this.select(sel));
     this.native = new Native();
     this.tour = new Tour([], this.tourApi(), { resumeMs: Number(params.get('tourResume')) || TOUR_RESUME_MS });
+    this.storyCtl = new StoryController(this); this.storyMode = false; this.sigs = {}; this.sigList = [];
+    this.computeSigs().then(() => this.render(true));
     this.bind(); this.renderHome();
     if (!params.has('film')) this.native.init(() => this.render(true));
     const want = params.get('scenario');
@@ -36,7 +39,32 @@ export class App {
   }
 
   // ---------- canonical state ----------
-  state() { return E.computeState(this.sc, this.session); }
+  state() { return E.computeState(this.base ?? this.sc, this.session); }
+  // Live signature checks for the certification-path view (computed once from the parsed fixtures).
+  async computeSigs() {
+    const ica = this.model.resolve('ica', null)?.parsed, root = this.model.resolve('root', null)?.parsed; if (!ica || !root) return;
+    for (const e of Object.values(this.model.byFilename)) {
+      const c = e.parsed; if (c.kind !== 'certificate') continue;
+      const byIca = await c.x509.verify({ publicKey: ica.x509, signatureOnly: true }).catch(() => false);
+      const byRoot = await c.x509.verify({ publicKey: root.x509, signatureOnly: true }).catch(() => false);
+      const self = c.selfSigned;
+      this.sigs[c.thumbprints.sha256] = { byIca, byRoot, self };
+    }
+  }
+  chainOf(c, id) {
+    const root = this.model.resolve('root', null).parsed, ica = this.model.resolve('ica', null).parsed; const s = this.sigs;
+    const rootLink = { name: `${root.subject.split(',')[0]} (Root CA, self-signed)`, ok: !!s[root.thumbprints.sha256]?.self, text: 'self-signature verifies' };
+    const icaLink = { name: `${ica.subject.split(',')[0]} (Issuing CA)`, ok: !!s[ica.thumbprints.sha256]?.byRoot, text: 'signed by the Root CA (verified)' };
+    if (id === 'root') return c.thumbprints.sha256 === root.thumbprints.sha256 ? [rootLink] : [{ name: `${c.subject.split(',')[0]} (file under review)`, ok: false, text: '' }];
+    if (id === 'ica') return [rootLink, icaLink];
+    return [rootLink, icaLink, { name: c.subject ? `${c.subject.split(',')[0]} (DC01 leaf)` : 'DC01 leaf (empty subject)', ok: !!s[c.thumbprints.sha256]?.byIca, text: 'signed by the Issuing CA (verified)' }];
+  }
+  downloadLinks(fx) {
+    const m = fx.manifest, parsed = fx.parsed;
+    if (!['certificate', 'csr', 'crl', 'p7b', 'inf', 'chain'].includes(parsed.kind)) return '';
+    const pairs = [[m.filename, false], [m.pemFilename, true]].filter(([f], i, arr) => arr.findIndex(([g]) => g === f) === i);
+    return `<div class="downloads">${pairs.map(([f, isPem]) => `<a class="btn small" data-download="${esc(base(f))}" href="${this.blobUrl(m, parsed, isPem)}" download="${esc(base(f))}">Download ${esc(base(f))}</a>`).join('')}</div>`;
+  }
   get max() { return this.session.direction === 'reverse' ? E.buildTrace(this.sc, this.session.faultId).length : E.maxT(this.sc, this.session.faultId); }
   get tKey() { return this.session.direction === 'reverse' ? 'tReverse' : 't'; }
   get tVal() { return this.session[this.tKey]; }
@@ -46,7 +74,7 @@ export class App {
   // ---------- screens ----------
   renderHome() {
     const cards = this.scenarios.map((sc) => `<article class="scard" data-scenario="${sc.id}"><span class="avail">Available</span><h2>${esc(sc.title)}</h2><p class="sub">${esc(sc.subtitle)}</p>
-      <dl class="kv small"><dt>Purpose</dt><dd>${esc(sc.home.purpose)}</dd><dt>Primary requester</dt><dd>${esc(sc.home.requester)}</dd><dt>Certificate destination</dt><dd>${esc(sc.home.destination)}</dd><dt>Enrollment method</dt><dd>${esc(sc.home.method)}</dd><dt>Steps</dt><dd>${sc.stages.length} steps</dd></dl>
+      <dl class="kv small"><dt>Purpose</dt><dd>${esc(sc.home.purpose)}</dd><dt>Primary requester</dt><dd>${esc(sc.home.requester)}</dd><dt>Certificate destination</dt><dd>${esc(sc.home.destination)}</dd><dt>Enrollment method</dt><dd>${esc(sc.home.method)}</dd><dt>Steps</dt><dd>${sc.paths ? Object.values(sc.paths).map((p) => `${esc(p.pathLabel)}: ${p.stages.length} steps`).join(' · ') : `${sc.stages.length} steps`}</dd></dl>
       <button class="btn primary big" data-start="${sc.id}">Start scenario</button></article>`).join('');
     $('#home').innerHTML = `<header class="htop"><h1>Certificate Flow Lab</h1><p class="subtitle">Interactive certificate issuance, deployment and trust visualization</p>
       <p class="synthetic-note" role="note">Synthetic simulation: SIMSI2027 names, addresses and events are invented; nothing here connects to a real PKI.</p></header>
@@ -61,14 +89,22 @@ export class App {
 
   showHome() {
     this.pause(); this.tour.stop(); if (this.sc) this.last = { id: this.sc.id, session: this.session }; this.screen = 'home'; this.renderHome();
-    $('#home').hidden = false; $('#workspace').hidden = true; document.body.dataset.screen = 'home'; document.body.dataset.scenario = '';
+    $('#home').hidden = false; $('#workspace').hidden = true; document.body.dataset.screen = 'home'; document.body.dataset.scenario = ''; document.body.dataset.layout = '';
   }
 
   startScenario(id, { params, full } = {}) {
     const sc = this.byId[id]; if (!sc) return;
     if (this.sc && this.sc.id !== id && this.session) this.last = { id: this.sc.id, session: this.session };
-    this.sc = sc; this.evidence = this.evidenceMap[id];
+    this.base = sc; this.sc = sc; this.evidence = this.evidenceMap[id]; this.storyMode = sc.layoutMode === 'story-zones';
+    document.body.dataset.layout = this.storyMode ? 'story' : 'classic';
     const p = params ?? new URLSearchParams();
+    if (this.storyMode) {
+      this.session = { faultId: 'healthy', direction: 'forward', t: 0, tReverse: 0, selectedEntity: null, selectedArtifact: null, selectedFlow: null, playbackSpeed: 1, playing: false };
+      if (full !== undefined) this.full = full;
+      this.tour.steps = sc.tour; this.tour.state = 'idle';
+      this.screen = 'workspace'; $('#home').hidden = true; $('#workspace').hidden = false; document.body.dataset.screen = 'workspace'; document.body.dataset.scenario = id;
+      this.storyCtl.start(p); this.renderTour(); return;
+    }
     const fault = p.get('fault');
     this.session = { faultId: fault && sc.faults.some((f) => f.id === fault) ? fault : 'healthy', direction: p.get('dir') === 'reverse' ? 'reverse' : 'forward', t: Number(p.get('t')) || 0, tReverse: 0,
       selectedEntity: null, selectedArtifact: null, selectedFlow: null, playbackSpeed: 1, playing: false };
@@ -86,7 +122,7 @@ export class App {
     const dt = Math.min(0.1, (ts - (this.lastFrame || ts)) / 1000); this.lastFrame = ts;
     if (this.screen === 'workspace' && this.session.playing) {
       this.setT(E.advanceT(this.tVal, dt, this.session.playbackSpeed, this.max));
-      if (this.tVal >= this.max) this.session.playing = false;
+      if (this.tVal >= this.max) { this.session.playing = false; if (this.storyMode) this.render(true); }
     }
     if (this.screen === 'workspace') this.render();
     requestAnimationFrame((t) => this.frame(t));
@@ -103,6 +139,7 @@ export class App {
   clearSelection() { Object.assign(this.session, { selectedEntity: null, selectedArtifact: null, selectedFlow: null }); }
 
   select(sel) {
+    if (this.storyMode) { this.storyCtl.select(sel); return; }
     this.clearSelection(); const ss = this.session;
     if (sel.type === 'entity') { ss.selectedEntity = sel.id; this.tab = 'explain'; }
     else if (sel.type === 'flow') { ss.selectedFlow = sel.id; this.tab = 'details'; }
@@ -121,6 +158,7 @@ export class App {
     click('#btn-back', () => this.showHome());
     click('#btn-tour', () => { if (this.tour.state === 'running' || this.tour.state === 'paused') this.tour.stop(); else this.tour.start(); this.render(true); });
     click('#btn-tour-resume', () => this.tour.resume());
+    $('.s-tour-resume')?.addEventListener('click', () => this.tour.resume());
     $('#chk-labels').addEventListener('change', (e) => this.scene.setLabels(e.target.checked));
     $('#chk-topology').addEventListener('change', (e) => { this.full = e.target.checked; this.render(true); });
     $$('[data-speed]').forEach((b) => b.addEventListener('click', () => { this.setSpeed(Number(b.dataset.speed)); this.render(true); }));
@@ -131,18 +169,22 @@ export class App {
     $('#side').addEventListener('click', (e) => this.sideClick(e));
     $('#home').addEventListener('click', (e) => {
       const st = e.target.closest('[data-start]'); if (st) { this.startScenario(st.dataset.start, { full: false }); return; }
-      if (e.target.closest('#btn-continue') && this.last) { this.startScenario(this.last.id, { full: false }); Object.assign(this.session, this.last.session, { playing: false }); this.buildJump(); this.render(true); return; }
+      if (e.target.closest('#btn-continue') && this.last) {
+        this.startScenario(this.last.id, { full: false }); Object.assign(this.session, this.last.session, { playing: false });
+        if (this.storyMode) { this.storyCtl.applyPath(false); this.storyCtl.buildControls(); } else this.buildJump();
+        this.render(true); return;
+      }
       if (e.target.closest('#btn-topology')) { this.startScenario(this.last?.id ?? this.scenarios[0].id, { full: true }); return; }
       if (e.target.closest('#btn-about')) $('#about').showModal();
     });
     document.addEventListener('keydown', (e) => {
-      if (this.screen !== 'workspace') return;
+      if (this.screen !== 'workspace' || this.storyMode) return;
       if (['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName) && e.key !== 'Escape') return;
       if (e.key === ' ' && e.target.tagName !== 'BUTTON' && !e.target.closest?.('[role=button]')) { e.preventDefault(); this.session.playing ? this.pause() : this.play(); this.render(true); }
       if (e.key === 'ArrowRight' && !e.target.closest?.('[role=tablist]')) { this.stepForward(); this.render(true); }
       if (e.key === 'ArrowLeft' && !e.target.closest?.('[role=tablist]')) { this.stepBackward(); this.render(true); }
     });
-    const interrupt = (e) => { if (e.target.closest?.('#btn-tour, #btn-tour-resume')) return; this.tour.interrupt(); };
+    const interrupt = (e) => { if (e.target.closest?.('#btn-tour, #btn-tour-resume, #s-tour, .s-tour-resume')) return; this.tour.interrupt(); };
     for (const ev of ['pointerdown', 'keydown', 'wheel', 'input', 'change']) document.addEventListener(ev, interrupt, true);
   }
 
@@ -173,6 +215,7 @@ export class App {
   // ---------- rendering ----------
   render(force = false) {
     if (this.screen !== 'workspace') return;
+    if (this.storyMode) { this.storyCtl.render(force); return; }
     const s = this.state(); const c = this.ctx(s);
     this.scene.update(s, { full: this.full });
     const rev = s.direction === 'reverse'; const trace = rev ? E.buildTrace(this.sc, s.activeFault) : null; const st = this.sc.stages[s.stage];
@@ -252,6 +295,7 @@ export class App {
       guard: (fn) => fn(), speed: () => app.session?.playbackSpeed ?? 1,
       applyTourStep(step) {
         const ss = app.session; const idx = E.stageIndex(app.sc, step.stage);
+        if (app.storyMode) { ss.started = true; app.storyCtl.clearSelection(); }
         if (ss.faultId !== 'healthy') { ss.faultId = 'healthy'; app.buildJump(); }
         app.clearSelection();
         if (step.reverse) { app.setDirection('reverse'); ss.tReverse = 0; app.tab = 'evidence'; ss.playing = true; }
@@ -281,6 +325,11 @@ export class App {
     $('#tour-step').textContent = t.state === 'finished' ? 'Tour finished' : `Tour ${t.index + 1}/${t.steps.length}: ${step.title}`;
     $('#tour-text').textContent = t.state === 'finished' ? 'You are in control. Explore any object, mode or failure scenario.' : t.state === 'paused' ? `Tour paused by your interaction. It resumes after ${Math.round(t.resumeMs / 1000)} s of inactivity.` : step.text;
     $('#btn-tour-resume').hidden = t.state !== 'paused'; document.body.dataset.tour = t.state;
+    // Story mode mirrors the tour state into its own bar.
+    const sb = $('.s-tour-bar'); if (sb) {
+      sb.hidden = t.state === 'idle'; $('.s-tour-step').textContent = $('#tour-step').textContent; $('.s-tour-text').textContent = $('#tour-text').textContent; $('.s-tour-resume').hidden = t.state !== 'paused';
+      const sbtn = $('#s-tour'); sbtn.textContent = active ? 'Stop tour' : 'Guided tour'; sbtn.setAttribute('aria-pressed', String(active));
+    }
   }
 }
 void entityById; void TABS;
