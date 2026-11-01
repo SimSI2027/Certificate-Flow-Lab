@@ -5,7 +5,7 @@ import { scenarios } from '../scenarios/index.js';
 import { buildFixtureModel, evaluateAll } from '../artifacts/model.js';
 import manifest from '../../fixtures/manifests/manifest.json';
 import { pathOf } from '../engine/engine.js';
-import { frameAt, DURATION, FPS } from './schedule.js';
+import { frameAt, filmBadge, DURATION, FPS } from './schedule.js';
 
 const raw = import.meta.glob('/fixtures/**/*.{pem,csr,crl,req,inf}', { query: '?raw', import: 'default', eager: true });
 const files = Object.fromEntries(Object.entries(raw).map(([k, v]) => [k.replace(/^\/fixtures\//, ''), v]));
@@ -42,7 +42,7 @@ function setTime(time) {
   }
   const s = app.sc && app.screen === 'workspace' ? app.state() : null;
   // The badge is derived from the canonical state, never from the film clock.
-  const badge = s && s.direction === 'forward' && f.segment.endsWith('forward') ? (s.trustDecision === 'trusted' ? 'TRUSTED BY CLIENT01 (SIMULATED)' : s.trustDecision === 'suitable' ? 'SUITABLE NOW · ROOT CAUSE STILL OPEN' : '') : '';
+  const badge = filmBadge(s, f.segment, !$('final-card').hidden);
   $('film-badge').textContent = badge; $('film-badge').style.display = badge ? 'block' : 'none';
   $('film-title').style.opacity = String(f.titleOpacity); $('film-outro').style.opacity = String(f.outroOpacity);
   return s ? { stage: s.stage, direction: s.direction, evidenceIndex: s.evidenceIndex, trust: s.trustDecision, screen: app.screen, scenario: app.base.id } : { screen: app.screen };

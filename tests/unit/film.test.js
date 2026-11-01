@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { frameAt, DURATION, FPS, STAGE_SECONDS, stageStart, FORWARD_START, FORWARD_END, REVERSE_END, TOPOLOGY_END, TLS_START, contactBeats, SCENARIO_ID, TLS_ID, TLS_STEP_SECONDS, tlsStageStart } from '../../src/film/schedule.js';
+import { frameAt, DURATION, FPS, STAGE_SECONDS, stageStart, FORWARD_START, FORWARD_END, REVERSE_END, TOPOLOGY_END, TLS_START, contactBeats, SCENARIO_ID, TLS_ID, TLS_STEP_SECONDS, tlsStageStart, filmBadge } from '../../src/film/schedule.js';
 import * as E from '../../src/engine/engine.js';
 import { scenarioById } from '../../src/scenarios/index.js';
 
@@ -45,6 +45,13 @@ describe('deterministic v0.4.0 film schedule', () => {
     let last = -1;
     for (let t = TLS_START + 0.01; t < FORWARD_START; t += 0.1) { const f = frameAt(t); expect(f.scenario).toBe(TLS_ID); expect(f.session.t).toBeGreaterThanOrEqual(last); last = f.session.t; }
     let i = 0; const s = st(frameAt(tlsStageStart(25) + 0.1)); i = s.stage; expect(T.stages[i].id).toBe('t-followup');
+  });
+  it('the result badge follows the state and never overlaps the final card (release-gate contact sheet fix)', () => {
+    expect(filmBadge({ direction: 'forward', trustDecision: 'trusted' }, 'tls-forward', false)).toBe('TRUSTED BY CLIENT01 (SIMULATED)');
+    expect(filmBadge({ direction: 'forward', trustDecision: 'trusted' }, 'tls-forward', true)).toBe('');
+    expect(filmBadge({ direction: 'forward', trustDecision: 'suitable' }, 'forward', false)).toBe('SUITABLE NOW · ROOT CAUSE STILL OPEN');
+    expect(filmBadge({ direction: 'reverse', trustDecision: 'trusted' }, 'reverse', false)).toBe('');
+    expect(filmBadge(null, 'title', false)).toBe('');
   });
   it('contact sheet: one frame per TLS milestone and per DC milestone, plus title, home, reverse and topology beats', () => {
     const b = contactBeats(); expect(b.length).toBe(24);

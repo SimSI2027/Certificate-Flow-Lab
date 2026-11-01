@@ -74,6 +74,13 @@ export function frameAt(time) {
   return { ...base, segment: 'outro', full: true, outroOpacity: Math.min(1, Math.max(0, u / 0.3)), session: { ...base.session, t: N } };
 }
 
+// The film's result badge, derived from the canonical state (never the film clock). It gives way to the lesson's own final card,
+// which states the same result, so the two never overlap.
+export function filmBadge(state, segment, finalCardShown) {
+  if (!state || state.direction !== 'forward' || !segment.endsWith('forward') || finalCardShown) return '';
+  return state.trustDecision === 'trusted' ? 'TRUSTED BY CLIENT01 (SIMULATED)' : state.trustDecision === 'suitable' ? 'SUITABLE NOW · ROOT CAUSE STILL OPEN' : '';
+}
+
 // Contact sheet: title, home, one frame per TLS milestone, one frame per DC milestone, reverse evidence and full topology.
 export function contactBeats() {
   const at = (i, f) => stageStart(i) + STAGE_SECONDS[i] * f;
