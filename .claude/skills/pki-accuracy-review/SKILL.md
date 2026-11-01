@@ -5,7 +5,7 @@ description: Audit Certificate Flow Lab scenario code, text, fixtures and tests 
 
 # PKI accuracy review (Certificate Flow Lab)
 
-Project-owned skill. A review step only: **never edit code while reviewing.** Findings go into a table appended to `docs/AUDIT_v0.4.md`; fixes happen afterwards in separate commits.
+Project-owned skill. A review step only: **never edit code while reviewing.** Findings go into a table appended to the release audit (`docs/AUDIT_v0.5.md` from v0.5.0); fixes happen afterwards in separate commits. Run the full sweep (steps 2–7) and, whenever the website TLS lesson changed, the Website TLS sweep (step 8).
 
 ## Procedure
 
@@ -52,7 +52,20 @@ Project-owned skill. A review step only: **never edit code while reviewing.** Fi
 
 7. **Test sweep.** Every rule above needs at least one test that would FAIL if the rule were broken. A tautology that compares a constant with itself does not count. List the rules without such a test (`tests/unit/dc-story.test.js`, `story-scene.test.js`, `story-panel.test.js`, `tests/integration/fixtures.test.js`, `tests/e2e/dc-story.spec.js`, `scripts/validation/validate-fixtures.mjs`).
 
-8. **Output.** Append a findings table to `docs/AUDIT_v0.4.md`:
+8. **Website TLS sweep** (v0.5.0). Load "Website TLS truth rules (v0.5.0)" from `CLAUDE.md`. Sources: `src/scenarios/tls/*.js`, `src/scenarios/tls-manual-enrollment.js`, `src/ui/tls-panel.js`, the TLS branches of `src/views/story-layout.js` / `story-scene.js`, the TLS part of `scripts/generate-fixtures/generate.mjs`. Check:
+   - **Roles:** Visitor SIMSI2027\Jordan (CLIENT01, 10.20.10.45) never requests a certificate; Operator SIMSI2027\Morgan; Requester (CA record) SIMSI2027\Morgan; Subject portal.simsi2027.test. Every identity view shows Subject, Operator and Requester (and Visitor) as separate labelled fields.
+   - **Template:** SIMSI2027WebServer ("SIMSI2027 Web Server", v2, 1.3.6.1.4.1.311.21.8.2027.1.1, 100.4), Supply in the request, Server Authentication only, KU Digital Signature + Key Encipherment, RSA 2048, Enroll for "Web Server Certificate Requesters". Built-in WebServer described as v1 with Domain Admins / Enterprise Admins Enroll by default. Permissions and approval carry "Depends on your configuration".
+   - **Key and CSR:** `certreq -new -machine` makes key + CSR together; MachineKeySet TRUE, Exportable FALSE (web-farm note marked configuration-dependent); pending request in Certificate Enrollment Requests until `-accept`; the CSR never holds the private key; WEB01's key signs the CSR.
+   - **Order:** `t-submit` (received, Request 1043, Requester Morgan) comes before `t-policy`. Nothing shows policy before receipt.
+   - **Issuance:** no text says the CA signs the CSR (`/sign(s|ed|ing)? the CSR/i`); the Root is never contacted, never signs the leaf, never a connector endpoint.
+   - **Stores:** WEB01 Personal (leaf + key), Intermediate (Issuing CA, Enterprise (AD)), Trusted Root (Root, Enterprise (AD)), Certificate Enrollment Requests transient; CLIENT01 Trusted Root holds the Root and no private key for this site.
+   - **Binding and handshake:** https · All Unassigned · 443 · host portal.simsi2027.test · Require SNI; the key is used in place by HTTP.sys; the Certificate message carries leaf + Issuing CA (Root normally not sent; a sent Root is not trusted because it was sent); CertificateVerify is signed by WEB01 and verified with the leaf public key; TLS 1.3 encrypts the Certificate message; the private key never appears on a route or in the "On the wire" zone.
+   - **Validation:** SAN (not CN) name match; dates at the simulation clock; EKU Server Authentication; KU; chain to CLIENT01's Trusted Root; AIA only when the intermediate is missing; CDP/CRL with "Depends on your configuration" for browser revocation behavior; OCSP named out of scope.
+   - **Traffic:** no text claims the certificate encrypts the traffic (`/certificate (itself )?encrypts/i`); session keys do.
+   - **Renewal:** not autoenrolled; renew before 2027-10-30 in the final follow-up.
+   - **Fixtures:** portal CSR has 13.2.1 = SIMSI2027WebServer, 21.20 = WEB01.simsi2027.test / SIMSI2027\Morgan / certreq.exe, SAN + KU requested, no 20.2 and no requested EKU; leaf has 21.7 SIMSI2027WebServer 100.4, no 20.2, SPKI = CSR SPKI; handshake chain = leaf + Issuing CA; wrong-eku fault is Client Authentication only from SIMSI2027WorkstationAuth; the temporary self-signed fixture exists and is public only.
+
+9. **Output.** Append a findings table to the current release audit (`docs/AUDIT_v0.5.md` from v0.5.0; `docs/AUDIT_v0.4.md` for v0.4.x):
 
    | id | rule | severity (Critical/High/Medium/Low) | file:line | evidence | fix |
 
