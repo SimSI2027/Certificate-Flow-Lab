@@ -70,7 +70,17 @@ export function storyModel(sc, state, { started = true, full = false, inspectCa 
   const connectors = [];
   if (conn) connectors.push(connectorFor(conn, step, { spotlight, vault, stores, state }));
   if (step && otEmphasis) connectors.push(historyLink());
-  if (full && step) for (const p of prev) if (p.connector) { const c = connectorFor(p.connector, p, { spotlight: null, vault: { visible: false }, stores: null }); connectors.push({ ...c, kind: 'finished', id: `${c.id}-done` }); }
+  // Full topology: finished routes show only the hand-offs between zones (thin, unlabelled, no crosses). Local, store, PUB and
+  // association lanes are omitted, and each zone pair is drawn once, so the overview stays readable (audit S1).
+  if (full && step) {
+    const seen = new Set();
+    for (const p of prev) {
+      const pc = p.connector; if (!pc || pc.association || pc.local || pc.store || pc.blocked || pc.to === 'PUB:cdp' || !zoneById(pc.from) || !zoneById(pc.to)) continue;
+      const key = [pc.from, pc.to].sort().join('-'); if (seen.has(key)) continue; seen.add(key);
+      const c = connectorFor(pc, p, { spotlight: null, vault: { visible: false }, stores: null, state });
+      connectors.push({ ...c, kind: 'finished', id: `${c.id}-done`, cross: null });
+    }
+  }
   const cards = [];
   for (const z of zoneList) { if (z.station) cards.push({ id: `station:${z.id}`, rect: z.station }); for (const c of z.crumbs) cards.push({ id: `crumb:${z.id}:${c.artifact}`, rect: c.rect }); }
   if (badge?.rect) cards.push({ id: `badge:${badge.zone}`, rect: badge.rect });

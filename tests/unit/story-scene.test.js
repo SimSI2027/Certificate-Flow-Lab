@@ -83,7 +83,13 @@ describe('StoryScene disclosure', () => {
   it('full topology shows every zone, keeps one active zone and is never the default', () => {
     const v = E.pathOf(DCS, {}); const i = v.stages.findIndex((s) => s.id === 'a-submit');
     const m = storyModel(v, stateAt(v, i), { full: true }); expect(m.zones.filter((z) => z.mode === 'placeholder' || z.mode === 'finished')).toHaveLength(0); expect(m.zones.filter((z) => z.mode === 'active')).toHaveLength(1);
-    expect(m.connectors.filter((c) => c.kind === 'finished').length).toBeGreaterThan(3);
+    // v0.4.1 (audit S1): finished routes are the de-duplicated zone hand-offs only — never a cross, label, store or association lane.
+    const done = m.connectors.filter((c) => c.kind === 'finished');
+    expect(done.map((c) => [c.from, c.to].sort().join('-'))).toEqual(['Z1-Z2', 'Z2-Z3']);
+    for (const c of done) { expect(c.cross).toBeNull(); expect(c.to).toMatch(/^Z\d$/); }
+    const late = storyModel(v, stateAt(v, v.stages.findIndex((s) => s.id === 'a-followup')), { full: true }).connectors.filter((c) => c.kind === 'finished');
+    expect(new Set(late.map((c) => [c.from, c.to].sort().join('-'))).size).toBe(late.length);
+    expect(late.some((c) => c.cross || /association|store/.test(c.kind))).toBe(false);
     expect(storyModel(v, stateAt(v, i)).full).toBe(false);
   });
   it('the Root history link appears only for the chain step or when a CA certificate is inspected', () => {
