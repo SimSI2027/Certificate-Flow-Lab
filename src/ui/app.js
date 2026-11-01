@@ -161,6 +161,10 @@ export class App {
     click('#btn-tour', () => { if (this.tour.state === 'running' || this.tour.state === 'paused') this.tour.stop(); else this.tour.start(); this.render(true); });
     click('#btn-tour-resume', () => this.tour.resume());
     $('.s-tour-resume')?.addEventListener('click', () => this.tour.resume());
+    // Skip link: focus whichever main landmark is visible (home, story workspace or classic workspace).
+    $('[data-skip]')?.addEventListener('click', (e) => { e.preventDefault(); const m = $$('main').find((x) => x.offsetParent !== null); if (m) { e.currentTarget.setAttribute('href', `#${m.id}`); m.focus(); m.scrollIntoView?.({ block: 'start' }); } });
+    // Keep the skip-link target pointing at the visible main landmark.
+    new MutationObserver(() => { const m = $$('main').find((x) => x.offsetParent !== null); if (m) $('[data-skip]')?.setAttribute('href', `#${m.id}`); }).observe(document.body, { attributes: true, attributeFilter: ['data-screen', 'data-layout'] });
     $('#chk-labels').addEventListener('change', (e) => this.scene.setLabels(e.target.checked));
     $('#chk-topology').addEventListener('change', (e) => { this.full = e.target.checked; this.render(true); });
     $$('[data-speed]').forEach((b) => b.addEventListener('click', () => { this.setSpeed(Number(b.dataset.speed)); this.render(true); }));

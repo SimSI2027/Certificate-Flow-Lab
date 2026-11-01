@@ -9,7 +9,8 @@
   <script type="module" src="/src/main.js"></script>
 </head>
 <body>
-  <section id="home" class="home" aria-label="Scenario home"></section>
+  <a class="skip-link" href="#home" data-skip>Skip to main content</a>
+  <main id="home" class="home" aria-label="Scenario home" tabindex="-1"></main>
 
   <div id="workspace" class="workspace" hidden>
     <header class="stop story-only" aria-label="Story controls">
@@ -45,7 +46,7 @@
     </header>
     <div id="fault-banner" class="fault-banner" role="alert" hidden></div>
 
-    <main class="slayout story-only">
+    <main id="story-main" class="slayout story-only" tabindex="-1">
       <section class="sstage" aria-label="Domain Controller story">
         <div class="tour-bar s-tour-bar" hidden role="status" aria-live="polite"><strong class="s-tour-step"></strong><span class="s-tour-text"></span><button class="btn small s-tour-resume" hidden>Resume now</button></div>
         <svg id="story-scene" class="story-scene" role="group" aria-label="Domain Controller enrollment story: six zones"></svg>
@@ -53,7 +54,7 @@
       </section>
       <aside id="spanel" class="spanel" aria-label="Details" data-expanded="false"></aside>
     </main>
-    <main class="layout classic-only">
+    <main id="classic-main" class="layout classic-only" tabindex="-1">
       <section class="stage-wrap" aria-label="Certificate flow">
         <div id="tour-bar" class="tour-bar" hidden role="status" aria-live="polite">
           <strong id="tour-step"></strong><span id="tour-text"></span><button id="btn-tour-resume" class="btn small" hidden>Resume now</button>
