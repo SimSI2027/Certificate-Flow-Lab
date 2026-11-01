@@ -3,7 +3,7 @@
 import 'reflect-metadata';
 import * as x509 from '@peculiar/x509';
 import * as asn1js from 'asn1js';
-import { ENV, URLS, OIDS } from './synthetic.js';
+import { ENV, URLS, OIDS, TEMPLATE_NAMES } from './synthetic.js';
 
 x509.cryptoProvider.set(globalThis.crypto);
 
@@ -76,11 +76,16 @@ export async function parseCertificate(pem, filename = '') {
   const tplInfo = c.extensions.find((e) => e.type === OIDS.templateInfo);
   let template = null;
   if (tplName) template = { name: asn1js.fromBER(tplName.value).result.valueBlock.value };
-  if (tplInfo) { const seq = asn1js.fromBER(tplInfo.value).result.valueBlock.value; template = { ...(template ?? {}), oid: seq[0].valueBlock.toString(), version: `${seq[1].valueBlock.valueDec}.${seq[2].valueBlock.valueDec}` }; }
+  if (tplInfo) {
+    const seq = asn1js.fromBER(tplInfo.value).result.valueBlock.value; const oid = seq[0].valueBlock.toString();
+    template = { ...(template ?? {}), oid, version: `${seq[1].valueBlock.valueDec}.${seq[2].valueBlock.valueDec}`, source: template?.name ? 'name extension (1.3.6.1.4.1.311.20.2)' : 'template information (1.3.6.1.4.1.311.21.7)' };
+    template.name ??= TEMPLATE_NAMES[oid] ?? null; template.resolvedFromOid = !tplName;
+  }
   const pk = c.publicKey.algorithm;
   const pubKeyDer = new Uint8Array(c.publicKey.rawData);
+  const sanExt = c.getExtension(x509.SubjectAlternativeNameExtension);
   return {
-    kind: 'certificate', filename, pem: derToPem(der, 'CERTIFICATE'), der,
+    kind: 'certificate', filename, pem: derToPem(der, 'CERTIFICATE'), der, sanCritical: sanExt?.critical ?? false, hasTemplateNameExtension: !!tplName,
     subject: c.subject, issuer: c.issuer, serialNumber: c.serialNumber.toUpperCase(), selfSigned: await c.isSelfSigned(),
     notBefore: iso(c.notBefore), notAfter: iso(c.notAfter), version: 3,
     signatureAlgorithm: `${c.signatureAlgorithm.name} / ${c.signatureAlgorithm.hash?.name ?? ''}`.replace(/ \/ $/, ''),
@@ -108,15 +113,24 @@ export async function parseCsr(pem, filename = '') {
   const eku = reqExt(x509.ExtendedKeyUsageExtension, '2.5.29.37')?.usages ?? [];
   const kuExt = reqExt(x509.KeyUsagesExtension, '2.5.29.15');
   const pk = r.publicKey.algorithm;
+  const pubDer = new Uint8Array(r.publicKey.rawData);
+  // Request attributes: enrollmentNameValuePair (13.2.1) and ClientInformation (21.20).
+  const attrSeq = (oid) => r.attributes.filter((a) => a.type === oid).flatMap((a) => a.values.map((v) => asn1js.fromBER(v).result.valueBlock.value));
+  const nameValues = attrSeq(OIDS.enrollmentNameValuePair).map(([n, v]) => ({ name: n.valueBlock.value, value: v.valueBlock.value }));
+  const ci = attrSeq(OIDS.clientInformation)[0];
+  const clientInfo = ci ? { clientId: ci[0].valueBlock.valueDec, machine: ci[1].valueBlock.value, user: ci[2].valueBlock.value, process: ci[3].valueBlock.value } : null;
+  const tplAttr = nameValues.find((p) => p.name === 'CertificateTemplate')?.value ?? null;
   return {
     kind: 'csr', filename, pem: derToPem(der, 'CERTIFICATE REQUEST'), der, subject: r.subject, san,
-    publicKey: { algorithm: pk.name, bits: pk.modulusLength ?? null, spkiSha256: await sha('SHA-256', new Uint8Array(r.publicKey.rawData)) },
+    publicKey: { algorithm: pk.name, bits: pk.modulusLength ?? null, exponent: pk.publicExponent ? Number.parseInt(hex(pk.publicExponent), 16) : null, spkiSha256: await sha('SHA-256', pubDer) },
     signatureAlgorithm: `${r.signatureAlgorithm.name} / ${r.signatureAlgorithm.hash?.name ?? ''}`,
     signatureValid: await r.verify(),
     requestedExtensions: r.extensions.map((e) => ({ oid: e.type, critical: e.critical })),
     requestedEku: eku.map((o) => ({ oid: o, name: EKU_NAMES[o] ?? o })),
-    requestedKeyUsage: kuExt ? KU_FLAGS.filter(([bit]) => kuExt.usages & bit).map(([, n]) => n) : [],
-    templateRequest: tpl ? asn1js.fromBER(tpl.value).result.valueBlock.value : null,
+    requestedKeyUsage: kuExt ? KU_FLAGS.filter(([bit]) => kuExt.usages & bit).map(([, n]) => n) : [], requestedKeyUsageCritical: kuExt?.critical ?? false,
+    attributes: r.attributes.map((a) => a.type), nameValues, clientInfo, templateAttribute: tplAttr, templateExtension: tpl ? asn1js.fromBER(tpl.value).result.valueBlock.value : null,
+    templateRequest: tplAttr ?? (tpl ? asn1js.fromBER(tpl.value).result.valueBlock.value : null),
+    hasPrivateKeyMaterial: /PRIVATE KEY/.test(pem) || r.attributes.some((a) => a.type === '1.2.840.113549.1.9.9'),
     thumbprints: { sha1: await sha('SHA-1', der), sha256: await sha('SHA-256', der) },
     asn1: asn1Summary(der), x509: r
   };
@@ -150,6 +164,14 @@ export function parseInf(text, filename = '') {
   return { kind: 'inf', filename, text, fields, machineContext: String(fields['NewRequest.MachineKeySet']).toUpperCase() === 'TRUE', template: fields['RequestAttributes.CertificateTemplate'] };
 }
 
+// ---- PKCS #7 certificates-only bundle ----
+export async function parseP7b(pem, filename = '') {
+  const der = pemToDer(pem);
+  const set = new x509.X509Certificates(der);
+  const certs = await Promise.all([...set].map((c) => parseCertificate(c.toString('pem'))));
+  return { kind: 'p7b', filename, pem, der, certs, thumbprints: { sha1: await sha('SHA-1', der), sha256: await sha('SHA-256', der) }, asn1: asn1Summary(der) };
+}
+
 // ---- Fixture set ----
 // files: { 'certificates/x.pem': text, ... }, manifest: parsed manifest.json
 export async function buildFixtureModel(files, manifest) {
@@ -163,6 +185,7 @@ export async function buildFixtureModel(files, manifest) {
     else if (m.artifactType === 'csr') parsed = await parseCsr(text, m.filename);
     else if (m.artifactType === 'crl') parsed = await parseCrl(text, m.filename);
     else if (m.artifactType === 'inf') parsed = parseInf(text, m.filename);
+    else if (m.artifactType === 'p7b') parsed = await parseP7b(text, m.filename);
     else parsed = { kind: 'chain', filename: m.filename, pem: text, certs: await Promise.all(splitPem(text).map((p) => parseCertificate(p))) };
     byFilename[m.filename] = { manifest: m, parsed, pemFilename: m.pemFilename };
     (roles[m.role] ??= []).push(byFilename[m.filename]);

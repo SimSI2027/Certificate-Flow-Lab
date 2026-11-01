@@ -17,8 +17,8 @@ RequestType = PKCS10
 HashAlgorithm = SHA256
 
 [RequestAttributes]
-CertificateTemplate = KerberosAuthentication   ; template name, not display name
+CertificateTemplate = DCOfflineKerberosAuth   ; template name, not display name (simulated organization-specific template)
 
 [Extensions]
 2.5.29.17 = "{text}"
-_continue_ = "dns=DC01.simsi2027.test&"
+_continue_ = "dns=DC01.simsi2027.test&dns=simsi2027.test&dns=SIMSI2027"

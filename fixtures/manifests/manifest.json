@@ -15,8 +15,8 @@
       "issuer": "CN=SIMSI2027 Root CA, O=SIMSI2027 Synthetic Demo, DC=simsi2027, DC=test",
       "serialNumber": "2027000000000000000000000000AA01",
       "thumbprints": {
-        "sha1": "17FA4B54DC5504A2A80CC5A837491EAF7B1DD000",
-        "sha256": "DFDF2738F595497468523EFBFA1945A29EFD1FEDDAEE489E6B90AF4DE4A530A0"
+        "sha1": "0929EB9D28F674000C68EF924B56E0568671B69B",
+        "sha256": "B7B66B8E2C0429290FA4CEB4A28EED0222823B08461547FD081C119E7CC4A4FF"
       },
       "validity": {
         "notBefore": "2026-01-01T00:00:00Z",
@@ -27,7 +27,9 @@
       "aia": [],
       "cdp": [],
       "demonstrationFixture": true,
-      "notice": "Demonstration fixture"
+      "notice": "Demonstration fixture",
+      "spkiSha256": "225F0D456C5377B4D8D63E98E68785A94F8A8A1CE33863A8AF7273F79F088D97",
+      "path": "shared"
     },
     {
       "filename": "certificates/simsi2027-ica01.cer",
@@ -41,8 +43,8 @@
       "issuer": "CN=SIMSI2027 Root CA, O=SIMSI2027 Synthetic Demo, DC=simsi2027, DC=test",
       "serialNumber": "2027000000000000000000000000BB02",
       "thumbprints": {
-        "sha1": "59CD5D2BF35E002FEC652205AFC5D17FB1B540B1",
-        "sha256": "81EE6DD8FE310A008906195AF2E44A07FCAF7E2B064CA39A69D756BAD8FB7D97"
+        "sha1": "0C2C59AEE2586AA49124DDE108ADDCD22DD46A26",
+        "sha256": "796778883A821DFA8302AB8C15266DB7D8ECDCF6B72F694EBF718E2264659DF8"
       },
       "validity": {
         "notBefore": "2026-01-02T00:00:00Z",
@@ -57,7 +59,9 @@
         "http://pki.simsi2027.test/cdp/SIMSI2027-ROOTCA.crl"
       ],
       "demonstrationFixture": true,
-      "notice": "Demonstration fixture"
+      "notice": "Demonstration fixture",
+      "spkiSha256": "217FF36C45C81E33E74839B452CAC6884E2EE5557A70D6B466628FAF8CB339AC",
+      "path": "shared"
     },
     {
       "filename": "certificates/portal.simsi2027.test.cer",
@@ -71,8 +75,8 @@
       "issuer": "CN=SIMSI2027 Issuing CA 01, O=SIMSI2027 Synthetic Demo, DC=simsi2027, DC=test",
       "serialNumber": "2027000000000000000000000000CC10",
       "thumbprints": {
-        "sha1": "E3742AE2209D7DAA7DADE68C0242B52728817817",
-        "sha256": "842F342408A30115B8FCB835BAAF8AF343ADE8944862E7D7CE20AD03C94F5C9E"
+        "sha1": "B93251905D87045E858B729817CB4C3CC065757F",
+        "sha256": "04AB22ADC8F01C5F49F97F7C785A13B08B61EC426361862795D9A48DAB9EC144"
       },
       "validity": {
         "notBefore": "2026-10-30T00:00:00Z",
@@ -91,7 +95,9 @@
         "http://pki.simsi2027.test/cdp/SIMSI2027-ICA01.crl"
       ],
       "demonstrationFixture": true,
-      "notice": "Demonstration fixture"
+      "notice": "Demonstration fixture",
+      "spkiSha256": "8BAF6E95A2C1DED2EAD250987BA0D561224A3EEB8283286114A0229CE6A418A9",
+      "path": "tls"
     },
     {
       "filename": "certificates/fault-wrong-dns.cer",
@@ -105,8 +111,8 @@
       "issuer": "CN=SIMSI2027 Issuing CA 01, O=SIMSI2027 Synthetic Demo, DC=simsi2027, DC=test",
       "serialNumber": "2027000000000000000000000000CC11",
       "thumbprints": {
-        "sha1": "0483B3CBD3FD95ED52D1E9D1C66F3958F7CC8FE2",
-        "sha256": "C8232966DFCBBDFBC6D274B3348CF55AE5B525131EB040E033E813F4811A90F0"
+        "sha1": "063D70C200F818BC6F9809E0049D54A5397017C3",
+        "sha256": "767F5BDD9BCE548ABD5EA3DA1C9DC83E1DEB1832DAD7CBEB21FDDE7FEA47202C"
       },
       "validity": {
         "notBefore": "2026-10-30T00:00:00Z",
@@ -125,7 +131,9 @@
         "http://pki.simsi2027.test/cdp/SIMSI2027-ICA01.crl"
       ],
       "demonstrationFixture": true,
-      "notice": "Demonstration fixture"
+      "notice": "Demonstration fixture",
+      "spkiSha256": "8BAF6E95A2C1DED2EAD250987BA0D561224A3EEB8283286114A0229CE6A418A9",
+      "path": "tls"
     },
     {
       "filename": "certificates/fault-expired.cer",
@@ -139,8 +147,8 @@
       "issuer": "CN=SIMSI2027 Issuing CA 01, O=SIMSI2027 Synthetic Demo, DC=simsi2027, DC=test",
       "serialNumber": "2027000000000000000000000000CC12",
       "thumbprints": {
-        "sha1": "D495D363748461B4752A468C90C9E9B975AAB66A",
-        "sha256": "97D022E590D114F3612D1836376C7564D56FC4B0AB82AD50002A0536654D9971"
+        "sha1": "920550EFF203ED519FCACE5F152D3DBE58A1ACBE",
+        "sha256": "6C9A3B3CC9030B47CF5C110A9A3F305773D88E0165178A3D19563DFB721F5799"
       },
       "validity": {
         "notBefore": "2026-02-01T00:00:00Z",
@@ -159,7 +167,9 @@
         "http://pki.simsi2027.test/cdp/SIMSI2027-ICA01.crl"
       ],
       "demonstrationFixture": true,
-      "notice": "Demonstration fixture"
+      "notice": "Demonstration fixture",
+      "spkiSha256": "8BAF6E95A2C1DED2EAD250987BA0D561224A3EEB8283286114A0229CE6A418A9",
+      "path": "tls"
     },
     {
       "filename": "certificates/fault-wrong-eku.cer",
@@ -173,8 +183,8 @@
       "issuer": "CN=SIMSI2027 Issuing CA 01, O=SIMSI2027 Synthetic Demo, DC=simsi2027, DC=test",
       "serialNumber": "2027000000000000000000000000CC13",
       "thumbprints": {
-        "sha1": "ED38F614A75D4515B2A3D6C0CD7C527C635AEAC7",
-        "sha256": "13D323B9B8BA090BE270FF5C16D3471A6660FB09D4D39548449361E65704D85A"
+        "sha1": "C475C3D602CACBAD3739FF62688CF3EA3498A40C",
+        "sha256": "C98A54FC552617ACF076122D2411A6AD9EAB52CF0AB38BDFA69B252D52D169F0"
       },
       "validity": {
         "notBefore": "2026-10-30T00:00:00Z",
@@ -193,7 +203,9 @@
         "http://pki.simsi2027.test/cdp/SIMSI2027-ICA01.crl"
       ],
       "demonstrationFixture": true,
-      "notice": "Demonstration fixture"
+      "notice": "Demonstration fixture",
+      "spkiSha256": "8BAF6E95A2C1DED2EAD250987BA0D561224A3EEB8283286114A0229CE6A418A9",
+      "path": "tls"
     },
     {
       "filename": "certificates/fault-revoked.cer",
@@ -207,8 +219,8 @@
       "issuer": "CN=SIMSI2027 Issuing CA 01, O=SIMSI2027 Synthetic Demo, DC=simsi2027, DC=test",
       "serialNumber": "2027000000000000000000000000CC14",
       "thumbprints": {
-        "sha1": "5A2B1E5E2173DEDA166624FDB07649767B5FA469",
-        "sha256": "4A6FF55B217745B80699FE2701F7ECB7B62D4AAB93AC5191F34C15018CD0309E"
+        "sha1": "135D7C77967FA7AC635C126F807F052CC6770BC6",
+        "sha256": "D8AB2A2E1E5FB58182F15B5B28BD2A57739F7932EE75C130DBE31F3066BCF8D5"
       },
       "validity": {
         "notBefore": "2026-10-30T00:00:00Z",
@@ -227,7 +239,9 @@
         "http://pki.simsi2027.test/cdp/SIMSI2027-ICA01.crl"
       ],
       "demonstrationFixture": true,
-      "notice": "Demonstration fixture"
+      "notice": "Demonstration fixture",
+      "spkiSha256": "8BAF6E95A2C1DED2EAD250987BA0D561224A3EEB8283286114A0229CE6A418A9",
+      "path": "tls"
     },
     {
       "filename": "requests/portal.simsi2027.test.der",
@@ -237,8 +251,8 @@
       "issuer": null,
       "serialNumber": null,
       "thumbprints": {
-        "sha1": "B41ED4A91ACD4F12B92949833D5D63C39A52B307",
-        "sha256": "D136735AC74C13D9CF6171FD11714B13485A64FCB426F88F02BA51D153CEC0CE"
+        "sha1": "1D86AA0E96156F6F1ACFEF3D3F23DC5EF52903B3",
+        "sha256": "916A0289D43BDA911D5E669B3C893ED4D39502E10834E21B9ECC0548CCDE227B"
       },
       "validity": null,
       "san": [
@@ -254,7 +268,9 @@
       "role": "csr",
       "fault": null,
       "demonstrationFixture": true,
-      "notice": "Demonstration fixture"
+      "notice": "Demonstration fixture",
+      "spkiSha256": "8BAF6E95A2C1DED2EAD250987BA0D561224A3EEB8283286114A0229CE6A418A9",
+      "path": "tls"
     },
     {
       "filename": "requests/fault-wrong-dns.der",
@@ -264,8 +280,8 @@
       "issuer": null,
       "serialNumber": null,
       "thumbprints": {
-        "sha1": "D0FF722880E6A93F4DE4B59BF0535FAE042195A3",
-        "sha256": "065D222952BA1DCABBB334DA2CC0F2669C52112B1986F4FB47FD5BEB01749D20"
+        "sha1": "2C40522124783DDD97EE0411E900FEDB1785C2EA",
+        "sha256": "FFA826877DAEB98FE79EDEDC36D99E9F4DA702FDD500031F35D9A4E8DA2219FB"
       },
       "validity": null,
       "san": [
@@ -281,7 +297,9 @@
       "role": "csr",
       "fault": "wrong-dns",
       "demonstrationFixture": true,
-      "notice": "Demonstration fixture"
+      "notice": "Demonstration fixture",
+      "spkiSha256": "8BAF6E95A2C1DED2EAD250987BA0D561224A3EEB8283286114A0229CE6A418A9",
+      "path": "tls"
     },
     {
       "filename": "crl/SIMSI2027-ICA01.crl",
@@ -291,8 +309,8 @@
       "issuer": "CN=SIMSI2027 Issuing CA 01, O=SIMSI2027 Synthetic Demo, DC=simsi2027, DC=test",
       "serialNumber": null,
       "thumbprints": {
-        "sha1": "B9D5DE99DF2072768DC0A517C61F160820EE8663",
-        "sha256": "8A73E678D4502B9CF004BD096C5FC05EFA83D1A282A7CDFFAAE31574BF60119D"
+        "sha1": "C1FF6446AC48A880BA1575357BFE30FE5F27491E",
+        "sha256": "C26BE86A8B6030088DAB75E6B4DFE14975E2BF979D61EA1CF2D35E0F72CCF2C1"
       },
       "validity": {
         "notBefore": "2026-10-31T00:00:00Z",
@@ -309,7 +327,9 @@
       "role": "crl",
       "fault": null,
       "demonstrationFixture": true,
-      "notice": "Demonstration fixture"
+      "notice": "Demonstration fixture",
+      "spkiSha256": null,
+      "path": "shared"
     },
     {
       "filename": "certificates/portal.simsi2027.test-chain.pem",
@@ -319,8 +339,8 @@
       "issuer": "CN=SIMSI2027 Root CA, O=SIMSI2027 Synthetic Demo, DC=simsi2027, DC=test",
       "serialNumber": null,
       "thumbprints": {
-        "sha1": "BF32C33174950B3EA9673D1D51AB0733575DF8CF",
-        "sha256": "581F259266A117FABAB8077077CED12D934969ACA0585BD886E59F6FFC61E661"
+        "sha1": "0C63B0CECBC50002EB1FCE3D2C6A3B141B7C4C7C",
+        "sha256": "770BA9BCCBFDA6153D611F50A21A01C9581B0101CDCD860BB17C66F93551A6C5"
       },
       "validity": null,
       "san": [
@@ -336,7 +356,9 @@
       "role": "chain",
       "fault": null,
       "demonstrationFixture": true,
-      "notice": "Demonstration fixture (leaf, issuing CA, root; concatenated PEM)"
+      "notice": "Demonstration fixture (leaf, issuing CA, root; concatenated PEM)",
+      "spkiSha256": null,
+      "path": "tls"
     },
     {
       "filename": "requests/dc01-request.inf",
@@ -346,22 +368,26 @@
       "issuer": null,
       "serialNumber": null,
       "thumbprints": {
-        "sha1": "FFB7B67C1A2C7469E90DCC1671BA78F129FC385A",
-        "sha256": "4EC4367CBC11EFD811A7967A7CE079A3BB01442CFD3E07B1CEFAD79AA4A33758"
+        "sha1": "B3B39173142CABF239FD7505CD534F0EA7A9935F",
+        "sha256": "6D8F6A3EC94ED53649FB2AB0D7C7ACC6FB8CF50E0B00699999FF7123C2194DC9"
       },
       "validity": null,
       "san": [
-        "DNS=DC01.simsi2027.test"
+        "DNS=DC01.simsi2027.test",
+        "DNS=simsi2027.test",
+        "DNS=SIMSI2027"
       ],
       "eku": [],
       "aia": [],
       "cdp": [],
       "relatedRequest": "1042",
-      "stage": "request-policy",
+      "stage": "a-inf",
       "role": "dc-inf",
+      "path": "csr",
       "fault": null,
       "demonstrationFixture": true,
-      "notice": "Demonstration fixture (teaching request policy, not a recommendation)"
+      "notice": "Demonstration fixture (teaching request policy, not a recommendation)",
+      "spkiSha256": null
     },
     {
       "filename": "requests/fault-user-context.inf",
@@ -371,22 +397,26 @@
       "issuer": null,
       "serialNumber": null,
       "thumbprints": {
-        "sha1": "50A4B488879FF8B77F22FDDD72FF055FA4122A22",
-        "sha256": "04462EA93774186F59A0BD1E1D5B924310198107F258EA8D686A7412C657994D"
+        "sha1": "AB96225807B3EC0A7AB818B10B9AC6282DF1D9F1",
+        "sha256": "FFF7E0DB89D77BF8B3EA1119EFAE4766BA13BA52884F4D6A01B037F140F5612B"
       },
       "validity": null,
       "san": [
-        "DNS=DC01.simsi2027.test"
+        "DNS=DC01.simsi2027.test",
+        "DNS=simsi2027.test",
+        "DNS=SIMSI2027"
       ],
       "eku": [],
       "aia": [],
       "cdp": [],
       "relatedRequest": "1042",
-      "stage": "request-policy",
+      "stage": "a-inf",
       "role": "dc-inf",
+      "path": "fault",
       "fault": "user-context",
       "demonstrationFixture": true,
-      "notice": "Demonstration fixture (teaching request policy, not a recommendation)"
+      "notice": "Demonstration fixture (teaching request policy, not a recommendation)",
+      "spkiSha256": null
     },
     {
       "filename": "requests/dc01-request.der",
@@ -396,50 +426,82 @@
       "issuer": null,
       "serialNumber": null,
       "thumbprints": {
-        "sha1": "728D2ACA16C89B5DDD8196ED4AE375FFC0B22BFD",
-        "sha256": "201F115C14D00C0E76907A3D1BF4CCD9066A2CB715860583371EA58229862CD3"
+        "sha1": "D5E6B02D5CEB7CAF2E9AA2DE70010002582166C9",
+        "sha256": "9DD75A87D2FF1DE511EA88477B6F5F490472682EA1092A5F10908F1105FEB7A0"
       },
       "validity": null,
       "san": [
-        "DNS=DC01.simsi2027.test"
+        "DNS=DC01.simsi2027.test",
+        "DNS=simsi2027.test",
+        "DNS=SIMSI2027"
       ],
       "eku": [],
       "aia": [],
       "cdp": [],
       "relatedRequest": "1042",
-      "stage": "csr",
+      "stage": "a-new",
       "role": "dc-csr",
+      "path": "csr",
       "fault": null,
       "demonstrationFixture": true,
-      "notice": "Demonstration fixture"
+      "notice": "Demonstration fixture",
+      "spkiSha256": "D5B5B54495556090FAED20BCF5DA53B45382B4A86D5E361B3937162CE3CA838A"
+    },
+    {
+      "filename": "requests/dc01-mmc-request.der",
+      "pemFilename": "requests/dc01-mmc-request.req",
+      "artifactType": "csr",
+      "subject": "",
+      "issuer": null,
+      "serialNumber": null,
+      "thumbprints": {
+        "sha1": "DD50E9801B6BBEF9913541623090D357E0D55E11",
+        "sha256": "45DC425315F30B66ABC9194FD5F6B46D0CE8E278B24378CE56BB6C3BC1102FC8"
+      },
+      "validity": null,
+      "san": [],
+      "eku": [],
+      "aia": [],
+      "cdp": [],
+      "relatedRequest": "1042",
+      "stage": "b-enroll",
+      "role": "dc-mmc-csr",
+      "path": "mmc",
+      "fault": null,
+      "demonstrationFixture": true,
+      "notice": "Demonstration fixture (built in memory by the enrollment wizard; not saved as a file in real enrollment)",
+      "spkiSha256": "24119A2D56777ACC5E4EB524150A58296D5E2D04CB6A896AE5552D0553E8CD1C"
     },
     {
       "filename": "certificates/dc01-issued.cer",
       "pemFilename": "certificates/dc01-issued.pem",
       "artifactType": "certificate",
       "relatedRequest": "1042",
-      "stage": "retrieve",
+      "stage": "a-sign",
       "role": "dc-cert",
+      "path": "csr",
       "fault": null,
       "subject": "CN=DC01.simsi2027.test",
       "issuer": "CN=SIMSI2027 Issuing CA 01, O=SIMSI2027 Synthetic Demo, DC=simsi2027, DC=test",
       "serialNumber": "2027000000000000000000000000DC01",
       "thumbprints": {
-        "sha1": "E4CA252E9A06CD4A1F77EBB3E79E6F4D1496016F",
-        "sha256": "B6E57295E577B6B454296363149B1670313A4D9E34CF72632F499CB12B53A77D"
+        "sha1": "BC5204B10EDA849751359CDA150365F46AFD7FBE",
+        "sha256": "80B04A89790040CE97E10AA3AF3A8CD38C9755188760410F7EBAC63BA47D6ED5"
       },
       "validity": {
         "notBefore": "2026-10-30T00:00:00Z",
         "notAfter": "2027-10-30T00:00:00Z"
       },
       "san": [
-        "DNS=DC01.simsi2027.test"
+        "DNS=DC01.simsi2027.test",
+        "DNS=simsi2027.test",
+        "DNS=SIMSI2027"
       ],
       "eku": [
         "1.3.6.1.5.5.7.3.2",
         "1.3.6.1.5.5.7.3.1",
-        "1.3.6.1.5.2.3.5",
-        "1.3.6.1.4.1.311.20.2.2"
+        "1.3.6.1.4.1.311.20.2.2",
+        "1.3.6.1.5.2.3.5"
       ],
       "aia": [
         "http://pki.simsi2027.test/aia/SIMSI2027-ICA01.crt"
@@ -448,29 +510,74 @@
         "http://pki.simsi2027.test/cdp/SIMSI2027-ICA01.crl"
       ],
       "demonstrationFixture": true,
-      "notice": "Demonstration fixture"
+      "notice": "Demonstration fixture",
+      "spkiSha256": "D5B5B54495556090FAED20BCF5DA53B45382B4A86D5E361B3937162CE3CA838A"
     },
     {
-      "filename": "certificates/fault-dc-wrong-eku.cer",
-      "pemFilename": "certificates/fault-dc-wrong-eku.pem",
+      "filename": "certificates/dc01-enrolled.cer",
+      "pemFilename": "certificates/dc01-enrolled.pem",
       "artifactType": "certificate",
       "relatedRequest": "1042",
-      "stage": "retrieve",
-      "role": "dc-cert",
-      "fault": "wrong-eku",
-      "subject": "CN=DC01.simsi2027.test",
+      "stage": "b-issue",
+      "role": "dc-enrolled",
+      "path": "mmc",
+      "fault": null,
+      "subject": "",
       "issuer": "CN=SIMSI2027 Issuing CA 01, O=SIMSI2027 Synthetic Demo, DC=simsi2027, DC=test",
-      "serialNumber": "2027000000000000000000000000DC02",
+      "serialNumber": "2027000000000000000000000000DC06",
       "thumbprints": {
-        "sha1": "C75607A16751EB1FA1EC721F4EE23546084A4E72",
-        "sha256": "15CA86880C797D715332FEE841FAC8F5F66AA56105049F6DC278AF395E1781FD"
+        "sha1": "85443D742922398EC454CAD10F1844D0E43F6F70",
+        "sha256": "3BC5BB6959BD91CD398F090741E8FF47213D96F9CF2339E2A2854DF5CC17273F"
       },
       "validity": {
         "notBefore": "2026-10-30T00:00:00Z",
         "notAfter": "2027-10-30T00:00:00Z"
       },
       "san": [
-        "DNS=DC01.simsi2027.test"
+        "DNS=DC01.simsi2027.test",
+        "DNS=simsi2027.test",
+        "DNS=SIMSI2027"
+      ],
+      "eku": [
+        "1.3.6.1.5.5.7.3.2",
+        "1.3.6.1.5.5.7.3.1",
+        "1.3.6.1.4.1.311.20.2.2",
+        "1.3.6.1.5.2.3.5"
+      ],
+      "aia": [
+        "http://pki.simsi2027.test/aia/SIMSI2027-ICA01.crt"
+      ],
+      "cdp": [
+        "http://pki.simsi2027.test/cdp/SIMSI2027-ICA01.crl"
+      ],
+      "demonstrationFixture": true,
+      "notice": "Demonstration fixture",
+      "spkiSha256": "24119A2D56777ACC5E4EB524150A58296D5E2D04CB6A896AE5552D0553E8CD1C"
+    },
+    {
+      "filename": "certificates/fault-dc-wrong-eku.cer",
+      "pemFilename": "certificates/fault-dc-wrong-eku.pem",
+      "artifactType": "certificate",
+      "relatedRequest": "1042",
+      "stage": "a-purposes",
+      "role": "dc-cert",
+      "path": "fault",
+      "fault": "wrong-eku",
+      "subject": "CN=DC01.simsi2027.test",
+      "issuer": "CN=SIMSI2027 Issuing CA 01, O=SIMSI2027 Synthetic Demo, DC=simsi2027, DC=test",
+      "serialNumber": "2027000000000000000000000000DC02",
+      "thumbprints": {
+        "sha1": "2272AF1BFFBFB286AFDAD04057B6D87234A75638",
+        "sha256": "5F1D6702975D342F02287D80F7A271CCE871311E4445864866002D10D357AD88"
+      },
+      "validity": {
+        "notBefore": "2026-10-30T00:00:00Z",
+        "notAfter": "2027-10-30T00:00:00Z"
+      },
+      "san": [
+        "DNS=DC01.simsi2027.test",
+        "DNS=simsi2027.test",
+        "DNS=SIMSI2027"
       ],
       "eku": [
         "1.3.6.1.5.5.7.3.2"
@@ -482,22 +589,24 @@
         "http://pki.simsi2027.test/cdp/SIMSI2027-ICA01.crl"
       ],
       "demonstrationFixture": true,
-      "notice": "Demonstration fixture"
+      "notice": "Demonstration fixture",
+      "spkiSha256": "D5B5B54495556090FAED20BCF5DA53B45382B4A86D5E361B3937162CE3CA838A"
     },
     {
       "filename": "certificates/fault-dc-san-missing.cer",
       "pemFilename": "certificates/fault-dc-san-missing.pem",
       "artifactType": "certificate",
       "relatedRequest": "1042",
-      "stage": "retrieve",
+      "stage": "a-purposes",
       "role": "dc-cert",
+      "path": "fault",
       "fault": "san-missing",
       "subject": "CN=DC01.simsi2027.test",
       "issuer": "CN=SIMSI2027 Issuing CA 01, O=SIMSI2027 Synthetic Demo, DC=simsi2027, DC=test",
       "serialNumber": "2027000000000000000000000000DC03",
       "thumbprints": {
-        "sha1": "18D45D5DB233C0D1F941E04E372AB02DEE92554B",
-        "sha256": "C69D32FDC9450CB621C6715A8CB92D0E335DACDE6198933B47B0FE5E345EA10E"
+        "sha1": "0B856F207A82D7B4864C1C2736DB4ED8F97366C6",
+        "sha256": "3A1EAC5FACD1764BFE5D2EA8404B198C18516F3A917544A16947B6F120299EB1"
       },
       "validity": {
         "notBefore": "2026-10-30T00:00:00Z",
@@ -509,8 +618,8 @@
       "eku": [
         "1.3.6.1.5.5.7.3.2",
         "1.3.6.1.5.5.7.3.1",
-        "1.3.6.1.5.2.3.5",
-        "1.3.6.1.4.1.311.20.2.2"
+        "1.3.6.1.4.1.311.20.2.2",
+        "1.3.6.1.5.2.3.5"
       ],
       "aia": [
         "http://pki.simsi2027.test/aia/SIMSI2027-ICA01.crt"
@@ -519,22 +628,24 @@
         "http://pki.simsi2027.test/cdp/SIMSI2027-ICA01.crl"
       ],
       "demonstrationFixture": true,
-      "notice": "Demonstration fixture"
+      "notice": "Demonstration fixture",
+      "spkiSha256": "D5B5B54495556090FAED20BCF5DA53B45382B4A86D5E361B3937162CE3CA838A"
     },
     {
-      "filename": "certificates/fault-dc-key-mismatch.cer",
-      "pemFilename": "certificates/fault-dc-key-mismatch.pem",
+      "filename": "certificates/fault-dc-san-no-domain.cer",
+      "pemFilename": "certificates/fault-dc-san-no-domain.pem",
       "artifactType": "certificate",
       "relatedRequest": "1042",
-      "stage": "retrieve",
+      "stage": "a-purposes",
       "role": "dc-cert",
-      "fault": "key-mismatch",
+      "path": "fault",
+      "fault": "san-no-domain",
       "subject": "CN=DC01.simsi2027.test",
       "issuer": "CN=SIMSI2027 Issuing CA 01, O=SIMSI2027 Synthetic Demo, DC=simsi2027, DC=test",
-      "serialNumber": "2027000000000000000000000000DC04",
+      "serialNumber": "2027000000000000000000000000DC07",
       "thumbprints": {
-        "sha1": "08325571FF210A6BDF5B9FBD1DB2F7D97AD806FD",
-        "sha256": "796536489CE228CC9FF4B1522E40E4E1CA87A6A202F5F090CCB94A61B323CE1F"
+        "sha1": "E3D07272186494256F564D1497EF678A9476C621",
+        "sha256": "CAA5BAC1EC9D0BB9F28F28B12A548E0C4813BA534A5FB1F05C739FFAF1C78BA6"
       },
       "validity": {
         "notBefore": "2026-10-30T00:00:00Z",
@@ -546,8 +657,8 @@
       "eku": [
         "1.3.6.1.5.5.7.3.2",
         "1.3.6.1.5.5.7.3.1",
-        "1.3.6.1.5.2.3.5",
-        "1.3.6.1.4.1.311.20.2.2"
+        "1.3.6.1.4.1.311.20.2.2",
+        "1.3.6.1.5.2.3.5"
       ],
       "aia": [
         "http://pki.simsi2027.test/aia/SIMSI2027-ICA01.crt"
@@ -556,35 +667,80 @@
         "http://pki.simsi2027.test/cdp/SIMSI2027-ICA01.crl"
       ],
       "demonstrationFixture": true,
-      "notice": "Demonstration fixture"
+      "notice": "Demonstration fixture",
+      "spkiSha256": "D5B5B54495556090FAED20BCF5DA53B45382B4A86D5E361B3937162CE3CA838A"
+    },
+    {
+      "filename": "certificates/fault-dc-key-mismatch.cer",
+      "pemFilename": "certificates/fault-dc-key-mismatch.pem",
+      "artifactType": "certificate",
+      "relatedRequest": "1042",
+      "stage": "a-key",
+      "role": "dc-cert",
+      "path": "fault",
+      "fault": "key-mismatch",
+      "subject": "CN=DC01.simsi2027.test",
+      "issuer": "CN=SIMSI2027 Issuing CA 01, O=SIMSI2027 Synthetic Demo, DC=simsi2027, DC=test",
+      "serialNumber": "2027000000000000000000000000DC04",
+      "thumbprints": {
+        "sha1": "44AC3EED85155E8343F272EAE99219D195CAE0FC",
+        "sha256": "159D781131E3632A655840678BF23CBC3BFE91C2C45EDF0EECC5F8BFEDE20A8E"
+      },
+      "validity": {
+        "notBefore": "2026-10-30T00:00:00Z",
+        "notAfter": "2027-10-30T00:00:00Z"
+      },
+      "san": [
+        "DNS=DC01.simsi2027.test",
+        "DNS=simsi2027.test",
+        "DNS=SIMSI2027"
+      ],
+      "eku": [
+        "1.3.6.1.5.5.7.3.2",
+        "1.3.6.1.5.5.7.3.1",
+        "1.3.6.1.4.1.311.20.2.2",
+        "1.3.6.1.5.2.3.5"
+      ],
+      "aia": [
+        "http://pki.simsi2027.test/aia/SIMSI2027-ICA01.crt"
+      ],
+      "cdp": [
+        "http://pki.simsi2027.test/cdp/SIMSI2027-ICA01.crl"
+      ],
+      "demonstrationFixture": true,
+      "notice": "Demonstration fixture",
+      "spkiSha256": "5BE3E868091F5D3E978378B1981D0C279E6DFC407E7C01FAC2EE4C500F5CFFB9"
     },
     {
       "filename": "certificates/fault-dc-expired.cer",
       "pemFilename": "certificates/fault-dc-expired.pem",
       "artifactType": "certificate",
       "relatedRequest": "1042",
-      "stage": "retrieve",
+      "stage": "a-purposes",
       "role": "dc-cert",
+      "path": "fault",
       "fault": "expired",
       "subject": "CN=DC01.simsi2027.test",
       "issuer": "CN=SIMSI2027 Issuing CA 01, O=SIMSI2027 Synthetic Demo, DC=simsi2027, DC=test",
       "serialNumber": "2027000000000000000000000000DC05",
       "thumbprints": {
-        "sha1": "F9E143778F67667321DD014734FA54E0CF889371",
-        "sha256": "A641E1804A22F80A1D1AD7AFB0735C5B0D61AB209DF4D4517AE0D9A7A441F3F3"
+        "sha1": "F30ADA95792ED74B6B90885E81A0BADA7A863E4A",
+        "sha256": "F3FE966AB94045A931F0CC72050676261F34E3F5844EB97FCC6A2C85CE923792"
       },
       "validity": {
         "notBefore": "2026-02-01T00:00:00Z",
         "notAfter": "2026-09-30T00:00:00Z"
       },
       "san": [
-        "DNS=DC01.simsi2027.test"
+        "DNS=DC01.simsi2027.test",
+        "DNS=simsi2027.test",
+        "DNS=SIMSI2027"
       ],
       "eku": [
         "1.3.6.1.5.5.7.3.2",
         "1.3.6.1.5.5.7.3.1",
-        "1.3.6.1.5.2.3.5",
-        "1.3.6.1.4.1.311.20.2.2"
+        "1.3.6.1.4.1.311.20.2.2",
+        "1.3.6.1.5.2.3.5"
       ],
       "aia": [
         "http://pki.simsi2027.test/aia/SIMSI2027-ICA01.crt"
@@ -593,7 +749,36 @@
         "http://pki.simsi2027.test/cdp/SIMSI2027-ICA01.crl"
       ],
       "demonstrationFixture": true,
-      "notice": "Demonstration fixture"
+      "notice": "Demonstration fixture",
+      "spkiSha256": "D5B5B54495556090FAED20BCF5DA53B45382B4A86D5E361B3937162CE3CA838A"
+    },
+    {
+      "filename": "certificates/fault-rootca-impostor.cer",
+      "pemFilename": "certificates/fault-rootca-impostor.pem",
+      "artifactType": "certificate",
+      "relatedRequest": null,
+      "stage": "a-return-move",
+      "role": "dc-root-candidate",
+      "path": "fault",
+      "fault": "root-thumbprint-mismatch",
+      "subject": "CN=SIMSI2027 Root CA, O=SIMSI2027 Synthetic Demo, DC=simsi2027, DC=test",
+      "issuer": "CN=SIMSI2027 Root CA, O=SIMSI2027 Synthetic Demo, DC=simsi2027, DC=test",
+      "serialNumber": "2027000000000000000000000000AA99",
+      "thumbprints": {
+        "sha1": "2859D5AF9ECBFD47A988DA77FCBCCF5288AC88C7",
+        "sha256": "8C611FF9957DC9E48E999E07FFB18D13AD1F87BC9A52CAE7B9F10C651B9C1B4D"
+      },
+      "validity": {
+        "notBefore": "2026-01-01T00:00:00Z",
+        "notAfter": "2046-01-01T00:00:00Z"
+      },
+      "san": [],
+      "eku": [],
+      "aia": [],
+      "cdp": [],
+      "demonstrationFixture": true,
+      "notice": "Demonstration fixture",
+      "spkiSha256": "BF6C4566061002003886F9E4757B4DC9E73DCBD8563BDB9AE63E7D2F91AB4001"
     },
     {
       "filename": "certificates/dc01-chain.pem",
@@ -603,22 +788,51 @@
       "issuer": "CN=SIMSI2027 Root CA, O=SIMSI2027 Synthetic Demo, DC=simsi2027, DC=test",
       "serialNumber": null,
       "thumbprints": {
-        "sha1": "3BBA12CA3DE85A417C2B76B5DFB06FE57880DF73",
-        "sha256": "18018846CB01D59EBF0ECD00F9BE9588FB91DCDF39257113F1A63017F12F0A42"
+        "sha1": "91B1AAB08BAE3B2ECB556ECCA7278129AD251968",
+        "sha256": "CB6593CDB16EEA75876BDBA6F3E4C8F0B69DC82A7BE075C9C2FA74E8637ABE71"
       },
       "validity": null,
       "san": [
-        "DNS=DC01.simsi2027.test"
+        "DNS=DC01.simsi2027.test",
+        "DNS=simsi2027.test",
+        "DNS=SIMSI2027"
       ],
       "eku": [],
       "aia": [],
       "cdp": [],
       "relatedRequest": "1042",
-      "stage": "verify-chain",
+      "stage": "a-chain",
       "role": "dc-chain",
+      "path": "csr",
       "fault": null,
       "demonstrationFixture": true,
-      "notice": "Demonstration fixture (leaf, issuing CA, root; concatenated PEM)"
+      "notice": "Demonstration fixture (leaf, issuing CA, root; concatenated PEM)",
+      "spkiSha256": null
+    },
+    {
+      "filename": "certificates/dc01-return.p7b",
+      "pemFilename": "certificates/dc01-return.p7b.pem",
+      "artifactType": "p7b",
+      "subject": null,
+      "issuer": null,
+      "serialNumber": null,
+      "thumbprints": {
+        "sha1": "A5218D44EA881C435D67F8BB95174D0C13081718",
+        "sha256": "1B139D5F3BD0C45A47A017B8AB91C249620F7100766AE906CCFAB69821E0A0EC"
+      },
+      "validity": null,
+      "san": [],
+      "eku": [],
+      "aia": [],
+      "cdp": [],
+      "relatedRequest": "1042",
+      "stage": "a-retrieve",
+      "role": "dc-p7b",
+      "path": "csr",
+      "fault": null,
+      "demonstrationFixture": true,
+      "notice": "Demonstration fixture (PKCS #7 certificates-only: leaf, Issuing CA, Root)",
+      "spkiSha256": null
     }
   ]
 }
