@@ -4,7 +4,7 @@ import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { mkdirSync, writeFileSync } from 'node:fs';
 
-const DCID = 'dc-manual-certificate-request';
+const DCID = 'dc-manual-certificate-request', TLS = 'tls-manual-enrollment';
 const SCREENS = [
   { name: 'home', url: '/' },
   { name: 'dc-a-before-start', url: `/?scenario=${DCID}` },
@@ -13,7 +13,17 @@ const SCREENS = [
   { name: 'dc-a-step21-store-open', url: `/?scenario=${DCID}&t=21`, open: '#story-scene [data-sel="store:personal"]' },
   { name: 'dc-b-step8-panel-closed', url: `/?scenario=${DCID}&path=mmc&t=8` },
   { name: 'dc-b-step8-panel-open', url: `/?scenario=${DCID}&path=mmc&t=8`, open: '#story-scene .spot' },
-  { name: 'dc-a-fault-halt', url: `/?scenario=${DCID}&fault=root-thumbprint-mismatch&t=17` }
+  { name: 'dc-a-fault-halt', url: `/?scenario=${DCID}&fault=root-thumbprint-mismatch&t=17` },
+  // v0.5.0 Website TLS story
+  { name: 'tls-before-start', url: `/?scenario=${TLS}` },
+  { name: 'tls-step7-panel-closed', url: `/?scenario=${TLS}&t=7` },
+  { name: 'tls-step8-csr-open', url: `/?scenario=${TLS}&t=8`, open: '#story-scene .spot[data-artifact="csr"]' },
+  { name: 'tls-step14-store-open', url: `/?scenario=${TLS}&t=14`, open: '#story-scene [data-sel="store:personal"]' },
+  { name: 'tls-step19-handshake-open', url: `/?scenario=${TLS}&t=19`, open: '#story-scene .spot[data-artifact="handshake"]' },
+  { name: 'tls-step18-glossary-open', url: `/?scenario=${TLS}&t=18&panel=open`, open: '#sec-plain [data-gloss="SNI"]' },
+  { name: 'tls-final-card', url: `/?scenario=${TLS}&t=26` },
+  { name: 'tls-fault-halt', url: `/?scenario=${TLS}&fault=wrong-dns&t=23` },
+  { name: 'tls-reverse', url: `/?scenario=${TLS}&dir=reverse` }
 ];
 for (const scheme of ['light', 'dark']) {
   for (const s of SCREENS) {

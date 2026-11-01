@@ -1,13 +1,14 @@
+// Home screen and the Website TLS lesson. v0.5.0: the classic TLS workspace (scrubber, jump select, five tabs, legend, Labels and Reset
+// camera) was replaced by the story layout; each classic test below was migrated deliberately and keeps its original intent.
 import { test, expect } from '@playwright/test';
 
 const TLS = 'tls-manual-enrollment', DCID = 'dc-manual-certificate-request';
 const st = (page) => page.evaluate(() => window.__cfl.getState());
 const go = async (page, q = '') => { await page.goto(`/?${q}`); await page.waitForFunction(() => window.__cfl); };
-const open = (page, id, extra = '') => go(page, `scenario=${id}${extra ? `&${extra}` : ''}`);
-const stepN = async (page, n) => { for (let i = 0; i < n; i++) await page.click('#btn-step-fwd'); };
-const panel = (page, name) => page.locator(`#panel-${name}`);
-const tab = (page, name) => page.click(`[data-tabbtn="${name}"]`);
+const open = (page, extra = '') => go(page, `scenario=${TLS}${extra ? `&${extra}` : ''}`);
+const next = async (page, n = 1) => { for (let i = 0; i < n; i++) await page.click('#s-next'); };
 const quiet = (m, loc = '') => !/ERR_CONNECTION_REFUSED|5184/.test(m.text() + loc);
+const openSec = async (page, id) => { if ((await page.locator(`[data-sec-toggle="${id}"]`).getAttribute('aria-expanded')) !== 'true') await page.click(`[data-sec-toggle="${id}"]`); };
 
 test('scenario home appears first, offers two scenarios, a quiet future list and no auto-started tour', async ({ page }) => {
   const problems = [];
@@ -36,196 +37,159 @@ test('scenario home appears first, offers two scenarios, a quiet future list and
   expect(problems).toEqual([]);
 });
 
-test('TLS scenario starts from the home card in the focused view; Root CA is hidden; Back returns home', async ({ page }) => {
+test('TLS home card: 26 steps in two acts, the visitor only reports; Start opens the story; Home returns and Continue resumes', async ({ page }) => {
   await go(page);
+  const card = page.locator(`.scard[data-scenario="${TLS}"]`);
+  await expect(card).toContainText('26 steps in 2 acts'); await expect(card).toContainText('SIMSI2027\\Morgan, the application owner'); await expect(card).toContainText('only reports the problem');
   await page.click(`[data-start="${TLS}"]`);
-  await expect(page.locator('#workspace')).toBeVisible(); await expect(page.locator('#home')).toBeHidden();
-  await expect(page.locator('#ws-title')).toHaveText('Website TLS Certificate');
-  await expect(page.locator('#chk-topology')).not.toBeChecked();
-  expect(await page.locator('.node:visible').count()).toBeLessThan(8);
-  await expect(page.locator('.node[data-entity="rootca"]')).toBeHidden();
-  await expect(page.locator('#step-count')).toContainText('Step 1 of 19');
-  await page.click('#btn-back'); await expect(page.locator('#home')).toBeVisible(); await expect(page.locator('#btn-continue')).toBeVisible();
-  await page.click('#btn-continue'); await expect(page.locator('#workspace')).toBeVisible();
+  await expect(page.locator('body')).toHaveAttribute('data-layout', 'story'); await expect(page.locator('#s-title')).toHaveText('Website TLS Certificate');
+  await expect(page.locator('#s-pathseg')).toBeHidden(); await expect(page.locator('#s-condwrap')).toBeHidden(); await expect(page.locator('#s-full')).not.toBeChecked();
+  expect(await page.locator('#story-scene .szone[data-mode="placeholder"]').count()).toBe(6);
+  await expect(page.locator('#story-scene .ot')).toHaveClass(/muted/);
+  await expect(page.locator('#s-rail .act')).toHaveCount(2);
+  expect(await page.locator('#s-rail .act-label').allTextContents()).toEqual(['Act 1 · Get the certificate', 'Act 2 · Use the certificate']);
+  await expect(page.locator('#s-rail .act').first().locator('.mchip')).toHaveCount(6); await expect(page.locator('#s-rail .act').nth(1).locator('.mchip')).toHaveCount(4);
+  await page.click('#s-home'); await expect(page.locator('#home')).toBeVisible(); await expect(page.locator('#btn-continue')).toBeVisible();
+  await page.click('#btn-continue'); await expect(page.locator('#workspace')).toBeVisible(); await expect(page.locator('#s-title')).toHaveText('Website TLS Certificate');
 });
 
-// v0.4.0: the Domain Controller scenario moved to the story layout. Its v0.3.0 classic-layout tests (18 stages, node/chip selectors,
-// old faults) encoded the superseded model and were migrated to tests/e2e/dc-story.spec.js. The classic focused-view Root CA test
-// below now runs on the TLS scenario, which still uses the classic layout.
-test('focused view hides the offline Root CA; full topology reveals it at the far right, off the request path (TLS)', async ({ page }) => {
-  await open(page, TLS, 't=12.6');
-  await expect(page.locator('.node[data-entity="rootca"]')).toBeHidden();
-  const focusedCount = await page.locator('.node:visible').count();
-  await page.check('#chk-topology');
-  await expect(page.locator('.node[data-entity="rootca"]')).toBeVisible();
-  expect(await page.locator('.node:visible').count()).toBeGreaterThan(focusedCount);
-  const boxes = await page.locator('.node:visible').evaluateAll((els) => els.map((e) => ({ id: e.dataset.entity, x: e.getBoundingClientRect().x })));
-  expect(boxes.find((b) => b.id === 'rootca').x).toBe(Math.max(...boxes.map((b) => b.x)));
-  await expect(page.locator('.zone.offline')).toBeVisible();
-  expect(await page.evaluate(() => window.__cfl.app.sc.flows.filter((f) => f.from === 'rootca' || f.to === 'rootca').length)).toBe(0);
-  await page.uncheck('#chk-topology'); await expect(page.locator('.node[data-entity="rootca"]')).toBeHidden();
+test('the classic workspace is gone: no scrubber, jump select, tabs, legend, Labels or Reset camera', async ({ page }) => {
+  await open(page, 't=5');
+  for (const sel of ['#scrubber', '#sel-jump', '[data-tabbtn]', '.legend', '#chk-labels', '#btn-reset-camera', '#scene']) await expect(page.locator(sel)).toHaveCount(0);
 });
 
-test('forward play at 2x advances; pause freezes; step buttons move one step', async ({ page }) => {
-  await open(page, TLS);
-  await page.click('[data-speed="2"]'); await page.click('#btn-play');
+test('the offline Root CA stays muted; the history link appears only while the chain is built or a CA certificate is inspected; full topology reveals every zone', async ({ page }) => {
+  await open(page, 't=12');
+  await expect(page.locator('#story-scene .cn-history')).toHaveCount(0); await expect(page.locator('#story-scene .ot')).toHaveClass(/muted/);
+  await page.check('#s-full'); expect(await page.locator('#story-scene .szone[data-mode="placeholder"], #story-scene .szone[data-mode="finished"]').count()).toBe(0);
+  await expect(page.locator('#story-scene .szone[data-mode="active"]')).toHaveCount(1); await page.uncheck('#s-full');
+  await open(page, 't=21'); await expect(page.locator('#story-scene .cn-history')).toContainText('signed the Issuing CA certificate earlier (offline)');
+  expect(await page.evaluate(() => window.__cfl.app.sc.flows.filter((f) => /OT|root/i.test(f.from + f.to)).length)).toBe(0);
+});
+
+test('play at 2x advances; pause freezes; Next and Previous move one step', async ({ page }) => {
+  await open(page, 'start=1');
+  await page.selectOption('#s-speed', '2'); await page.click('#s-play');
   await expect(page.locator('body')).toHaveAttribute('data-playing', 'true');
-  await expect.poll(async () => (await st(page)).stage, { timeout: 15000 }).toBeGreaterThanOrEqual(2);
-  await page.click('#btn-pause');
-  const a = await st(page); await page.waitForTimeout(400); expect((await st(page)).stageProgress).toBe(a.stageProgress);
-  await page.click('#btn-restart'); await stepN(page, 3);
+  await expect.poll(async () => (await st(page)).stage, { timeout: 15000 }).toBeGreaterThanOrEqual(1);
+  await page.click('#s-play'); const a = await st(page); await page.waitForTimeout(400); expect((await st(page)).stageProgress).toBe(a.stageProgress);
+  await page.click('#s-restart'); await next(page, 3);
   let s = await st(page); expect([s.stage, s.stageProgress, s.requestState]).toEqual([2, 1, 'needed']);
-  await page.click('#btn-step-back'); s = await st(page); expect([s.stage, s.stageProgress]).toEqual([1, 1]);
+  await page.click('#s-prev'); s = await st(page); expect([s.stage, s.stageProgress]).toEqual([1, 1]);
 });
 
-test('timeline scrubber, jump menu and speeds control the same state; selection does not reset position', async ({ page }) => {
-  await open(page, TLS);
-  await page.locator('#scrubber').fill('1150');
-  let s = await st(page); expect(s.stage).toBe(11); expect(s.stageProgress).toBeCloseTo(0.5, 1); expect(s.installationState).toBe('installing');
-  await page.selectOption('#sel-jump', '6'); s = await st(page); expect([s.stage, s.csrState, s.templateDecision]).toEqual([5, 'created', 'pending']);
-  for (const v of ['0.25', '0.5', '1', '2']) { await page.click(`[data-speed="${v}"]`); expect((await st(page)).playbackSpeed).toBe(Number(v)); }
-  await page.click('.node[data-entity="web01"]'); s = await st(page); expect([s.stage, s.stageProgress]).toEqual([5, 1]);
-  await tab(page, 'details'); await expect(panel(page, 'details')).toContainText('Private-key state');
+test('milestone rail and speed control the same state; selection does not reset the position', async ({ page }) => {
+  await open(page, 'start=1');
+  await page.click('#s-rail .mchip[data-milestone="Create key and CSR"]');
+  let s = await st(page); expect([s.stage, s.csrState]).toEqual([6, 'created']);
+  for (const v of ['0.5', '1', '2']) { await page.selectOption('#s-speed', v); expect((await st(page)).playbackSpeed).toBe(Number(v)); }
+  await page.locator('#story-scene .spot[data-artifact="csr"]').click(); s = await st(page); expect([s.stage, s.stageProgress]).toEqual([6, 1]);
+  await expect(page.locator('#sec-technical')).toContainText('SPKI SHA-256');
 });
 
-test('reverse evidence mode traces evidence for TLS and keeps the finished world', async ({ page }) => {
-  await open(page, TLS);
-  await page.click('#btn-mode-reverse'); await expect(panel(page, 'evidence')).toBeVisible();
+test('reverse evidence traces evidence for TLS and keeps the finished world', async ({ page }) => {
+  await open(page, 'start=1'); await page.click('#s-rev');
   let s = await st(page); expect([s.direction, s.trustDecision, s.evidenceIndex]).toEqual(['reverse', 'trusted', 0]);
-  await expect(panel(page, 'evidence').locator('.trace li.current')).toContainText('Why is the site trusted?');
-  await stepN(page, 13); s = await st(page); expect(s.evidenceIndex).toBe(12); expect(s.keyState).toBe('held-on-web01');
-  await expect(panel(page, 'evidence').locator('.trace li.current')).toContainText('Jordan');
-  await page.click('#btn-mode-forward'); expect((await st(page)).direction).toBe('forward');
+  await expect(page.locator('#s-caption')).toContainText('Evidence 1 of 11 · Why is the connection trusted?');
+  await next(page, 10); s = await st(page); expect(s.evidenceIndex).toBe(10); expect(s.keyState).toBe('associated');
+  await expect(page.locator('#story-scene .plate-head')).toContainText('Why did the work start?');
+  await page.click('#s-fwd'); expect((await st(page)).direction).toBe('forward');
 });
 
-test('TLS: clicking people, computers and servers explains them (IP is context only)', async ({ page }) => {
-  await open(page, TLS, 't=19&full=1');
-  await page.click('.node[data-entity="visitor"]'); await expect(panel(page, 'explain')).toContainText('does not request or manage certificates');
-  await tab(page, 'details'); await expect(panel(page, 'details')).toContainText('SIMSI2027\\Jordan'); await expect(panel(page, 'details')).toContainText('Standard user'); await expect(panel(page, 'details')).toContainText('Observed browser error');
-  await page.click('.node[data-entity="client01"]'); await expect(panel(page, 'explain')).toContainText('enrollment authority');
-  await tab(page, 'details'); await expect(panel(page, 'details')).toContainText('10.20.10.45');
-  await page.click('.node[data-entity="owner"]'); await tab(page, 'details'); await expect(panel(page, 'details')).toContainText('SIMSI2027\\Morgan'); await expect(panel(page, 'details')).toContainText('WebServer-Requesters');
-  await page.click('.node[data-entity="web01"]'); await tab(page, 'details'); await expect(panel(page, 'details')).toContainText('SNI state'); await expect(panel(page, 'details')).toContainText('Private-key state');
-  await page.click('.node[data-entity="rootca"]'); await expect(panel(page, 'explain')).toContainText('not contacted');
-  await tab(page, 'details'); await expect(panel(page, 'details')).toContainText('issue the website certificate');
+test('clicking zones explains people and computers; the IP address is context only', async ({ page }) => {
+  await open(page, 't=1');
+  await page.locator('#story-scene [data-sel="zone:Z1"]').click(); await expect(page.locator('#sec-plain')).toContainText('CLIENT01, where Jordan browses');
+  await page.keyboard.press('Escape'); await page.click('#spanel .popen'); await openSec(page, 'technical');
+  await expect(page.locator('#sec-technical')).toContainText('SIMSI2027\\Jordan on CLIENT01 (10.20.10.45)');
+  await expect(page.locator('#sec-technical')).toContainText('an address grants no certificate rights');
+  // Below 1600 px the open panel is a drawer over the plate: close it (Escape) before selecting the next object.
+  await page.keyboard.press('Escape'); await page.locator('#story-scene .ot').click(); await expect(page.locator('#sec-plain')).toContainText('never signs the website certificate');
 });
 
-test('TLS: template, CA, AIA/CDP and arrows expose technical details', async ({ page }) => {
-  await open(page, TLS, 't=19&full=1');
-  await page.click('.node[data-entity="template"]'); await tab(page, 'details');
-  for (const t of ['Template OID', 'Schema version', 'Renewal period', 'Enrollment permissions', 'Approval requirement', 'Policy decision']) await expect(panel(page, 'details')).toContainText(t);
-  await page.click('.node[data-entity="ica01"]'); await tab(page, 'details'); await expect(panel(page, 'details')).toContainText('2027000000000000000000000000CC10');
-  await page.click('.node[data-entity="aia"]'); await tab(page, 'details');
-  for (const t of ['Raw extension value', 'AIA endpoint', 'CDP endpoint', 'http://pki.simsi2027.test/cdp/SIMSI2027-ICA01.crl']) await expect(panel(page, 'details')).toContainText(t);
-  await page.locator('.flow[data-flow="f-submit"] .flow-hit').dispatchEvent('click');
-  for (const t of ['Conceptual protocol', 'Request ID', '1042']) await expect(panel(page, 'details')).toContainText(t);
+test('template, request record and AIA/CDP endpoints expose technical details', async ({ page }) => {
+  await open(page, 't=5'); await page.locator('#story-scene .spot[data-artifact="requirements"]').click();
+  for (const t of ['SIMSI2027 Web Server', 'Supply in the request', 'Server Authentication only', 'Web Server Certificate Requesters', 'Web Server (built-in)', 'Domain Admins and Enterprise Admins by default', 'Depends on your configuration']) await expect(page.locator('#sec-technical')).toContainText(t);
+  await open(page, 't=10'); await page.locator('#story-scene .spot[data-artifact="record"]').click();
+  for (const t of ['1043', 'SIMSI2027\\Morgan', 'SIMSI2027WebServer', 'Allowed by policy']) await expect(page.locator('#sec-technical')).toContainText(t);
+  await open(page, 't=21'); await page.locator('#story-scene [data-sel="pub:aia"]').click(); await expect(page.locator('#sec-plain')).toContainText('issuer certificate');
+  await page.keyboard.press('Escape'); await page.locator('#story-scene [data-sel="pub:cdp"]').click(); await expect(page.locator('#sec-plain')).toContainText('different URL from the AIA');
 });
 
-test('TLS certificate inspector exposes every required tab; CSR and CRL tabs exist', async ({ page }) => {
-  await open(page, TLS, 't=19&full=1');
-  await page.click('.chip[data-artifact="leaf"]');
-  const tabs = ['general', 'details', 'certification-path', 'subject-alternative-names', 'enhanced-key-usage', 'key-usage', 'basic-constraints', 'authority-information-access', 'crl-distribution-points', 'thumbprints', 'pem', 'raw-asn-1-summary', 'issuance-history', 'matching-csr'];
-  await expect(page.locator('#panel-inspector [role=tab]')).toHaveCount(tabs.length);
-  const want = { 'subject-alternative-names': 'DNS=portal.simsi2027.test', 'enhanced-key-usage': 'Server Authentication', pem: '-----BEGIN CERTIFICATE-----', 'matching-csr': 'Public key identical', general: 'This certificate is OK' };
-  for (const t of tabs) { await page.click(`#panel-inspector [data-tab="${t}"]`); await expect(page.locator('.tabpanel')).toHaveAttribute('data-active-tab', t); await expect(page.locator('.tabpanel')).not.toBeEmpty(); if (want[t]) await expect(page.locator('.tabpanel')).toContainText(want[t]); }
-  await page.click('.chip[data-artifact="csr"]'); await expect(page.locator('#panel-inspector [role=tab]')).toHaveCount(8);
-  await page.click('.chip[data-artifact="crl"]'); await expect(page.locator('#panel-inspector [role=tab]')).toHaveCount(8);
-  await page.click('[data-tab="revoked-entries"]'); await expect(page.locator('.tabpanel')).toContainText('2027000000000000000000000000DD99');
+test('certificate inspector shows the parsed fields; CSR and CRL inspectors open from their cards', async ({ page }) => {
+  await open(page, 't=23'); await page.locator('#story-scene .spot[data-artifact="leaf"]').click();
+  for (const w of ['DNS=portal.simsi2027.test', 'Server Authentication', 'SIMSI2027WebServer', 'Thumbprint (SHA-1, as Windows shows it)', 'Certification path', '/aia/SIMSI2027-ICA01.crt', '/cdp/SIMSI2027-ICA01.crl', 'valid at the simulation clock']) await expect(page.locator('#sec-technical')).toContainText(w);
+  await open(page, 't=8'); await page.locator('#story-scene .spot[data-artifact="csr"]').click(); await expect(page.locator('#sec-technical')).toContainText('proof of possession');
+  await open(page, 't=24'); await page.locator('#story-scene .spot[data-artifact="crl"]').click(); await expect(page.locator('#sec-technical')).toContainText('2027000000000000000000000000DD99');
 });
 
-test('public certificate artifact can be downloaded and is real DER (TLS)', async ({ page }) => {
-  await open(page, TLS, 't=19&full=1');
-  await page.click('.chip[data-artifact="leaf"]');
+test('public certificate artifact can be downloaded and is real DER', async ({ page }) => {
+  await open(page, 't=23'); await page.locator('#story-scene .spot[data-artifact="leaf"]').click();
   const [dl] = await Promise.all([page.waitForEvent('download'), page.click('[data-download="portal.simsi2027.test.cer"]')]);
   expect(dl.suggestedFilename()).toBe('portal.simsi2027.test.cer');
-  const fetchBytes = (name) => page.evaluate(async (n) => { const h = document.querySelector(`[data-download="${n}"]`).href; return [...new Uint8Array(await (await fetch(h)).arrayBuffer())]; }, name).then((a) => Buffer.from(a));
-  const buf = await fetchBytes('portal.simsi2027.test.cer'); expect(buf[0]).toBe(0x30); expect(buf.toString('latin1')).not.toContain('PRIVATE KEY');
+  const bytes = await page.evaluate(async () => { const h = document.querySelector('[data-download="portal.simsi2027.test.cer"]').href; return [...new Uint8Array(await (await fetch(h)).arrayBuffer())]; });
+  expect(bytes[0]).toBe(0x30); expect(Buffer.from(bytes).toString('latin1')).not.toContain('PRIVATE KEY');
 });
 
-test('healthy TLS scenario completes trusted', async ({ page }) => {
-  await open(page, TLS); await stepN(page, 19);
+test('healthy TLS lesson completes trusted', async ({ page }) => {
+  await open(page, 'start=1'); await next(page, 26);
   const s = await st(page); expect(s).toMatchObject({ trustDecision: 'trusted', connectionState: 'trusted', iisBindingState: 'bound', halted: false });
-  await page.check('#chk-topology'); await expect(page.locator('.node[data-entity="decision"] .n-status')).toHaveText('TRUSTED');
-  await page.click('#btn-step-fwd'); expect((await st(page)).stage).toBe(18);
+  await expect(page.locator('#final-card h2')).toHaveText('Trusted connection: portal.simsi2027.test is who it says it is');
+  await page.click('#s-next'); expect((await st(page)).stage).toBe(25);
 });
 
-const TLS_FAULTS = [['revoked', 'revocation', 'Serial 2027000000000000000000000000CC14 is listed'], ['wrong-dns', 'validate', 'web01.simsi2027.test'], ['untrusted-root', 'root-trust', 'does not contain'], ['expired', 'validate', '2026-09-30'],
-  ['wrong-eku', 'validate', 'Client Authentication'], ['missing-ica', 'chain-build', '404'], ['cdp-unavailable', 'revocation', 'timed out'], ['no-private-key', 'install', 'no matching private key']];
+const TLS_FAULTS = [['no-enroll-permission', 't-policy', 'Web Server Certificate Requesters'], ['template-not-published', 't-policy', 'not in ICA01'], ['user-context', 't-accept', 'MachineKeySet = FALSE'],
+  ['no-private-key', 't-bind', 'imported into Personal'], ['wrong-binding', 't-cert-msg', 'temporary self-signed'], ['missing-ica', 't-chain', 'sent only the leaf'], ['untrusted-root', 't-chain', 'does not contain it'],
+  ['wrong-dns', 't-checks', 'www.portal.simsi2027.test'], ['expired', 't-checks', '2026-09-30'], ['wrong-eku', 't-checks', 'Client Authentication'], ['revoked', 't-revocation', 'CC14'], ['cdp-unavailable', 't-revocation', 'times out']];
 for (const [fault, stage, evidence] of TLS_FAULTS) {
-  test(`TLS failure ${fault} halts at ${stage} with evidence`, async ({ page }) => {
-    await open(page, TLS, `fault=${fault}`); await stepN(page, 19);
-    const s = await st(page); expect(s.halted).toBe(true);
-    expect(await page.evaluate(() => document.body.dataset.stage)).toBe(stage); expect(s.trustDecision).not.toBe('trusted');
-    await expect(page.locator('#fault-banner')).toBeVisible();
-    await tab(page, 'troubleshoot'); const t = panel(page, 'troubleshoot');
-    for (const w of ['What failed', 'Still healthy', 'Likely remediation', 'Owner of the correction', 'Expected result', 'Suggested checks']) await expect(t).toContainText(w);
+  test(`TLS fault ${fault} halts at ${stage}; Troubleshoot moves to position 2 with the evidence`, async ({ page }) => {
+    await open(page, `fault=${fault}&start=1`); await next(page, 27);
+    const s = await st(page); expect(s.halted).toBe(true); expect(s.trustDecision).not.toBe('trusted');
+    expect(await page.evaluate(() => document.body.dataset.stage)).toBe(stage);
+    await expect(page.locator('#fault-banner')).toBeVisible(); await expect(page.locator('#final-card h2')).toContainText('Stopped');
+    await page.click('#spanel .popen');
+    expect(await page.locator('#spanel .psec').evaluateAll((e) => e.map((x) => x.dataset.sec))).toEqual(['plain', 'troubleshoot', 'technical', 'command', 'raw', 'evidence']);
+    const t = page.locator('#sec-troubleshoot'); for (const w of ['Symptom', 'Evidence', 'Owner', 'Remediation', 'Stops the flow?', 'Long term']) await expect(t).toContainText(w);
     await expect(t).toContainText(evidence);
-    await tab(page, 'evidence'); await expect(panel(page, 'evidence')).toContainText('User-selected fault');
-    await page.click('#btn-step-fwd'); expect((await st(page)).stage).toBe(s.stage);
+    await openSec(page, 'evidence'); await expect(page.locator('#sec-evidence')).toContainText('User-selected fault');
+    await page.click('#s-next'); expect((await st(page)).stage).toBe(s.stage);
   });
 }
 
-test('AIA and CDP stay separate in the TLS inspector', async ({ page }) => {
-  await open(page, TLS, 't=19&full=1'); await page.click('.chip[data-artifact="leaf"]');
-  await page.click('[data-tab="authority-information-access"]'); await expect(page.locator('.tabpanel')).toContainText('issuing CA certificate'); await expect(page.locator('.tabpanel')).not.toContainText('SIMSI2027-ICA01.crl');
-  await page.click('[data-tab="crl-distribution-points"]'); await expect(page.locator('.tabpanel')).toContainText('CRL'); await expect(page.locator('.tabpanel')).not.toContainText('SIMSI2027-ICA01.crt');
+test('AIA and CDP stay separate in the certificate inspector', async ({ page }) => {
+  await open(page, 't=23'); await page.locator('#story-scene .spot[data-artifact="leaf"]').click();
+  const rows = await page.locator('#sec-technical dt').allTextContents();
+  expect(rows).toContain('AIA (issuer certificate location)'); expect(rows).toContain('CDP (CRL location)');
+  const aia = await page.locator('#sec-technical dt:text-is("AIA (issuer certificate location)") + dd').textContent(); expect(aia).toMatch(/\.crt$/); expect(aia).not.toContain('.crl');
 });
 
-test('narrow layout has no horizontal page overflow and the home and classic workspace stay operable (TLS)', async ({ page }) => {
+test('narrow layout has no horizontal page overflow and the TLS story stays operable', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 800 });
   await go(page);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
-  await page.click(`[data-start="${TLS}"]`);
-  await expect(page.locator('#scene')).toBeVisible();
-  await page.click('#btn-step-fwd'); expect((await st(page)).stage).toBe(0);
-  await page.click('#btn-step-fwd'); expect((await st(page)).stage).toBe(1);
+  await page.click(`[data-start="${TLS}"]`); await expect(page.locator('#story-scene')).toBeVisible();
+  await page.click('#s-next'); expect((await st(page)).stage).toBe(0); await page.click('#s-next'); expect((await st(page)).stage).toBe(1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
-  await expect(page.locator('#rail .tick').first()).toBeVisible();
-  const box = await page.locator('#rail .tick').first().boundingBox(); expect(box.width).toBeGreaterThanOrEqual(30);
-});
-
-test('keyboard accessibility (classic layout): scenario start, tabs, nodes and stage rail work without a mouse and have accessible names', async ({ page }) => {
-  await go(page);
-  await page.locator(`[data-start="${TLS}"]`).focus(); await page.keyboard.press('Enter');
-  await expect(page.locator('#workspace')).toBeVisible();
-  await stepN(page, 8);
-  const unnamed = await page.evaluate(() => [...document.querySelectorAll('.node, .chip, .chaincard, #rail .tick, #workspace .classic-only button, #workspace .classic-only select, #workspace .classic-only input')].filter((e) => !(e.getAttribute('aria-label') || e.textContent.trim() || e.labels?.length || e.title)).length);
-  expect(unnamed).toBe(0);
-  expect(await page.evaluate(() => [...document.querySelectorAll('.node')].every((n) => n.getAttribute('role') === 'button' && n.tabIndex === 0 && n.getAttribute('aria-label')))).toBe(true);
-  expect(await page.evaluate(() => [...document.querySelectorAll('svg.icon')].every((s) => s.getAttribute('aria-hidden') === 'true'))).toBe(true);
-  await page.locator('.node[data-entity="web01"]').focus(); await page.keyboard.press('Enter');
-  expect((await st(page)).selectedEntity).toBe('web01'); await expect(panel(page, 'explain')).toContainText('About this object');
-  await page.locator('[data-tabbtn="evidence"]').focus(); await page.keyboard.press('Enter'); await expect(panel(page, 'evidence')).toBeVisible();
-  await page.locator('#rail .tick[data-tick="3"]').focus(); await page.keyboard.press('Enter'); expect((await st(page)).stage).toBe(3);
-});
-
-test('labels toggle and camera reset still work', async ({ page }) => {
-  await open(page, TLS, 't=19&full=1');
-  await page.uncheck('#chk-labels'); await expect(page.locator('#scene')).toHaveClass(/hide-labels/);
-  await page.locator('#scene').hover({ position: { x: 600, y: 300 } }); await page.mouse.wheel(0, -300);
-  expect(await page.evaluate(() => window.__cfl.app.scene.cam.k)).toBeGreaterThan(1);
-  await page.click('#btn-reset-camera'); expect(await page.evaluate(() => window.__cfl.app.scene.cam.k)).toBe(1);
+  const box = await page.locator('#s-rail .mchip').first().boundingBox(); expect(box.height).toBeGreaterThanOrEqual(24);
 });
 
 test('guided tour: interaction pauses it, it resumes after inactivity and hands control back', async ({ page }) => {
   await go(page, `scenario=${TLS}&tourResume=1500`);
-  await page.click('[data-speed="2"]'); await page.click('#btn-tour');
-  await expect(page.locator('body')).toHaveAttribute('data-tour', 'running'); await expect(page.locator('#tour-bar')).toBeVisible();
+  await page.selectOption('#s-speed', '2'); await page.click('#s-tour');
+  await expect(page.locator('body')).toHaveAttribute('data-tour', 'running'); await expect(page.locator('.s-tour-bar')).toBeVisible();
   await expect.poll(async () => (await st(page)).stage, { timeout: 15000 }).toBeGreaterThanOrEqual(1);
-  await page.click('#side', { force: true });
-  await expect(page.locator('body')).toHaveAttribute('data-tour', 'paused'); await expect(page.locator('#tour-text')).toContainText('paused');
-  await page.waitForTimeout(500); await expect(page.locator('body')).toHaveAttribute('data-tour', 'paused');
+  await page.locator('#story-scene').click({ position: { x: 10, y: 10 } });
+  await expect(page.locator('body')).toHaveAttribute('data-tour', 'paused'); await expect(page.locator('.s-tour-text')).toContainText('paused');
   await expect(page.locator('body')).toHaveAttribute('data-tour', 'running', { timeout: 6000 });
   await page.evaluate(() => { const t = window.__cfl.tour; t.index = t.steps.length - 1; t.phase = 'enter'; });
-  await expect(page.locator('body')).toHaveAttribute('data-tour', 'finished', { timeout: 15000 });
-  const s = await st(page); expect([s.direction, s.trustDecision]).toEqual(['forward', 'trusted']); await expect(page.locator('#tour-text')).toContainText('You are in control');
+  await expect(page.locator('body')).toHaveAttribute('data-tour', 'finished', { timeout: 20000 });
+  const s = await st(page); expect([s.direction, s.trustDecision]).toEqual(['forward', 'trusted']); await expect(page.locator('.s-tour-text')).toContainText('You are in control');
 });
 
 test('native viewer control: explained and disabled without a companion; works through a mocked local companion', async ({ page }) => {
   await page.route('http://127.0.0.1:5184/**', (r) => r.abort());
-  await open(page, TLS, 't=19&full=1'); await page.click('.chip[data-artifact="leaf"]');
+  await open(page, 't=23'); await page.locator('#story-scene .spot[data-artifact="leaf"]').click();
   await expect(page.locator('[data-native="portal-leaf"]')).toBeDisabled(); await expect(page.locator('[data-native-note]')).toContainText('local companion');
-  await expect(panel(page, 'inspector')).toContainText('CN=portal.simsi2027.test'); await expect(page.locator('[data-download="portal.simsi2027.test.cer"]')).toBeVisible();
+  await expect(page.locator('[data-download="portal.simsi2027.test.cer"]')).toBeVisible();
   const calls = []; const p2 = await page.context().newPage();
   await p2.route('http://127.0.0.1:5184/**', async (r) => {
     const req = r.request(); const cors = { 'Access-Control-Allow-Origin': 'http://127.0.0.1:5183', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Methods': '*' };

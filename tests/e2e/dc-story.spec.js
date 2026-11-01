@@ -187,9 +187,11 @@ test('reduced motion disables the moving packet', async ({ browser }) => {
   await ctx.close();
 });
 
-test('TLS regression smoke: classic layout still loads, steps and ends trusted', async ({ page }) => {
-  await go(page, `scenario=${TLS}`); await expect(page.locator('body')).toHaveAttribute('data-layout', 'classic');
-  await expect(page.locator('#scene')).toBeVisible(); await expect(page.locator('#story-scene')).toBeHidden();
-  for (let i = 0; i < 19; i++) await page.click('#btn-step-fwd');
+// v0.5.0: the TLS lesson moved from the classic layout to the story layout; this smoke test was migrated to it (same intent: the
+// other lesson still loads, steps and ends trusted next to the DC story).
+test('TLS regression smoke: the story layout loads, steps and ends trusted', async ({ page }) => {
+  await go(page, `scenario=${TLS}&start=1`); await expect(page.locator('body')).toHaveAttribute('data-layout', 'story');
+  await expect(page.locator('#story-scene')).toBeVisible(); await expect(page.locator('#s-title')).toHaveText('Website TLS Certificate');
+  for (let i = 0; i < 26; i++) await page.click('#s-next');
   expect((await st(page)).trustDecision).toBe('trusted');
 });
