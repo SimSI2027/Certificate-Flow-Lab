@@ -41,6 +41,6 @@ describe('repository hygiene', () => {
     expect(l).not.toMatch(/RunAs|-Verb/i);
   });
   it('documentation set exists', () => {
-    for (const f of ['README.md', 'docs/ARCHITECTURE.md', 'docs/SCENARIO_MODEL.md', 'docs/FIXTURES.md', 'docs/LIMITATIONS.md', 'docs/FUTURE_SCENARIOS.md', 'docs/AUDIT_v0.4.md', 'docs/AUDIT_v0.5.md','docs/VISUAL_REVIEW.md', 'docs/UX_LAYOUT.md', 'CLAUDE.md', '.github/workflows/deploy-pages.yml']) expect(existsSync(join(root, f)), f).toBe(true);
+    for (const f of ['README.md', 'docs/ARCHITECTURE.md', 'docs/SCENARIO_MODEL.md', 'docs/FIXTURES.md', 'docs/LIMITATIONS.md', 'docs/FUTURE_SCENARIOS.md', 'docs/AUDIT_v0.4.md', 'docs/AUDIT_v0.5.md', 'docs/AUDIT_v0.6.md', 'docs/FILM_LEARNING.md','docs/VISUAL_REVIEW.md', 'docs/UX_LAYOUT.md', 'CLAUDE.md', '.github/workflows/deploy-pages.yml']) expect(existsSync(join(root, f)), f).toBe(true);
   });
 });

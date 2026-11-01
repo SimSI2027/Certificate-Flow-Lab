@@ -51,3 +51,11 @@
 - **IIS and HTTP.sys are simulated.** The binding, the key use by HTTP.sys and `netsh http show sslcert` are described, never executed. Web-farm key sharing (exportable keys, centralized certificates) is mentioned only as configuration-dependent.
 - **Template and permissions are simulated.** SIMSI2027WebServer, its Enroll group and "no approval" are lesson values. The built-in WebServer description (version 1; Domain Admins and Enterprise Admins Enroll by default) is general background marked "Depends on your configuration".
 - **Dark mode now covers every screen**; the classic TLS workspace that stayed light no longer exists.
+
+## v0.6.0 learning film
+- **Long for a first cut.** At about 3 min 54 s it runs longer than the 50–70 s first sketched; the reading rule (0.3 s per word + 0.5 s) applied to the required content sets the length.
+- **Silent.** Sound design is a future phase. All content is in the captions.
+- **Pull-back shots are overview shots.** When two machines share the frame, plate text is small; the travelling artifacts are counter-scaled to stay legible, and the push-in shots carry the detail.
+- **The MP4 is not published.** It is generated locally (`npm run video:learning`) and git-ignored; the public site renders the same film live in the browser.
+- **Fonts.** The composition uses Segoe UI Variable and Cascadia Mono where installed (Windows). Other systems fall back to system fonts, so the browser preview can differ slightly from the exported MP4.
+- **Single scenario.** Only the healthy Website TLS path is filmed; faults, the Domain Controller lesson and NDES/SCEP are future films.

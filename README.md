@@ -14,6 +14,13 @@ The public demo is a synthetic simulation and is redeployed automatically by Git
 
 ## Release notes
 
+**v0.6.0: Learning film "From CSR to Trust"**
+- **A film that teaches.** It has 18 shots in three acts and runs about 3 min 54 s. It follows the website certificate from Jordan's browser warning, through WEB01's key and CSR, the Issuing CA's policy check and the **new** certificate it signs, `certreq -accept`, the three stores and the IIS binding, to CLIENT01's name, date, purpose, chain and revocation checks, CertificateVerify and session keys. It ends with a reverse evidence trace.
+- **Watch it in the browser:** [learning-film.html](https://simsi2027.github.io/Certificate-Flow-Lab/learning-film.html) (linked from the home screen). It is rendered live from the real synthetic fixtures. The player has Play/Pause, shot navigation, a position slider and a reduced-motion mode, and captions are announced to screen readers.
+- **Deterministic.** `window.renderAt(t)` is a pure function of time, driven by one canonical film state (`src/film-learning/state.js`). `npm run video:learning` exports a silent 1920×1080 60 fps H.264 MP4 and a contact sheet (git-ignored); `npm run video:learning:stills` writes shot-boundary audit frames.
+- **Accuracy.** The private key never moves; the CSR stays an input beside a separate new certificate; the Root CA is never contacted; AIA and CDP are separate; session keys encrypt the traffic. All of this is unit-tested. See [docs/FILM_LEARNING.md](docs/FILM_LEARNING.md) and [docs/AUDIT_v0.6.md](docs/AUDIT_v0.6.md).
+- **Pipeline.** The shared video pipeline lives in `scripts/video/lib.mjs`. The export server now runs without HMR or file watching, so an edit during a long render can no longer reload the page.
+
 **v0.5.0: the Website TLS Certificate lesson, redesigned as a story**
 - **One story system.** The TLS lesson now uses the same story zones as the Domain Controller lesson: one active zone, one active artifact and one active route, the calm technical plate in light and dark, a collapsed details panel and plain language first. The classic TLS workspace (dashed lanes, five tabs, scrubber, jump menu, legend, Labels and Reset camera) and its renderer were removed.
 - **Two acts, 10 milestones, 26 steps.** Act 1 "Get the certificate" (see the problem → plan → key and CSR → submit and issue → install → bind in IIS). Act 2 "Use the certificate" (TLS handshake → build the chain → check the certificate → trusted connection).
@@ -123,6 +130,9 @@ npm install
 ```
 `Ctrl+C` stops both child processes and their trees. npm: `npm run dev`, `npm run build`, `npm test`, `npm run test:e2e`, `npm run fixtures:validate`, `npm run test:pages`, `npm run video`.
 
+### Learning film (v0.6.0)
+`npm run video:learning` renders `output/certificate-flow-lab-learning-film-v1.mp4` (1920x1080, 60 fps, H.264, yuv420p, faststart, silent) and `output/certificate-flow-lab-learning-film-v1-contact-sheet.jpg` through `window.renderAt(t)`. `npm run video:learning:stills` writes representative stills and shot-boundary frames to `screenshots/learning-film/`. Preview with `npm run dev`, then open `/learning-film.html` (`?t=95` opens at 95 s). Details: [docs/FILM_LEARNING.md](docs/FILM_LEARNING.md).
+
 ### Video
 `npm run video` renders `output/certificate-flow-lab-v<version>.mp4` (v0.5.0: `certificate-flow-lab-v0.5.0.mp4`; 1920x1080, 60 fps, H.264, yuv420p, faststart, silent) and the matching `-contact-sheet.jpg`. It drives the canonical scenario state frame by frame, with no screen recording: title, home, the TLS story (26 steps, both acts), the DC Path A story, reverse evidence, full topology and the outro. Output is git-ignored.
 
@@ -143,4 +153,4 @@ npm run review:visual       # 252 screenshots (1920x1080, 1366x768, light + dark
 See [docs/LIMITATIONS.md](docs/LIMITATIONS.md). Planned: NDES / SCEP device enrollment, CEP / CES enrollment, autoenrollment, AIA and CDP diagnostics, OCSP, smart-card, device and user certificates, client authentication and cross-forest enrollment ([docs/FUTURE_SCENARIOS.md](docs/FUTURE_SCENARIOS.md)). They appear only as a quiet "Coming later" list on the home screen.
 
 ## Documentation
-[UX layout](docs/UX_LAYOUT.md) · [Visual review](docs/VISUAL_REVIEW.md) · [v0.5 audit](docs/AUDIT_v0.5.md) · [v0.4 audit](docs/AUDIT_v0.4.md) · [Architecture](docs/ARCHITECTURE.md) · [Scenario model](docs/SCENARIO_MODEL.md) · [Fixtures](docs/FIXTURES.md) · [Limitations](docs/LIMITATIONS.md) · [Future scenarios](docs/FUTURE_SCENARIOS.md) · [Icon sources](assets/icons/SOURCES.md)
+[Learning film](docs/FILM_LEARNING.md) · [v0.6 audit](docs/AUDIT_v0.6.md) · [UX layout](docs/UX_LAYOUT.md) · [Visual review](docs/VISUAL_REVIEW.md) · [v0.5 audit](docs/AUDIT_v0.5.md) · [v0.4 audit](docs/AUDIT_v0.4.md) · [Architecture](docs/ARCHITECTURE.md) · [Scenario model](docs/SCENARIO_MODEL.md) · [Fixtures](docs/FIXTURES.md) · [Limitations](docs/LIMITATIONS.md) · [Future scenarios](docs/FUTURE_SCENARIOS.md) · [Icon sources](assets/icons/SOURCES.md)

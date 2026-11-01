@@ -124,3 +124,13 @@
 
 ## Future expansion points to preserve
 NDES, SCEP, CEP, CES, autoenrollment, AIA retrieval, CDP/CRL validation, OCSP, smart-card, device and user certificates, client authentication, cross-forest enrollment.
+
+## Learning film rules (v0.6.0)
+- The learning film (`learning-film.html`, `src/film-learning/`) is separate from the interactive app and from the app film (`film.html`, `src/film/`). It reuses the fixtures, the parser, the synthetic constants and the icon family, and never imports app UI state.
+- `window.renderAt(t)` must stay a pure function of `t`. `filmStateAt(t)` in `state.js` is the one canonical film state, and `render.js` only maps it onto the DOM. No `Date.now`, `performance.now`, timers, CSS animations/transitions or `Math.random` in the film path. The preview may pace `renderAt` with `requestAnimationFrame`; capture always sets the time.
+- Timing lives only in `timeline.js` (shots, captions, cues, camera keys) and `tokens.js` (motion tokens). Every caption window meets the 0.3 s per word + 0.5 s rule, and every abbreviation (CSR, CA, SAN, EKU, AIA, CDP, CRL, TLS) is expanded at first use. Both are unit-tested.
+- Film PKI invariants: the private key never moves and is never on a route; the CSR stays an input next to a separate new certificate that the Issuing CA signs (no morph); the Root CA is never contacted and never a route endpoint; at most one route is active; AIA and CDP never appear together; only the leaf carries a key badge; session keys, not the certificate, encrypt the traffic.
+- Every certificate, CSR and CRL value shown in the film comes from `filmFacts(model)`. Simulated policy and environment values are labelled as such, and configuration-dependent statements carry "Depends on your configuration".
+- Film names follow the Website TLS truth rules (Jordan = visitor; Morgan = owner, operator and requester).
+- Never edit source files while a render runs. The export server disables HMR and watching, but a fresh render after the last edit is the release artifact.
+- Generated films, contact sheets and stills stay git-ignored (`output/*`, `screenshots/`). Before a film release, run `npm run video:learning:stills` and review the draft contact sheet and the boundary frames; then run the full render and check it with ffprobe (H.264, 1920x1080, 60 fps, yuv420p, no audio, moov before mdat).
