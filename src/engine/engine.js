@@ -75,12 +75,13 @@ function stageDone(scenario, faultId, i, halt) {
 // Evidence trace for reverse mode, filtered to what exists for this fault.
 export function buildTrace(scenario, faultId) {
   const halt = haltStageIndex(scenario, faultId);
-  const items = scenario.evidenceTrace.map((e) => ({ ...e, stageIndex: stageIndex(scenario, e.stage) }));
-  if (halt === null) return items.map((e) => ({ ...e, verdict: 'pass' }));
+  // Items may name the faults that affect them (v0.4.0 story); those are labelled as the learner's selected fault.
+  const items = scenario.evidenceTrace.map((e) => ({ ...e, stageIndex: stageIndex(scenario, e.stage), ...(e.faults?.includes(faultId) ? { evidenceKind: 'User-selected fault', affected: true } : {}) }));
+  if (halt === null) return items.map((e) => ({ ...e, verdict: e.affected ? 'fail' : 'pass' }));
   const reached = items.filter((e) => e.stageIndex <= halt);
   const failing = reached.find((e) => e.stageIndex === halt);
   const verdict = {
-    id: 'verdict', stage: scenario.stages[halt].id, stageIndex: halt, question: 'Why is the site NOT trusted?',
+    id: 'verdict', stage: scenario.stages[halt].id, stageIndex: halt, question: scenario.verdictQuestion ?? 'Why is the site NOT trusted?',
     claim: `Validation stopped at "${scenario.stages[halt].title}" (${getFault(scenario, faultId).label}).`,
     entity: failing?.entity ?? scenario.stages[halt].focus.entity, artifact: failing?.artifact ?? null, verdict: 'fail'
   };
@@ -92,7 +93,8 @@ export function buildTrace(scenario, faultId) {
 export const traceMaxT = (scenario, faultId) => buildTrace(scenario, faultId).length;
 
 // Full canonical state for a session: { faultId, direction, t, tReverse, selectedEntity, selectedArtifact, playbackSpeed }.
-export function computeState(scenario, session) {
+export function computeState(base, session) {
+  const scenario = pathOf(base, session);
   const { faultId = 'healthy', direction = 'forward' } = session;
   let s;
   if (direction === 'reverse') {
@@ -107,6 +109,7 @@ export function computeState(scenario, session) {
   } else {
     s = worldAt(scenario, faultId, session.t ?? 0);
   }
+  if (scenario.paths) { s.pathId = scenario.pathId; s.conditionId = scenario.conditionId; s.skipped = !!scenario.stages[s.stage]?.skipped; }
   s.selectedFlow = session.selectedFlow ?? null;
   s.selectedEntity = session.selectedEntity ?? null;
   s.selectedArtifact = session.selectedArtifact ?? null;
@@ -152,6 +155,43 @@ export function artifactLocation(scenario, state, artifact) {
     loc = { visible: true, at: p.at, moving: false, via: null, from: null, progress: 1 };
   }
   return loc;
+}
+
+// ---- v0.4.0: paths and conditions (story scenarios). Scenarios without `paths` are returned unchanged. ----
+const pathCache = new WeakMap();
+export const SKIPPED_TEXT = 'Already present — skipped';
+// Returns a scenario view for the session's path and condition: stages, flows, faults and trace of that path, with
+// conditional steps marked skipped (their state changes are already present) when the condition does not apply.
+export function pathOf(scenario, session = {}) {
+  if (!scenario.paths) return scenario;
+  const pathId = scenario.paths[session.pathId] ? session.pathId : scenario.defaultPath;
+  const conditionId = scenario.conditions?.some((c) => c.id === session.conditionId) ? session.conditionId : scenario.defaultCondition;
+  let byScenario = pathCache.get(scenario); if (!byScenario) pathCache.set(scenario, (byScenario = new Map()));
+  const key = `${pathId}|${conditionId}`;
+  if (byScenario.has(key)) return byScenario.get(key);
+  const p = scenario.paths[pathId];
+  const skip = (st) => st.conditional && st.conditional !== conditionId;
+  const present = conditionId === 'trust-present' ? { trust: { root: 'present', ica: 'present', rootSource: 'Enterprise (AD)', icaSource: 'Enterprise (AD)' } } : null;
+  const stages = p.stages.map((st) => {
+    if (skip(st)) return { ...st, skipped: true, result: SKIPPED_TEXT, during: {}, done: {}, command: st.command, connector: null, flows: [] };
+    if (present && st.id === 'a-trust-check') return { ...st, result: 'Root and Issuing CA certificates already present from AD (Enterprise store).', done: { ...st.done, ...present } };
+    return st;
+  });
+  const view = { ...scenario, ...p, stages, flows: p.flows.filter((f) => !stages.find((s) => s.id === f.stage)?.skipped), pathId, conditionId };
+  byScenario.set(key, view);
+  return view;
+}
+export const pathIdOf = (scenario, session = {}) => pathOf(scenario, session).pathId ?? null;
+// Step navigation that jumps over skipped stages (returns a completed-stage position t = index + 1).
+export function nextStepT(scenario, t, max) {
+  let n = stepForwardT(t, max);
+  while (n < max && scenario.stages[n - 1]?.skipped) n = stepForwardT(n, max);
+  return n;
+}
+export function prevStepT(scenario, t, max) {
+  let n = stepBackwardT(t, max);
+  while (n > 0 && scenario.stages[n - 1]?.skipped) n = stepBackwardT(n, max);
+  return n;
 }
 
 // Reachable stage ids for jump-to-stage (forward mode).

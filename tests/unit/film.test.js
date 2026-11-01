@@ -9,7 +9,7 @@ const st = (f) => E.computeState(sc, { faultId: 'healthy', ...f.session });
 
 describe('deterministic v0.3.0 film schedule', () => {
   it('runs at 60 fps for a bounded duration and covers every Domain Controller stage', () => {
-    expect(FPS).toBe(60); expect(DURATION).toBeGreaterThan(35); expect(DURATION).toBeLessThan(60); expect(STAGE_SECONDS).toHaveLength(N);
+    expect(FPS).toBe(60); expect(DURATION).toBeGreaterThan(35); expect(DURATION).toBeLessThan(75); expect(STAGE_SECONDS).toHaveLength(N); // v0.4.0: 24 Path A steps
     expect(SCENARIO_ID).toBe('dc-manual-certificate-request');
   });
   it('the same timestamp always yields the same frame and canonical state', () => {
@@ -25,14 +25,15 @@ describe('deterministic v0.3.0 film schedule', () => {
     }
   });
   it('ends trusted, then traces evidence in reverse, then reveals the full topology and the outro', () => {
-    expect(st(frameAt(FORWARD_END - 0.01)).trustDecision).toBe('trusted');
-    const idx = []; for (let t = FORWARD_END; t < REVERSE_END; t += 0.05) { const f = frameAt(t); const s = st(f); expect(s.direction).toBe('reverse'); expect(s.trustDecision).toBe('trusted'); expect(f.tab).toBe('evidence'); idx.push(s.evidenceIndex); }
+    // v0.4.0: the DC story ends "suitable" (not "trusted").
+    expect(st(frameAt(FORWARD_END - 0.01)).trustDecision).toBe('suitable');
+    const idx = []; for (let t = FORWARD_END; t < REVERSE_END; t += 0.05) { const f = frameAt(t); const s = st(f); expect(s.direction).toBe('reverse'); expect(s.trustDecision).toBe('suitable'); expect(f.tab).toBe('evidence'); idx.push(s.evidenceIndex); }
     expect(idx[0]).toBe(0); expect(Math.max(...idx)).toBe(E.buildTrace(sc, 'healthy').length - 1);
     for (let i = 1; i < idx.length; i++) expect(idx[i]).toBeGreaterThanOrEqual(idx[i - 1]);
     expect(frameAt(REVERSE_END + 0.1)).toMatchObject({ segment: 'topology', full: true }); expect(frameAt(TOPOLOGY_END + 0.5).segment).toBe('outro');
   });
   it('focused view is used for the story and the CSR is shown from the real inspector', () => {
-    const csrStage = sc.stages.findIndex((s) => s.id === 'inspect-csr');
+    const csrStage = sc.stages.findIndex((s) => s.id === 'a-inspect-csr'); // v0.4.0 Path A step id
     const f = frameAt(stageStart(csrStage) + 1.0); expect(f).toMatchObject({ tab: 'inspector', full: false }); expect(f.session.selectedArtifact).toBe('csr');
   });
   it('provides at least twelve contact-sheet frames inside the film', () => {

@@ -24,7 +24,8 @@ describe('artifact manifest consistency', () => {
     for (const a of manifest.artifacts) {
       for (const k of ['filename', 'artifactType', 'subject', 'issuer', 'serialNumber', 'thumbprints', 'validity', 'san', 'eku', 'aia', 'cdp', 'relatedRequest', 'stage']) expect(a, `${a.filename}.${k}`).toHaveProperty(k);
       expect(a.demonstrationFixture).toBe(true);
-      expect([...S.stages, ...DCS.stages].map((s) => s.id)).toContain(a.stage);
+      // v0.4.0: DC fixtures name the step of Path A or Path B that produces them.
+      expect([...S.stages, ...DCS.paths.csr.stages, ...DCS.paths.mmc.stages].map((s) => s.id)).toContain(a.stage);
     }
   });
   it('manifest values match the parsed files', () => {

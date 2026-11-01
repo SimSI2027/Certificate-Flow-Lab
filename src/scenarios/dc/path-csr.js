@@ -1,0 +1,176 @@
+// Path A — Manual CSR transfer (10 milestones, 24 steps). DC01 cannot reach ICA01 over RPC/DCOM, so an operator carries the CSR
+// through PKI-TRANSFER01 under change control and submits it with the controlled offline-handoff template DCOfflineKerberosAuth.
+import { DC, URLS } from '../../artifacts/synthetic.js';
+import { step, command, cfg, KIND } from './shared.js';
+
+const CA = `"${DC.caConfig}"`;
+const X = (what, who, moves, staysLocal, canGoWrong) => ({ what, who, moves, staysLocal, canGoWrong });
+
+export const MILESTONES = ['Diagnose', 'Define request', 'Create key and CSR', 'Transfer CSR', 'Submit and approve', 'Issue and retrieve', 'Return package', 'Install CA certificates', 'Accept leaf', 'Verify and follow up'];
+const [M1, M2, M3, M4, M5, M6, M7, M8, M9, M10] = MILESTONES;
+
+export const steps = [
+  // ---- M1 Diagnose ----
+  step({ id: 'a-detect', milestone: M1, title: 'Personal has no suitable DC certificate', zone: 'Z6', adjacent: ['Z1'], actor: 'OP', artifact: null, stores: true,
+    purpose: 'DC01 needs a Domain Controller certificate with KDC Authentication, but Local Computer\\Personal has none.',
+    command: command('certutil -store My'), result: 'No certificate with KDC Authentication.',
+    during: { dcCertState: 'checking', storeView: 'personal' }, done: { dcCertState: 'missing', storeView: 'personal' },
+    explain: X('The operator looks in DC01\'s Personal store for a certificate a Domain Controller can use for Kerberos (KDC = Key Distribution Center, the Kerberos service on every DC). None is there.',
+      'SIMSI2027\\PKIOperator, signed in to DC01.', 'Nothing moves: this is a read-only look at a local store.', 'Everything: the store is on DC01.', 'Looking in the Current User store instead of Local Computer shows the wrong certificates.') }),
+  step({ id: 'a-why', milestone: M1, title: 'Autoenrollment fails: RPC/DCOM blocked', zone: 'Z1', adjacent: ['Z4'], actor: 'SYS', artifact: 'error',
+    purpose: 'Autoenrollment could not reach the Issuing CA because RPC/DCOM from DC01 to ICA01 is blocked.',
+    command: command(`certutil -ping -config ${CA}`), connector: { from: 'Z1', to: 'Z4', channel: 'RPC/DCOM', blocked: true },
+    result: cfg('"The RPC server is unavailable" 0x800706BA. The exact event details'),
+    during: { rpcState: 'testing' }, done: { rpcState: 'blocked' },
+    explain: X('DC01 normally asks the Issuing CA for its certificate automatically (autoenrollment) over RPC/DCOM, a Windows remote-call protocol. The test call fails: the network path is blocked.',
+      'The system (DC01 calling ICA01); the operator reads the result.', 'A request that never arrives: the connector is blocked.', 'All keys and files stay on DC01.',
+      cfg('A firewall between DC01 and ICA01 blocks the RPC/DCOM ports; which ports are needed'))
+  }),
+  step({ id: 'a-trust-check', milestone: M1, title: 'Inspect trust stores', zone: 'Z6', adjacent: ['Z1'], actor: 'OP', artifact: null, stores: true,
+    purpose: 'Check whether DC01 already trusts the SIMSI2027 Root CA and holds the Issuing CA certificate.',
+    command: command('certutil -store Root ; certutil -store CA', { ';': 'Separator: run the second command after the first.' }), result: 'Root and Issuing CA certificates are missing (lesson condition).',
+    during: { storeView: 'trust' }, done: { storeView: 'trust', trust: { root: 'missing', ica: 'missing', rootSource: null, icaSource: null } },
+    explain: X('The operator lists the Trusted Root and Intermediate Certification Authorities stores on DC01. In this lesson they are missing, which is exceptional: in a healthy forest they arrive from Active Directory.',
+      'SIMSI2027\\PKIOperator on DC01.', 'Nothing moves.', 'The stores are local to DC01.', cfg('Trust distribution from Active Directory (Enterprise store) or Group Policy has not reached DC01')) }),
+  // ---- M2 Define request ----
+  step({ id: 'a-identity', milestone: M2, title: 'Confirm DC01 identity and names', zone: 'Z1', adjacent: [], actor: 'OP', artifact: 'identity',
+    purpose: 'Confirm the names the certificate must carry: FQDN, domain DNS name, NetBIOS name and the Domain Controller role.',
+    result: 'DC01.simsi2027.test · simsi2027.test · SIMSI2027 · Domain Controller', during: { identityState: 'checking' }, done: { identityState: 'verified' },
+    explain: X('The operator writes down exactly who the certificate is for: the computer DC01.simsi2027.test in the domain simsi2027.test (NetBIOS name SIMSI2027). The operator is not the subject.',
+      'SIMSI2027\\PKIOperator.', 'Nothing moves.', 'Everything stays on DC01.', 'Using a short name only, or the operator\'s own name, gives a certificate that does not identify the Domain Controller.') }),
+  step({ id: 'a-template', milestone: M2, title: 'Choose the controlled offline-handoff template', zone: 'Z1', adjacent: ['Z4'], actor: 'OP', artifact: 'template',
+    purpose: 'Use DCOfflineKerberosAuth, because KerberosAuthentication builds names from the submitter and PKIOperator will submit.',
+    result: `${DC.offlineTemplateDisplay}: Supply in the request; Enroll only for PKI Operators; manager approval; no Autoenroll; published temporarily.`,
+    during: { templateState: 'choosing' }, done: { templateState: 'chosen' },
+    explain: X('KerberosAuthentication builds the subject from Active Directory for whoever submits. Because PKIOperator (a user) will submit from PKI-TRANSFER01, the CA would build a user identity, not DC01\'s. So this change uses the organization-specific template DCOfflineKerberosAuth, where the request supplies the names.',
+      'SIMSI2027\\PKIOperator (decision recorded in the change).', 'Nothing moves yet.', 'The decision is documented; no key exists yet.',
+      'A Supply-in-the-request template with an authentication EKU lets any enrollee name any identity: a privilege-escalation path (commonly catalogued as "ESC1") unless Enroll is tightly restricted, manager approval is required, publication is temporary and issuance is audited.') }),
+  step({ id: 'a-inf', milestone: M2, title: 'Write the request policy (INF)', zone: 'Z2', adjacent: ['Z1'], actor: 'OP', artifact: 'inf', connector: { from: 'Z1', to: 'Z2', channel: 'local file' },
+    purpose: 'Write dc01-request.inf: machine key set, non-exportable 2048-bit RSA key, three DNS names and the template.',
+    result: 'dc01-request.inf saved on DC01.', during: { infState: 'writing' }, done: { infState: 'written' },
+    explain: X('The INF is a small text policy that certreq reads. It asks for MachineKeySet = TRUE (the key belongs to the computer), Exportable = FALSE (it can never be copied out) and a SAN (Subject Alternative Name: the list of names the certificate is valid for).',
+      'SIMSI2027\\PKIOperator on DC01.', 'A local file, written on DC01.', 'The INF holds no secret; it stays on DC01.', 'MachineKeySet = FALSE puts the key in the operator\'s user store; a missing domain DNS name fails strict KDC validation.') }),
+  // ---- M3 Create key and CSR ----
+  step({ id: 'a-new', milestone: M3, title: 'Generate key pair and signed CSR together', zone: 'Z2', adjacent: ['Z1'], actor: 'OP', artifact: 'csr', vault: true, connector: { from: 'Z1', to: 'Z2', channel: 'local file' },
+    purpose: 'certreq -new creates the machine key pair and the signed CSR in one operation; the key and the pending request stay on DC01.',
+    command: command('certreq -new -machine dc01-request.inf dc01-request.req'), result: 'Key and pending request in the DC01 key vault; CSR file in the request package.',
+    during: { keyState: 'generating', csrState: 'building' }, done: { keyState: 'pending-on-dc01', pendingRequest: 'present', csrState: 'created' },
+    explain: X('One command does two things: DC01 generates a new key pair in its machine key store, then builds the CSR (Certificate Signing Request) and signs it with the new private key. That signature is proof of possession: it shows the requester holds the private key without revealing it.',
+      'SIMSI2027\\PKIOperator runs certreq on DC01 (elevated, machine context).', 'Only the CSR file (public key, names, attributes) moves to the request package.',
+      'The private key and the pending request stay in Local Computer\\Certificate Enrollment Requests on DC01, non-exportable.', 'Running without -machine (or MachineKeySet = FALSE) creates the key in the operator\'s user store.') }),
+  step({ id: 'a-inspect-csr', milestone: M3, title: 'Inspect the CSR', zone: 'Z2', adjacent: [], actor: 'OP', artifact: 'csr', vault: true,
+    purpose: 'Check subject, the three SANs, the 2048-bit key, the template attribute and the signature before anything leaves DC01.',
+    command: command('certutil -dump dc01-request.req'), result: 'Signature verifies; no private key inside.', done: { csrState: 'inspected' },
+    explain: X('The operator decodes the CSR. It contains DC01\'s public key, the requested names and attributes, and a signature made with DC01\'s private key. It is not a certificate and contains no issuer signature and no private key.',
+      'SIMSI2027\\PKIOperator.', 'Nothing moves.', 'The private key is still only on DC01.', 'Missing domain DNS name, wrong template attribute, or a request created in user context.') }),
+  // ---- M4 Transfer CSR ----
+  step({ id: 'a-package', milestone: M4, title: 'Package only the CSR and its hash', zone: 'Z3', adjacent: ['Z2'], actor: 'OP', artifact: 'package', vault: true, connector: { from: 'Z2', to: 'Z3', channel: 'approved file transfer' },
+    purpose: 'Record the CSR SHA-256 hash in the change ticket and package only the CSR.',
+    command: command('Get-FileHash dc01-request.req -Algorithm SHA256'), result: 'Hash recorded in the change ticket (simulated).', done: { packageState: 'hashed' },
+    explain: X('The transfer package holds only the CSR and its SHA-256 hash, so the receiving side can prove the file was not altered.', 'SIMSI2027\\PKIOperator.', 'The CSR and its hash.', 'The private key never enters the package.', 'Packaging the key container or the INF by mistake; skipping the hash.') }),
+  step({ id: 'a-move', milestone: M4, title: 'Move to PKI-TRANSFER01 and verify hash', zone: 'Z3', adjacent: ['Z2'], actor: 'OP', artifact: 'package', vault: true,
+    purpose: 'Carry the package to PKI-TRANSFER01 through the approved file transfer and re-check the hash.',
+    result: 'Hash matches the change ticket.', during: { packageState: 'moving' }, done: { packageState: 'transferred' },
+    explain: X('PKI-TRANSFER01 is a controlled admin host that can reach the CA. The operator verifies the hash after the move.', 'SIMSI2027\\PKIOperator.', 'The package, by approved file transfer.', 'The private key stays on DC01.', 'Hash mismatch means stop: the file changed on the way.') }),
+  // ---- M5 Submit and approve ----
+  step({ id: 'a-submit', milestone: M5, title: 'Submit to the Issuing CA as PKIOperator', zone: 'Z4', adjacent: ['Z3'], actor: 'OP', artifact: 'record', vault: true, connector: { from: 'Z3', to: 'Z4', channel: 'RPC/DCOM' },
+    purpose: `Submit the CSR from PKI-TRANSFER01; the CA assigns request ${DC.requestId} and records PKIOperator as Requester.`,
+    command: command(`certreq -submit -config ${CA} dc01-request.req`), result: `Request ${DC.requestId} "Taken Under Submission"; Requester SIMSI2027\\PKIOperator.`,
+    during: { csrState: 'submitting' }, done: { csrState: 'submitted', requestRecord: 'received', requester: 'SIMSI2027\\PKIOperator' },
+    explain: X('From PKI-TRANSFER01 the operator submits the CSR over RPC/DCOM. The CA records the authenticated submitter (SIMSI2027\\PKIOperator) as Requester; the subject stays DC01.simsi2027.test.',
+      'SIMSI2027\\PKIOperator on PKI-TRANSFER01.', 'The CSR, to ICA01.', 'The private key stays on DC01.', 'Wrong CA configuration string; submitting for the wrong template.') }),
+  step({ id: 'a-policy', milestone: M5, title: 'CA evaluates template, permission and supplied identity', zone: 'Z4', adjacent: [], actor: 'SYS', artifact: 'record', vault: true,
+    purpose: 'ICA01 checks that DCOfflineKerberosAuth is published, that PKI Operators may enroll, records the supplied SANs and holds the request for manager approval.',
+    result: 'Published · PKI Operators may enroll · supplied SANs recorded · held for certificate manager approval.', during: { requestRecord: 'evaluating' }, done: { templateState: 'published', permissionState: 'granted', requestRecord: 'pending' },
+    explain: X('The CA policy module evaluates the request against the template. Because names are supplied in the request, the template requires a certificate manager to approve it.',
+      'The CA (system).', 'Nothing leaves the CA.', 'The private key stays on DC01.', cfg('Template not published, PKI Operators lacks Enroll, or the request names the wrong template. Template permission defaults')) }),
+  step({ id: 'a-approve', milestone: M5, title: 'Certificate manager approves after out-of-band verification', zone: 'Z4', adjacent: [], actor: 'MGR', artifact: 'record', vault: true,
+    purpose: 'SIMSI2027\\PKICertManager verifies the request against the change record and issues it from the console.',
+    gui: 'Certification Authority console → Pending Requests → All Tasks → Issue', connector: { from: 'Z4', to: 'Z4', channel: 'CA approval (console)', local: true },
+    result: 'Approved.', during: { approvalState: 'reviewing' }, done: { approvalState: 'approved', requestRecord: 'approved' },
+    explain: X('A different person, the CA certificate manager, checks the supplied names and the CSR hash against the change record before approving.', 'SIMSI2027\\PKICertManager.', 'An approval decision inside the CA.', 'The private key stays on DC01.', 'No approver available: the request stays pending.') }),
+  // ---- M6 Issue and retrieve ----
+  step({ id: 'a-sign', milestone: M6, title: 'ICA01 creates and signs a new leaf', zone: 'Z4', adjacent: [], actor: 'SYS', artifact: 'leaf', vault: true,
+    purpose: 'ICA01 builds a NEW certificate with the approved identity and the CSR public key, and signs it with the Issuing CA private key. The Root CA is not contacted.',
+    result: 'dc01-issued.cer issued (serial …DC01).', during: { leafState: 'signing' }, done: { leafState: 'issued', requestRecord: 'issued' },
+    explain: X('The CA does not alter or countersign the request. It creates a new certificate containing DC01\'s approved names and the public key copied from the CSR, then signs that certificate with the Issuing CA private key, which never leaves the CA. The offline Root CA plays no part.',
+      'ICA01 (system).', 'Nothing yet: the certificate is stored in the CA database.', 'The Issuing CA private key stays on ICA01; DC01\'s private key stays on DC01.', 'Template EKUs misconfigured, or names approved incorrectly.') }),
+  step({ id: 'a-retrieve', milestone: M6, title: 'Retrieve leaf and public chain', zone: 'Z3', adjacent: ['Z4'], actor: 'OP', artifact: 'leaf', vault: true, connector: { from: 'Z4', to: 'Z3', channel: 'RPC/DCOM' },
+    purpose: 'On PKI-TRANSFER01 the operator retrieves dc01-issued.cer and dc01-return.p7b for request 1042.',
+    command: command(`certreq -retrieve -config ${CA} ${DC.requestId} dc01-issued.cer dc01-return.p7b`), result: 'Leaf and PKCS #7 chain retrieved.',
+    during: { leafState: 'retrieving' }, done: { leafState: 'retrieved', returnState: 'retrieved' },
+    explain: X('The operator downloads the issued certificate and a PKCS #7 file (a container that carries several public certificates: here the leaf, the Issuing CA and the Root).', 'SIMSI2027\\PKIOperator on PKI-TRANSFER01.', 'Public certificates only.', 'No private key exists on PKI-TRANSFER01: copying a .cer file to another machine neither copies nor recreates the private key.', 'Retrieving before approval returns "pending".') }),
+  // ---- M7 Return package ----
+  step({ id: 'a-return-pack', milestone: M7, title: 'Assemble the public return package', zone: 'Z5', adjacent: ['Z3'], actor: 'OP', artifact: 'return', vault: true, connector: { from: 'Z3', to: 'Z5', channel: 'local file' },
+    purpose: 'Bundle the leaf, the p7b, the Issuing CA and Root certificates and a SHA-256 manifest. Nothing in it is secret.',
+    command: command('Get-FileHash dc01-issued.cer -Algorithm SHA256'), result: 'Return package with SHA-256 manifest, stamped "no private key".', done: { returnState: 'packaged' },
+    explain: X('Root and Issuing CA certificates are pre-existing public chain certificates; the leaf request did not create them. They travel only as public copies.', 'SIMSI2027\\PKIOperator.', 'Public certificates and their hashes.', 'No private key is in the package.', 'Mixing in an unverified Root file.') }),
+  step({ id: 'a-return-move', milestone: M7, title: 'Carry to DC01; verify Root thumbprint', zone: 'Z6', adjacent: ['Z5'], actor: 'OP', artifact: 'return', vault: true, stores: true, connector: { from: 'Z5', to: 'Z6', channel: 'approved file transfer' },
+    purpose: 'Move the package to DC01 and compare the Root certificate thumbprint with the known-good value in the change record.',
+    command: command('certutil -dump simsi2027-rootca.cer'), result: 'Thumbprint equals the known-good value from the change record.',
+    during: { returnState: 'moving' }, done: { returnState: 'on-dc01', rootVerified: 'ok' },
+    explain: X('Before trusting anything, the operator compares the Root certificate thumbprint (a hash of the certificate) with the value recorded by the PKI team.', 'SIMSI2027\\PKIOperator on DC01.', 'The return package, back to DC01.', 'DC01\'s private key never left DC01.', 'A thumbprint mismatch means stop: the Root file is not authentic.') }),
+  // ---- M8 Install CA certificates (conditional: trust-missing) ----
+  step({ id: 'a-root', milestone: M8, title: 'Install Root (authorized emergency change)', zone: 'Z6', adjacent: ['Z5'], actor: 'OP', artifact: 'root', vault: true, stores: true, conditional: 'trust-missing', connector: { from: 'Z5', store: 'root', channel: 'local store write' },
+    purpose: 'Add the verified Root certificate (public copy) to Local Computer\\Trusted Root Certification Authorities.',
+    command: command('certutil -addstore -f Root simsi2027-rootca.cer'), result: 'Root present · source tag Local (manual, emergency).',
+    notes: ['Preferred fix: the PKI administrator publishes the Root to AD with certutil -dspublish -f simsi2027-rootca.cer RootCA.'],
+    done: { trust: { root: 'present', rootSource: 'Local (manual, emergency)' } },
+    explain: X('Because trust is missing on DC01, the authorized change installs the verified Root as a local, manual exception. The proper fix is AD publication (certutil -dspublish -f simsi2027-rootca.cer RootCA) by the PKI administrator.',
+      'SIMSI2027\\PKIOperator under an emergency change.', 'A public Root certificate into the Trusted Root store.', 'No private key: the Root CA key stays offline.', cfg('A manual Root can drift from the Enterprise store that AD and Group Policy maintain')) }),
+  step({ id: 'a-ica', milestone: M8, title: 'Install Issuing CA certificate', zone: 'Z6', adjacent: ['Z5'], actor: 'OP', artifact: 'ica', vault: true, stores: true, conditional: 'trust-missing', connector: { from: 'Z5', store: 'intermediate', channel: 'local store write' },
+    purpose: 'Add the Issuing CA certificate to Local Computer\\Intermediate Certification Authorities.',
+    command: command('certutil -addstore -f CA simsi2027-ica01.cer'), result: 'Issuing CA present · source tag Local (manual).',
+    done: { trust: { ica: 'present', icaSource: 'Local (manual)' } },
+    explain: X('The Issuing CA certificate lets DC01 build its chain locally without fetching it through AIA. It is installed before the leaf is accepted.', 'SIMSI2027\\PKIOperator.', 'A public CA certificate into the Intermediate store.', 'No private key: the Issuing CA key stays on ICA01.', 'Putting the Issuing CA in Trusted Root instead of Intermediate.') }),
+  // ---- M9 Accept leaf ----
+  step({ id: 'a-accept', milestone: M9, title: 'Accept on the original DC01', zone: 'Z6', adjacent: ['Z1'], actor: 'OP', artifact: 'accepted', vault: true, stores: true, connector: { from: 'Z1', to: 'Z6', association: true },
+    purpose: 'certreq -accept matches the leaf to the pending request by public key, links the existing key, installs into Personal and removes the pending request.',
+    command: command('certreq -accept -machine dc01-issued.cer'), result: 'Leaf in Personal with its private key; pending request removed.',
+    notes: [cfg('Exact certreq behavior can vary with the response format and existing stores; it never makes a Root trusted by itself')],
+    during: { leafState: 'accepting' }, done: { leafState: 'accepted', pendingRequest: 'consumed', keyState: 'associated', keyAssociation: 'linked' },
+    explain: X('On DC01 — the same computer that created the key — certreq finds the pending request whose public key equals the certificate\'s, links that private key to the certificate and installs it in Personal. The key never travels.',
+      'SIMSI2027\\PKIOperator on DC01.', 'Nothing on the network: an internal link between the key vault and Personal.', 'The private key stays exactly where it was created.', 'Accepting on another machine, or after the pending request was deleted, gives a certificate without a private key.') }),
+  step({ id: 'a-key', milestone: M9, title: 'Confirm private-key association', zone: 'Z6', adjacent: ['Z1'], actor: 'OP', artifact: 'accepted', stores: true, connector: { from: 'Z1', to: 'Z6', association: true },
+    purpose: 'Verify that Personal shows the private key and that the leaf SPKI equals the CSR SPKI.',
+    command: command('certutil -verifystore My <serial>'), result: '"You have a private key that corresponds to this certificate." SPKI matches the CSR.', done: { keyAssociation: 'matched' },
+    explain: X('The leaf\'s public key (SPKI = Subject Public Key Info) is compared with the CSR\'s. They are identical, so the certificate belongs with the key on DC01.', 'SIMSI2027\\PKIOperator.', 'Nothing moves.', 'The private key stays on DC01.', 'A certificate issued for a different request has a different public key.') }),
+  // ---- M10 Verify and follow up ----
+  step({ id: 'a-purposes', milestone: M10, title: 'Names, purposes, template, validity, store placement', zone: 'Z6', adjacent: [], actor: 'OP', artifact: 'accepted', stores: true,
+    purpose: 'Check the SAN, the EKU (including KDC Authentication), Key Usage, the template, the dates and that each certificate is in the right store.',
+    result: 'Suitable names and purposes; valid now; correct stores.', during: { purposeState: 'inspecting' }, done: { purposeState: 'suitable', validation: { name: 'pass', dates: 'pass', eku: 'pass' } },
+    explain: X('EKU (Enhanced Key Usage) lists what the certificate may be used for; KU (Key Usage) limits what the key may do. A Domain Controller certificate in this lesson needs KDC Authentication and a SAN with both DC01.simsi2027.test and simsi2027.test.',
+      'SIMSI2027\\PKIOperator.', 'Nothing moves.', 'Everything is on DC01.', 'Missing KDC Authentication, missing domain DNS name, expired certificate.') }),
+  step({ id: 'a-chain', milestone: M10, title: 'Chain and revocation', zone: 'Z6', adjacent: [], actor: 'SYS', artifact: 'chain', stores: true, pub: true, rootHistory: true, connector: { from: 'Z6', to: 'PUB:cdp', channel: 'HTTP (CDP)' },
+    purpose: 'Build the chain from local stores and fetch the CRL through the CDP over HTTP.',
+    command: command('certutil -verify -urlfetch dc01-issued.cer'), result: 'Chain leaf → Issuing CA → Root; CRL current; serial not listed.',
+    during: { chainState: 'building', revocationState: 'checking' }, done: { chainState: 'trusted', revocationState: 'good', validation: { signatures: 'pass', root: 'pass' } },
+    explain: X('The chain is built from DC01\'s stores. AIA (Authority Information Access: where to download the issuer certificate) is only needed if the Intermediate store lacked the Issuing CA certificate. The CDP (CRL Distribution Point) is where the CRL (Certificate Revocation List) is downloaded to check revocation. The Root CA signed the Issuing CA certificate earlier, offline.',
+      'DC01 (system).', 'The CRL, from PKIWEB01 over HTTP.', 'The private key stays on DC01.', cfg('CDP unreachable gives "revocation offline"; whether services enforce revocation')) }),
+  step({ id: 'a-followup', milestone: M10, title: 'Suitable now; root cause still open', zone: 'Z1', adjacent: ['Z6'], actor: 'OP', artifact: 'remediation',
+    purpose: 'The certificate is suitable now, but the reason autoenrollment failed is still open.',
+    command: command('certutil -pulse'), result: 'Open items recorded in the change.',
+    notes: ['Run certutil -pulse only after the repair, to let autoenrollment take over.'],
+    done: { trustDecision: 'suitable', followupState: 'open' },
+    explain: X('Manual enrollment is an exception, not a repair. Open items: the DC01 → ICA01 RPC/DCOM firewall rule; the autoenrollment Group Policy and the template Autoenroll permission; trust distribution (AD publication, replication, Group Policy); CDP/AIA reachability; replacing this manual certificate through autoenrollment and revoking it per policy; unpublishing DCOfflineKerberosAuth. This manual certificate will not be renewed automatically. How trust and autoenrollment are distributed (Depends on your configuration.)',
+      'SIMSI2027\\PKIOperator, with the network team and PKI administrator.', 'Nothing moves.', 'Everything stays on DC01.', cfg('Leaving the firewall, Group Policy or replication problem unfixed means the next renewal fails too')) })
+];
+
+export const FOLLOWUP_ITEMS = [cfg('DC01 → ICA01 RPC/DCOM firewall rule'), cfg('Autoenrollment Group Policy and template Autoenroll permission'), cfg('Trust distribution: AD publication, replication, Group Policy'),
+  'CDP/AIA reachability from DC01', 'Replace the manual certificate via autoenrollment; revoke it per policy', 'Unpublish DCOfflineKerberosAuth from ICA01', 'The manual certificate will not be renewed automatically'];
+
+const T = (id, stage, question, claim, entity, artifact, evidenceKind, faults = []) => ({ id, stage, question, claim, entity, artifact, evidenceKind, faults });
+export const evidenceTrace = [
+  T('suitable', 'a-followup', 'Is the DC01 certificate suitable?', 'Every check below passed, so it is suitable now; the root cause is still open.', 'Z1', 'remediation', KIND.DERIVED),
+  T('purposes', 'a-purposes', 'Purposes and names?', 'KDC Authentication EKU present; SAN has simsi2027.test and DC01.simsi2027.test; within validity.', 'Z6', 'accepted', KIND.REAL, ['wrong-eku', 'san-no-domain', 'expired']),
+  T('key', 'a-key', 'Private-key association?', 'Leaf SPKI equals CSR SPKI; the pending request was consumed by certreq -accept on DC01.', 'Z6', 'accepted', `${KIND.REAL} + ${KIND.SIM}`, ['key-mismatch', 'user-context', 'accepted-on-wrong-machine', 'pending-request-lost']),
+  T('chain', 'a-chain', 'Trusted chain?', 'Leaf → Issuing CA → Root signatures verify; the Root is in Trusted Root; the Root CA was not contacted.', 'Z6', 'chain', KIND.REAL),
+  T('revocation', 'a-chain', 'Revocation?', 'The CRL is signed by the Issuing CA, current, and does not list the serial.', 'PUB', 'crl', KIND.REAL, ['cdp-unreachable']),
+  T('root-auth', 'a-return-move', 'Root authenticity?', 'The Root thumbprint matched the change record before installation.', 'Z5', 'root', KIND.SIM, ['root-thumbprint-mismatch']),
+  T('issuance', 'a-sign', 'Approval and issuance?', `Request ${DC.requestId}, requester SIMSI2027\\PKIOperator, approved by SIMSI2027\\PKICertManager, issued and signed by ${DC.caName}.`, 'Z4', 'leaf', `${KIND.SIM} + ${KIND.REAL}`, ['wrong-template-handoff', 'no-enroll-permission', 'template-not-published', 'pending-no-approver']),
+  T('pop', 'a-inspect-csr', 'CSR proof of possession?', 'The CSR signature verifies with the public key it contains.', 'Z2', 'csr', KIND.REAL),
+  T('key-origin', 'a-new', 'Where was the key generated?', 'On DC01 in machine context, non-exportable (MachineKeySet TRUE, Exportable FALSE).', 'Z1', 'inf', `${KIND.REAL} + ${KIND.SIM}`),
+  T('origin', 'a-why', 'Why manual enrollment?', 'DC01 → ICA01 RPC/DCOM was blocked, so autoenrollment could not complete.', 'Z1', 'error', KIND.SIM)
+];
+export const VERDICT_QUESTION = 'Why is the DC01 certificate NOT suitable?';
+void URLS;

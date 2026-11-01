@@ -10,8 +10,9 @@ export const HOME_SECONDS = 4;
 export const REVERSE_SECONDS = 5;
 export const TOPOLOGY_SECONDS = 2.2;
 export const OUTRO_SECONDS = 2.8;
-// Seconds on each of the 18 DC stages (animate for 80%, then hold the completed state).
-export const STAGE_SECONDS = [2.4, 2, 1.8, 1.6, 1.8, 2, 2.4, 2.8, 1.8, 1.8, 1.6, 1.4, 1.8, 1.8, 2.2, 2.4, 1.8, 1.6];
+// Seconds on each DC Path A stage (animate for 80%, then hold the completed state).
+const LONG = { 'a-why': 2.2, 'a-template': 2.4, 'a-new': 2.6, 'a-inspect-csr': 2.4, 'a-sign': 2.2, 'a-accept': 2.6, 'a-chain': 2.4, 'a-followup': 2.4 };
+export const STAGE_SECONDS = scenario.stages.map((s) => LONG[s.id] ?? 1.6);
 export const ANIMATE_FRACTION = 0.8;
 
 const N = scenario.stages.length;
@@ -25,10 +26,9 @@ const TRACE = buildTrace(scenario, 'healthy');
 
 // Which side tab / selection explains each stage best.
 const SHOW = {
-  'inspect-dc01': { tab: 'details', entity: 'dc01' }, 'choose-template': { tab: 'details', entity: 'template' }, 'verify-permission': { tab: 'details', entity: 'template' },
-  'request-policy': { tab: 'inspector', artifact: 'inf', tabs: ['summary', 'raw-inf'] }, 'inspect-csr': { tab: 'inspector', artifact: 'csr', tabs: ['subject', 'san', 'public-key', 'pem'] },
-  'evaluate-policy': { tab: 'details', entity: 'template' }, retrieve: { tab: 'inspector', artifact: 'dccert', tabs: ['general'] }, 'key-match': { tab: 'inspector', artifact: 'dccert', tabs: ['matching-csr'] },
-  'inspect-purposes': { tab: 'inspector', artifact: 'dccert', tabs: ['subject-alternative-names', 'enhanced-key-usage'] }, 'verify-chain': { tab: 'details', entity: 'aia' }
+  'a-inf': { tab: 'inspector', artifact: 'inf', tabs: ['summary', 'raw-inf'] }, 'a-inspect-csr': { tab: 'inspector', artifact: 'csr', tabs: ['subject', 'san', 'public-key', 'pem'] },
+  'a-retrieve': { tab: 'inspector', artifact: 'leaf', tabs: ['general'] }, 'a-key': { tab: 'inspector', artifact: 'accepted', tabs: ['matching-csr'] },
+  'a-purposes': { tab: 'inspector', artifact: 'accepted', tabs: ['subject-alternative-names', 'enhanced-key-usage'] }
 };
 
 export function frameAt(time) {

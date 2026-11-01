@@ -2,7 +2,9 @@
 import { ENV, DC, URLS } from '../artifacts/synthetic.js';
 import { entityById } from '../entities/entities.js';
 import { esc, kv, H, sec, link, badge, SYN, pubBlock } from './details.js';
-import { commands } from '../scenarios/dc-manual-certificate-request.js';
+import { paths } from '../scenarios/dc-manual-certificate-request.js';
+const cmdOf = (id) => paths.csr.stages.find((s) => s.id === id).command.text;
+const commands = { new: cmdOf('a-new'), submit: cmdOf('a-submit'), accept: cmdOf('a-accept') };
 
 export function describeDcEntity(id, ctx) {
   const { state: s, model, scenario, ev } = ctx;
