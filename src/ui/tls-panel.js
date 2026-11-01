@@ -80,7 +80,7 @@ const ABOUT = {
   followup: 'What remains after the fix: renewal before 2027-10-30, the runbook entry and the clean-up.'
 };
 const STORE_ABOUT = { personal: 'Holds certificates WEB01 itself uses, with their private keys.', intermediate: 'Holds CA certificates that link a leaf to a root. No private keys.',
-  root: 'Holds trust anchors. A certificate here is trusted as the end of a chain. No private keys.', 'client-root': 'CLIENT01\'s trust anchors. The SIMSI2027 Root arrived through AD or Group Policy; CLIENT01 has no private key for this site.' };
+  root: 'Holds trust anchors. A certificate here is trusted as the end of a chain. No private keys.', 'client-root': `CLIENT01's trust anchors; CLIENT01 has no private key for this site. ${cfg('The SIMSI2027 Root arrived through AD or Group Policy because CLIENT01 is domain-joined.', 'how trust anchors reach clients')}` };
 const ZONE_ABOUT = { Z1: 'CLIENT01, where Jordan browses. The same computer as zone 6.', Z2: 'WEB01, where Morgan creates the key and the request. The same computer as zone 4.',
   Z3: 'ICA01, the online Issuing CA: it receives, checks and issues.', Z4: 'WEB01, where the certificate is installed with its key and bound in IIS.',
   Z5: 'The network between CLIENT01 and WEB01, where the TLS handshake messages travel.', Z6: 'CLIENT01 again: chain building, checks and its Trusted Root store.' };

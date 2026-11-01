@@ -34,7 +34,7 @@ export const STORE_MAP = { leaf: { store: 'personal', privateKeyOnWeb01: true },
 export const TEMPLATE_CARDS = [
   { id: 'web', name: TLS.template.name, display: TLS.template.display, oid: TLS.template.oid, version: TLS.template.version, simulated: true, used: true,
     rows: [['Schema', 'Version 2 (an organization duplicate)'], ['Subject name', 'Supply in the request'], ['EKU', 'Server Authentication only'], ['Key Usage', 'Digital Signature, Key Encipherment'],
-      ['Minimum key', 'RSA 2048'], ['Enroll', cfg(`The "${TLS.requesterGroup}" group (Morgan is a member).`, 'how template permissions are delegated')],
+      ['Minimum key', 'RSA 2048'], ['Enroll', cfg(`The “${TLS.requesterGroup}” group (Morgan is a member).`, 'how template permissions are delegated')],
       ['Issuance', cfg('Issued without manager approval in this lab.', 'whether your template requires approval')], ['Status', 'Organization-specific, simulated']] },
   { id: 'builtin', name: TLS.builtinTemplate.name, display: 'Web Server (built-in)', comparison: true,
     rows: [['Schema', 'Version 1: its settings cannot be edited'], ['Enroll', cfg('Only Domain Admins and Enterprise Admins by default.', 'the template permissions in your forest')]],
@@ -44,7 +44,7 @@ export const TEMPLATE_CARDS = [
 // ---------- Artifact vocabulary (icon + fixed label + colour token; colour is never the only signal) ----------
 export const ARTIFACTS = {
   selfsigned: { label: 'Temporary cert', icon: 'a-browser', color: 'red', tag: 'self-signed by WEB01 · the browser warns', stamp: 'not trusted', role: 'selfsigned' },
-  report: { label: 'Problem report', icon: 'a-ticket', color: 'slate', tag: 'from Jordan: "certificate warning on the portal"' },
+  report: { label: 'Problem report', icon: 'a-ticket', color: 'slate', tag: 'from Jordan: “certificate warning on the portal”' },
   requirements: { label: 'Requirements', icon: 'a-template', color: 'purple', tag: 'SAN portal.simsi2027.test · Server Authentication · RSA 2048' },
   inf: { label: 'Request policy (INF)', icon: 'a-doc', color: 'grey', tag: 'portal-request.inf · local file on WEB01', role: 'inf' },
   'private-key': { label: 'Private key', icon: 'a-key', color: 'amber', tag: 'stays on WEB01', inspectable: false, transport: false },
@@ -126,8 +126,8 @@ export const initialState = {
 export const FAULTS = [
   { id: 'no-enroll-permission', label: 'No Enroll permission', at: 't-policy', stops: true, check: 'permission',
     symptom: `The CA denies request ${REQ}: ${MORGAN} has no Enroll permission on ${TLS.template.name}.`,
-    evidence: [{ text: `Template security: Morgan is not in "${TLS.requesterGroup}", so Enroll is not granted.`, kind: KIND.SIM }, { text: `CA request record ${REQ}: denied by the policy module.`, kind: KIND.SIM }],
-    owner: 'PKI administrator', remediation: cfg(`Add Morgan to "${TLS.requesterGroup}", the group that holds Read and Enroll, then resubmit the same CSR. Running certreq elevated does not help: elevation is not a template permission.`, 'how template permissions are delegated'),
+    evidence: [{ text: `Template security: Morgan is not in “${TLS.requesterGroup}”, so Enroll is not granted.`, kind: KIND.SIM }, { text: `CA request record ${REQ}: denied by the policy module.`, kind: KIND.SIM }],
+    owner: 'PKI administrator', remediation: cfg(`Add Morgan to “${TLS.requesterGroup}”, the group that holds Read and Enroll, then resubmit the same CSR. Running certreq elevated does not help: elevation is not a template permission.`, 'how template permissions are delegated'),
     longTerm: 'Grant Enroll through groups, not individuals, and review template permissions periodically.',
     patch: { permissionState: 'denied', requestRecord: 'denied', trustDecision: 'rejected' } },
   { id: 'template-not-published', label: 'Template not published on ICA01', at: 't-policy', stops: true, check: 'published',

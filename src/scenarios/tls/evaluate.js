@@ -20,7 +20,7 @@ export async function evaluateTls(model, faultId, scenario) {
   add('csr-no-key', 't-inspect-csr', 'CSR contains no private key', !csr.hasPrivateKeyMaterial, 'Only the public key, the requested name, extensions and attributes are present.', KIND.REAL);
   add('received', 't-submit', `ICA01 received request ${TLS.requestId}`, true, `Request ${TLS.requestId} received from WEB01; Requester ${TLS.owner} (authenticated submitter).`, KIND.SIM);
   add('published', 't-policy', `Template ${TLS.template.name} published on ICA01`, !f('template-not-published'), f('template-not-published') ? `ICA01 does not list ${TLS.template.name}.` : `ICA01 lists ${TLS.template.name}.`, KIND.SIM);
-  add('permission', 't-policy', `${TLS.owner} may enroll`, !f('no-enroll-permission'), f('no-enroll-permission') ? `Denied: ${TLS.owner} is not in "${TLS.requesterGroup}".` : `"${TLS.requesterGroup}": Read, Enroll (Morgan is a member).`, KIND.SIM);
+  add('permission', 't-policy', `${TLS.owner} may enroll`, !f('no-enroll-permission'), f('no-enroll-permission') ? `Denied: ${TLS.owner} is not in “${TLS.requesterGroup}”.` : `“${TLS.requesterGroup}”: Read, Enroll (Morgan is a member).`, KIND.SIM);
   add('request-content', 't-policy', 'Supplied name, key size and template attribute are allowed', csr.templateAttribute === TLS.template.name && csr.publicKey.bits >= 2048 && csr.san.length > 0,
     `Template attribute ${csr.templateAttribute}; RSA ${csr.publicKey.bits}; SAN ${csr.san.map((n) => `${n.type}=${n.value}`).join(', ')}.`, KIND.REAL);
   const sigLeaf = await leaf.x509.verify({ publicKey: ica.x509, signatureOnly: true }), byRoot = await leaf.x509.verify({ publicKey: root.x509, signatureOnly: true });

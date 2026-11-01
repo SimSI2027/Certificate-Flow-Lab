@@ -284,6 +284,7 @@ body[data-layout='story'] .workspace { height: 100vh; min-height: 0; }
 .srail .act .mchip { padding: 1px 7px; min-height: 24px; }
 /* Glossary: the first use of a term is an inline button that opens a one-line definition. */
 .gloss { font: inherit; color: var(--accent-ink); background: none; border: 0; border-bottom: 1.5px dotted var(--accent-ink); padding: 0; cursor: pointer; }
+.gloss:hover { background: var(--accent-soft); border-bottom-style: solid; }
 .gloss[aria-expanded='true'] { background: var(--accent-soft); border-bottom-style: solid; }
 .gloss:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .gloss-def { display: block; margin: 4px 0 2px; padding: 3px 8px; border-left: 3px solid var(--accent); background: var(--accent-soft); color: var(--ink); font-size: 13px; }

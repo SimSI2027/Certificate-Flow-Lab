@@ -84,6 +84,16 @@ describe('TLS details panel', () => {
     expect(P.finalCardHtml(ctx('t-revocation', { faultId: 'revoked' })).title).toBe('Stopped: Certificate revoked');
     expect(P.rawHtml(ctx('t-inspect-csr'), null)).toContain('Shown on demand'); expect(P.rawHtml(ctx('t-inspect-csr'), 'pem')).toContain('BEGIN CERTIFICATE REQUEST');
   });
+  it('audit T3: configuration-dependent sentences rendered by the panel carry the marker (every step and selection)', () => {
+    const dependent = /Group Policy|\bdefaults?\b|by default|replication|enforce|word this warning|TLS versions client/i;
+    const sels = [null, ...['personal', 'intermediate', 'root', 'client-root'].map((id) => ({ type: 'store', id })), { type: 'pub', id: 'aia' }, { type: 'pub', id: 'cdp' }, { type: 'entity', id: 'rootca' }, ...['Z1', 'Z2', 'Z3', 'Z4', 'Z5', 'Z6'].map((id) => ({ type: 'zone', id }))];
+    const offenders = [];
+    for (const st of S.stages) for (const selection of sels) {
+      const html = P.plainHtml(ctx(st.id, { selection })) + P.troubleshootHtml(ctx(st.id, { selection }));
+      for (const block of html.split(/<\/(?:dd|p|li|h4)>/)) { const text = block.replace(/<[^>]+>/g, ''); if (dependent.test(text) && !text.includes('Depends on your configuration')) offenders.push(`${st.id}: ${text.trim().slice(0, 90)}`); }
+    }
+    expect([...new Set(offenders)]).toEqual([]);
+  });
   it('companion allowlist includes every public TLS CER fixture (CER only)', () => {
     const cers = manifest.artifacts.filter((a) => a.path === 'tls' && a.filename.endsWith('.cer')).map((a) => a.filename.replace('certificates/', ''));
     for (const c of cers) expect(Object.values(NATIVE_CERTIFICATES), c).toContain(c);
